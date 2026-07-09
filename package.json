@@ -1,0 +1,27 @@
+{
+  "name": "portal-estudos-espiritas-ai",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/api",
+    "apps/web"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:api\" \"npm run dev:web\"",
+    "dev:api": "npm --workspace @portal-estudos-espiritas-ai/api run dev",
+    "dev:web": "npm --workspace @portal-estudos-espiritas-ai/web run dev",
+    "build": "npm run build:api && npm run build:web",
+    "build:api": "npm --workspace @portal-estudos-espiritas-ai/api run build",
+    "build:web": "npm --workspace @portal-estudos-espiritas-ai/web run build",
+    "start": "npm run start:api",
+    "start:api": "npm --workspace @portal-estudos-espiritas-ai/api run start",
+    "preview": "npm --workspace @portal-estudos-espiritas-ai/web run preview",
+    "rag:validate": "npm --workspace @portal-estudos-espiritas-ai/api run rag:validate",
+    "test": "npm run test:api",
+    "test:api": "npm --workspace @portal-estudos-espiritas-ai/api run test",
+    "typecheck": "npm --workspace @portal-estudos-espiritas-ai/api run typecheck && npm --workspace @portal-estudos-espiritas-ai/web run typecheck"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
