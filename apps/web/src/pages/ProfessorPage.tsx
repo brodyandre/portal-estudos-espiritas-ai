@@ -13,6 +13,12 @@ import { TextArea } from "../components/ui/TextArea";
 import { TextInput } from "../components/ui/TextInput";
 import type { DemoFlowStep, DemoGroup, DemoQuestion } from "../mocks";
 import { collectServiceNotice } from "../services/api";
+import {
+  generateLessonPlanDraft,
+  generateReflectionQuestionsDraft,
+  generateSummaryDraft,
+  type TeacherAssistInput,
+} from "../services/agentService";
 import { listMaterials } from "../services/materialsService";
 import { listQuestions } from "../services/questionsService";
 import { listStudies } from "../services/studiesService";
@@ -20,6 +26,7 @@ import { listSummaries } from "../services/summariesService";
 
 type ReviewState = "draft" | "approved" | "published";
 type PreviewKind = "outline" | "questions" | "summary";
+type GenerationAction = PreviewKind | null;
 
 interface PreviewContent {
   outline: string;
@@ -74,26 +81,6 @@ const groupCardIds: Record<DemoGroup["slug"], string> = {
   "a-caminho-da-luz": "professor-grupo-a-caminho-da-luz",
 };
 
-const buildPreview = (group: DemoGroup, theme: string, meetLink: string, summarySource: string) => {
-  const cleanTheme = theme.trim() || group.nextLesson.title;
-
-  return {
-    outline: [
-      `1. Acolhimento breve do grupo ${group.name}.`,
-      `2. Retomar o tema "${cleanTheme}" com leitura curta.`,
-      "3. Abrir espaco para duas perguntas simples.",
-      "4. Fechar com um convite pratico para a semana.",
-      `5. Confirmar o Google Meet: ${meetLink.trim() || group.meetUrl}.`,
-    ].join("\n"),
-    questions: [
-      "1. Que atitude simples ajuda a manter o estudo vivo durante a semana?",
-      "2. Como acolher melhor as duvidas dos participantes novos?",
-      "3. O que cada pessoa pode levar como exercicio pratico para o proximo encontro?",
-    ].join("\n"),
-    summary: `Resumo inicial: ${summarySource}`,
-  };
-};
-
 const getStorageKey = (groupSlug: DemoGroup["slug"]) => {
   return `portal-estudos:teacher-workspace:${groupSlug}`;
 };
@@ -103,7 +90,11 @@ const createDefaultWorkspace = (group: DemoGroup, summarySource: string): Teache
     selectedBook: group.bookTitle,
     themeChapter: defaultThemes[group.slug],
     meetLink: group.meetUrl,
-    preview: buildPreview(group, defaultThemes[group.slug], group.meetUrl, summarySource),
+    preview: {
+      outline: "",
+      questions: "",
+      summary: summarySource ? `Resumo inicial: ${summarySource}` : "",
+    },
     reviewState: "draft",
     actionMessage: "Escolha o grupo, ajuste o tema e gere uma previa para revisar com calma.",
   };
@@ -183,6 +174,7 @@ export const ProfessorPage = () => {
   const [actionMessage, setActionMessage] = useState(
     "Escolha o grupo, ajuste o tema e gere uma previa para revisar com calma.",
   );
+  const [activeAction, setActiveAction] = useState<GenerationAction>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -285,23 +277,43 @@ export const ProfessorPage = () => {
     writeWorkspace(activeGroup.slug, nextWorkspace);
   };
 
-  const handleGenerate = (kind: PreviewKind) => {
+  const buildTeacherInput = (): TeacherAssistInput | null => {
     if (!activeGroup) {
+      return null;
+    }
+
+    return {
+      group: activeGroup,
+      materials: activeMaterials,
+      summary: activeSummary,
+      theme: themeChapter.trim() || activeGroup.nextLesson.title,
+      bookTitle: selectedBook.trim() || activeGroup.bookTitle,
+      meetLink: meetLink.trim() || activeGroup.meetUrl,
+    };
+  };
+
+  const handleGenerate = async (kind: PreviewKind) => {
+    const teacherInput = buildTeacherInput();
+
+    if (!teacherInput || activeAction) {
       return;
     }
 
-    const generated = buildPreview(
-      activeGroup,
-      themeChapter,
-      meetLink,
-      activeSummary?.content ?? "Resumo demonstrativo da semana.",
-    );
+    setActiveAction(kind);
+
+    const result =
+      kind === "outline"
+        ? await generateLessonPlanDraft(teacherInput)
+        : kind === "questions"
+          ? await generateReflectionQuestionsDraft(teacherInput)
+          : await generateSummaryDraft(teacherInput);
+
     const nextPreview =
       kind === "outline"
-        ? { ...preview, outline: generated.outline }
+        ? { ...preview, outline: result.data.content }
         : kind === "questions"
-          ? { ...preview, questions: generated.questions }
-          : { ...preview, summary: generated.summary };
+          ? { ...preview, questions: result.data.content }
+          : { ...preview, summary: result.data.content };
 
     persistWorkspace({
       selectedBook,
@@ -309,8 +321,9 @@ export const ProfessorPage = () => {
       meetLink,
       preview: nextPreview,
       reviewState: "draft",
-      actionMessage: "Previa atualizada. Revise antes de aprovar e publicar.",
+      actionMessage: result.notice ?? result.data.reviewNote,
     });
+    setActiveAction(null);
   };
 
   const handleSaveDraft = () => {
@@ -485,12 +498,14 @@ export const ProfessorPage = () => {
                 />
 
                 <div className="button-row">
-                  <Button onClick={() => handleGenerate("outline")}>Gerar roteiro</Button>
-                  <Button onClick={() => handleGenerate("questions")} variant="secondary">
-                    Criar perguntas
+                  <Button onClick={() => void handleGenerate("outline")}>
+                    {activeAction === "outline" ? "Gerando..." : "Gerar roteiro"}
                   </Button>
-                  <Button onClick={() => handleGenerate("summary")} variant="ghost">
-                    Gerar resumo
+                  <Button onClick={() => void handleGenerate("questions")} variant="secondary">
+                    {activeAction === "questions" ? "Gerando..." : "Criar perguntas"}
+                  </Button>
+                  <Button onClick={() => void handleGenerate("summary")} variant="ghost">
+                    {activeAction === "summary" ? "Gerando..." : "Gerar resumo"}
                   </Button>
                   <Button onClick={handlePublish} variant="secondary">
                     Publicar

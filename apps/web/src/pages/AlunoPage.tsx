@@ -16,6 +16,11 @@ import type {
   DemoQuestion,
 } from "../mocks";
 import { collectServiceNotice } from "../services/api";
+import {
+  askStudyAssistant,
+  getInitialAssistantReply,
+  type AssistantReply,
+} from "../services/agentService";
 import { listMaterials } from "../services/materialsService";
 import { buildProgressHighlights, getProgress } from "../services/progressService";
 import { createQuestion, listQuestions } from "../services/questionsService";
@@ -75,29 +80,6 @@ const getQuestionStatus = (status: DemoQuestion["status"]) => {
   return { tone: "upcoming" as const, label: "Nova" };
 };
 
-const buildAssistantReply = (question: string, group: DemoGroup, summaryTitle: string) => {
-  const normalizedQuestion = question.toLowerCase();
-
-  if (normalizedQuestion.includes("meet") || normalizedQuestion.includes("aula")) {
-    return {
-      answer: `A proxima aula do grupo ${group.name} sera em ${group.nextLesson.scheduledLabel}. Use o botao do Meet para entrar alguns minutos antes e chegar com tranquilidade.`,
-      source: group.nextLesson.title,
-    };
-  }
-
-  if (normalizedQuestion.includes("resumo") || normalizedQuestion.includes("ultimo")) {
-    return {
-      answer: `Uma boa revisao agora e retomar o resumo "${summaryTitle}" e anotar uma ideia principal para levar ao encontro.`,
-      source: summaryTitle,
-    };
-  }
-
-  return {
-    answer: `Para o grupo ${group.name}, vale revisar o tema "${group.nextLesson.title}" e separar uma pergunta curta para a aula. Se a duvida continuar importante, leve-a ao professor para revisao.`,
-    source: group.nextLesson.title,
-  };
-};
-
 const BellIcon = () => {
   return (
     <svg aria-hidden="true" className="student-icon-svg" viewBox="0 0 24 24">
@@ -131,12 +113,12 @@ export const AlunoPage = () => {
   const [notice, setNotice] = useState<string | null>(null);
   const [activeGroupSlug, setActiveGroupSlug] = useState<DemoGroup["slug"]>("emmanuel");
   const [assistantInput, setAssistantInput] = useState("");
-  const [assistantAnswer, setAssistantAnswer] = useState(
-    "Escreva uma duvida curta para receber um apoio inicial de estudo.",
-  );
-  const [assistantSource, setAssistantSource] = useState("Materiais demonstrativos");
+  const [assistantResponse, setAssistantResponse] = useState<AssistantReply>(getInitialAssistantReply());
   const [assistantFeedback, setAssistantFeedback] = useState<AssistantFeedback>(null);
-  const [teacherNotice, setTeacherNotice] = useState<string | null>(null);
+  const [assistantMessage, setAssistantMessage] = useState<string | null>(null);
+  const [lastSubmittedQuestion, setLastSubmittedQuestion] = useState("");
+  const [isAssistantLoading, setIsAssistantLoading] = useState(false);
+  const [isSendingTeacherQuestion, setIsSendingTeacherQuestion] = useState(false);
 
   useEffect(() => {
     let isActive = true;
@@ -214,47 +196,63 @@ export const AlunoPage = () => {
     activeMaterials.find((material) => material.kind === "Leitura")?.title ??
     "Leitura demonstrativa da semana";
 
-  const handleAssistantSubmit = (nextQuestion?: string) => {
-    if (!activeGroup) {
-      return;
-    }
+  useEffect(() => {
+    setAssistantResponse(getInitialAssistantReply());
+    setAssistantFeedback(null);
+    setAssistantMessage(null);
+    setLastSubmittedQuestion("");
+  }, [activeGroupSlug]);
 
+  const handleAssistantSubmit = async (nextQuestion?: string) => {
     const content = (nextQuestion ?? assistantInput).trim();
 
-    if (!content) {
+    if (!content || isAssistantLoading || !activeGroup) {
       return;
     }
 
-    const reply = buildAssistantReply(
-      content,
-      activeGroup,
-      activeSummary?.title ?? "Resumo demonstrativo",
-    );
-
     setAssistantInput(content);
-    setAssistantAnswer(reply.answer);
-    setAssistantSource(reply.source);
+    setIsAssistantLoading(true);
     setAssistantFeedback(null);
-    setTeacherNotice(null);
+    setAssistantMessage(null);
+    setLastSubmittedQuestion(content);
+
+    const result = await askStudyAssistant({
+      question: content,
+      group: activeGroup,
+      materials: activeMaterials,
+      summary: activeSummary,
+    });
+
+    setAssistantResponse(result.data);
+    setAssistantMessage(
+      result.notice ??
+        (result.data.usedFallback
+          ? "A resposta foi preparada em modo demonstrativo. Se precisar aprofundar, envie a duvida ao professor."
+          : null),
+    );
+    setIsAssistantLoading(false);
   };
 
   const handleSendQuestionToTeacher = async () => {
-    if (!activeGroup || !progress || !assistantInput.trim()) {
+    if (!activeGroup || !progress || !lastSubmittedQuestion.trim() || isSendingTeacherQuestion) {
       return;
     }
+
+    setIsSendingTeacherQuestion(true);
 
     const result = await createQuestion({
       groupId: activeGroup.slug,
       lessonId: activeGroup.nextLesson.id,
       authorName: progress.overview.studentName,
-      question: assistantInput,
+      question: lastSubmittedQuestion,
       visibility: "teacher",
     });
 
     setQuestions((current) => [result.data, ...current]);
-    setTeacherNotice(
-      result.notice ?? `Sua duvida foi enviada ao professor do grupo ${activeGroup.name}.`,
+    setAssistantMessage(
+      result.notice ?? "Sua duvida foi enviada ao professor para revisao no proximo encontro.",
     );
+    setIsSendingTeacherQuestion(false);
   };
 
   return (
@@ -426,14 +424,23 @@ export const AlunoPage = () => {
                 </div>
 
                 <div className="button-row">
-                  <Button onClick={() => handleAssistantSubmit()}>Enviar</Button>
+                  <Button onClick={() => void handleAssistantSubmit()}>
+                    {isAssistantLoading ? "Enviando..." : "Enviar"}
+                  </Button>
                 </div>
 
                 <AlertBox title="Resposta demonstrativa" tone="info">
-                  {assistantAnswer}
+                  {assistantResponse.answer}
                 </AlertBox>
 
-                <p className="assistant-card__source">Fonte principal: {assistantSource}</p>
+                <p className="assistant-card__source">{assistantResponse.supportNotice}</p>
+                <div className="button-row">
+                  {assistantResponse.sources.map((source) => (
+                    <Badge key={source} tone="sand">
+                      {source}
+                    </Badge>
+                  ))}
+                </div>
 
                 <div className="button-row">
                   <Button onClick={() => setAssistantFeedback("helpful")} variant="secondary">
@@ -442,8 +449,8 @@ export const AlunoPage = () => {
                   <Button onClick={() => setAssistantFeedback("not-helpful")} variant="ghost">
                     Nao foi util
                   </Button>
-                  <Button onClick={handleSendQuestionToTeacher} variant="secondary">
-                    Enviar duvida ao professor
+                  <Button onClick={() => void handleSendQuestionToTeacher()} variant="secondary">
+                    {isSendingTeacherQuestion ? "Enviando..." : "Enviar duvida ao professor"}
                   </Button>
                 </div>
 
@@ -452,7 +459,7 @@ export const AlunoPage = () => {
                     Feedback registrado: {assistantFeedback === "helpful" ? "foi util" : "nao foi util"}.
                   </p>
                 ) : null}
-                {teacherNotice ? <p className="student-panel__note">{teacherNotice}</p> : null}
+                {assistantMessage ? <p className="student-panel__note">{assistantMessage}</p> : null}
               </Card>
             </div>
           </section>
