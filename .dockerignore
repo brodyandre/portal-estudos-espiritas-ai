@@ -1,0 +1,11 @@
+node_modules
+apps/api/node_modules
+apps/web/node_modules
+apps/api/dist
+apps/web/dist
+.git
+.agents
+.codex
+npm-debug.log
+Dockerfile
+docker-compose.override.yml
