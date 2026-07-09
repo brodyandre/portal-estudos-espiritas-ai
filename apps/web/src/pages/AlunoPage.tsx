@@ -271,7 +271,7 @@ export const AlunoPage = () => {
         </div>
 
         <div className="student-hero__actions">
-          <button className="student-icon-button" type="button">
+          <button aria-label="Ver avisos do aluno" className="student-icon-button" type="button">
             <BellIcon />
           </button>
           <div className="student-avatar-pill">
@@ -398,7 +398,7 @@ export const AlunoPage = () => {
                 </div>
               </Card>
 
-              <Card tone="default">
+              <Card aria-busy={isAssistantLoading} tone="default">
                 <div className="student-panel__header">
                   <div>
                     <p className="card-eyebrow">Pergunte ao assistente</p>
@@ -459,7 +459,11 @@ export const AlunoPage = () => {
                     Feedback registrado: {assistantFeedback === "helpful" ? "foi util" : "nao foi util"}.
                   </p>
                 ) : null}
-                {assistantMessage ? <p className="student-panel__note">{assistantMessage}</p> : null}
+                {assistantMessage ? (
+                  <p aria-live="polite" className="student-panel__note">
+                    {assistantMessage}
+                  </p>
+                ) : null}
               </Card>
             </div>
           </section>

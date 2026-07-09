@@ -596,6 +596,12 @@ img {
   cursor: pointer;
 }
 
+.student-icon-button:focus-visible,
+.teacher-icon-button:focus-visible {
+  outline: 3px solid rgba(40, 124, 79, 0.35);
+  outline-offset: 3px;
+}
+
 .student-icon-svg {
   width: 20px;
   height: 20px;
@@ -685,6 +691,12 @@ img {
   background: var(--color-card);
   color: var(--color-brand-900);
   cursor: pointer;
+}
+
+.group-card__meta dd,
+.student-panel__note,
+.assistant-card__source {
+  overflow-wrap: anywhere;
 }
 
 .teacher-icon-svg {

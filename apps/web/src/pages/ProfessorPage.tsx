@@ -375,7 +375,7 @@ export const ProfessorPage = () => {
         </div>
 
         <div className="teacher-hero__actions">
-          <button className="teacher-icon-button" type="button">
+          <button aria-label="Ver avisos do professor" className="teacher-icon-button" type="button">
             <BellIcon />
           </button>
           <div className="teacher-avatar-pill">
@@ -455,7 +455,7 @@ export const ProfessorPage = () => {
         <>
           <section className="page-section">
             <div className="two-column-grid">
-              <Card tone="default">
+              <Card aria-busy={activeAction !== null} tone="default">
                 <div className="student-panel__header">
                   <div>
                     <p className="card-eyebrow">Preparar proxima aula</p>
@@ -599,7 +599,9 @@ export const ProfessorPage = () => {
                   />
                 </div>
 
-                <p className="student-panel__note">{actionMessage}</p>
+                <p aria-live="polite" className="student-panel__note">
+                  {actionMessage}
+                </p>
                 <p className="student-panel__note">
                   Materiais de apoio: {activeMaterials.length} itens cadastrados. Resumos disponiveis:{" "}
                   {activeSummary ? 1 : 0}.

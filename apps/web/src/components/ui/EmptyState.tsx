@@ -10,7 +10,7 @@ interface EmptyStateProps {
 
 export const EmptyState = ({ title, description, action }: EmptyStateProps) => {
   return (
-    <Card className="empty-state" tone="soft">
+    <Card aria-live="polite" className="empty-state" role="status" tone="soft">
       <div className="empty-state__icon" aria-hidden="true">
         +
       </div>
