@@ -1,14 +1,13 @@
 import { AppError } from "../../lib/app-error";
 import { getStudyBySlug, isStudyGroupId } from "../studies/studies.service";
 import {
-  buildAnswerFallback,
   buildLessonPlanFallback,
   buildReflectionQuestionsFallback,
   buildSummarizeFallback,
 } from "../../agent/fallbacks";
+import { answerQuestionWithGraph } from "../../agent/answer-graph";
 import { generateWithOllama } from "../../agent/llm";
 import {
-  buildAnswerPrompt,
   buildLessonPlanPrompt,
   buildReflectionQuestionsPrompt,
   buildSummarizePrompt,
@@ -17,19 +16,13 @@ import {
   AGENT_REVIEW_NOTE,
   AGENT_SOURCE_NOTE,
   type AgentAnswerResult,
-  type AgentAnswerSource,
   type AgentDraft,
   type LessonPlanRequest,
   type ReflectionQuestionsRequest,
   type SummarizeRequest,
   type AnswerRequest,
 } from "../../agent/types";
-import {
-  extractListItems,
-  formatList,
-  normalizeInputText,
-  sanitizeGeneratedText,
-} from "../../agent/safety";
+import { extractListItems, formatList, sanitizeGeneratedText } from "../../agent/safety";
 
 const resolveGroup = (groupId: string) => {
   if (!isStudyGroupId(groupId)) {
@@ -208,59 +201,5 @@ export const createAnswerResponse = async (
   input: AnswerRequest,
 ): Promise<AgentAnswerResult> => {
   const group = resolveGroup(input.groupId);
-  const prompt = buildAnswerPrompt();
-  const normalizedContext = normalizeInputText(
-    input.context ??
-      `${group.description}\nTema da semana: ${group.nextLesson.title}\nLeitura sugerida: ${group.bookTitle}.`,
-  );
-  const sources: AgentAnswerSource[] = [
-    {
-      source: `${group.id}/contexto-inicial`,
-      title: group.nextLesson.title,
-      score: 1,
-    },
-  ];
-  const messages = await prompt.formatMessages({
-    groupName: group.name,
-    bookTitle: input.bookTitle ?? group.bookTitle,
-    theme: input.theme ?? group.nextLesson.title,
-    question: input.question,
-    context: normalizedContext,
-  });
-  const llmResult = await generateWithOllama(messages);
-
-  if (!llmResult.ok) {
-    return buildAnswerFallback(
-      input,
-      { groupName: group.name, bookTitle: input.bookTitle ?? group.bookTitle },
-      llmResult.reason,
-      {
-        contextText: normalizedContext,
-        sources,
-      },
-    );
-  }
-
-  const safeText = sanitizeGeneratedText(llmResult.text, { maxLength: 1200 });
-
-  if (!safeText.ok) {
-    return buildAnswerFallback(
-      input,
-      { groupName: group.name, bookTitle: input.bookTitle ?? group.bookTitle },
-      safeText.reason,
-      {
-        contextText: normalizedContext,
-        sources,
-      },
-    );
-  }
-
-  return {
-    answer: `${safeText.text}\n\nRevise esta resposta com o professor antes de transformar o texto em orientacao final do grupo.`,
-    sources,
-    needsTeacherReview: true,
-    safetyNotes: [AGENT_REVIEW_NOTE, AGENT_SOURCE_NOTE],
-    provider: "ollama",
-    usedFallback: false,
-  };
+  return answerQuestionWithGraph(input, group);
 };
