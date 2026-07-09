@@ -1,5 +1,6 @@
 import { Router } from "express";
 
+import { agentRouter } from "../modules/agent/agent.routes";
 import { materialsRouter } from "../modules/materials/materials.routes";
 import { progressRouter } from "../modules/progress/progress.routes";
 import { questionsRouter } from "../modules/questions/questions.routes";
@@ -13,3 +14,4 @@ apiRouter.use("/summaries", summariesRouter);
 apiRouter.use("/questions", questionsRouter);
 apiRouter.use("/materials", materialsRouter);
 apiRouter.use("/progress", progressRouter);
+apiRouter.use("/agent", agentRouter);
