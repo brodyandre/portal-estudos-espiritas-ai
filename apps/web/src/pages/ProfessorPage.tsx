@@ -1,24 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { FlowStepCard } from "../components/display/FlowStepCard";
-import { ActionTile } from "../components/ui/ActionTile";
 import { AlertBox } from "../components/ui/AlertBox";
 import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
+import { EmptyState } from "../components/ui/EmptyState";
+import { LoadingState } from "../components/ui/LoadingState";
 import { Select } from "../components/ui/Select";
 import { StatusTag } from "../components/ui/StatusTag";
 import { TextArea } from "../components/ui/TextArea";
 import { TextInput } from "../components/ui/TextInput";
-import {
-  groups,
-  listMockMaterials,
-  listMockQuestions,
-  listMockSummaries,
-  type DemoFlowStep,
-  type DemoGroup,
-  type DemoQuestion,
-} from "../data/demo";
+import type { DemoFlowStep, DemoGroup, DemoQuestion } from "../mocks";
+import { collectServiceNotice } from "../services/api";
+import { listMaterials } from "../services/materialsService";
+import { listQuestions } from "../services/questionsService";
+import { listStudies } from "../services/studiesService";
+import { listSummaries } from "../services/summariesService";
 
 type ReviewState = "draft" | "approved" | "published";
 type PreviewKind = "outline" | "questions" | "summary";
@@ -76,9 +74,8 @@ const groupCardIds: Record<DemoGroup["slug"], string> = {
   "a-caminho-da-luz": "professor-grupo-a-caminho-da-luz",
 };
 
-const buildPreview = (group: DemoGroup, theme: string, meetLink: string): PreviewContent => {
+const buildPreview = (group: DemoGroup, theme: string, meetLink: string, summarySource: string) => {
   const cleanTheme = theme.trim() || group.nextLesson.title;
-  const summarySource = listMockSummaries(group.slug)[0]?.content ?? "Resumo demonstrativo da semana.";
 
   return {
     outline: [
@@ -101,12 +98,12 @@ const getStorageKey = (groupSlug: DemoGroup["slug"]) => {
   return `portal-estudos:teacher-workspace:${groupSlug}`;
 };
 
-const createDefaultWorkspace = (group: DemoGroup): TeacherWorkspace => {
+const createDefaultWorkspace = (group: DemoGroup, summarySource: string): TeacherWorkspace => {
   return {
     selectedBook: group.bookTitle,
     themeChapter: defaultThemes[group.slug],
     meetLink: group.meetUrl,
-    preview: buildPreview(group, defaultThemes[group.slug], group.meetUrl),
+    preview: buildPreview(group, defaultThemes[group.slug], group.meetUrl, summarySource),
     reviewState: "draft",
     actionMessage: "Escolha o grupo, ajuste o tema e gere uma previa para revisar com calma.",
   };
@@ -169,6 +166,10 @@ const BellIcon = () => {
 };
 
 export const ProfessorPage = () => {
+  const [groups, setGroups] = useState<DemoGroup[]>([]);
+  const [questions, setQuestions] = useState<DemoQuestion[]>([]);
+  const [materials, setMaterials] = useState<Awaited<ReturnType<typeof listMaterials>>["data"]>([]);
+  const [summaries, setSummaries] = useState<Awaited<ReturnType<typeof listSummaries>>["data"]>([]);
   const [groupSlug, setGroupSlug] = useState<DemoGroup["slug"]>("emmanuel");
   const [selectedBook, setSelectedBook] = useState("");
   const [themeChapter, setThemeChapter] = useState("");
@@ -182,15 +183,85 @@ export const ProfessorPage = () => {
   const [actionMessage, setActionMessage] = useState(
     "Escolha o grupo, ajuste o tema e gere uma previa para revisar com calma.",
   );
-
-  const activeGroup = groups.find((group) => group.slug === groupSlug) ?? groups[0];
-  const questions = useMemo(() => listMockQuestions({ groupSlug }), [groupSlug]);
-  const materials = useMemo(() => listMockMaterials({ groupSlug }), [groupSlug]);
-  const summaries = useMemo(() => listMockSummaries(groupSlug), [groupSlug]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
-    const stored = readWorkspace(groupSlug);
-    const nextWorkspace = stored ?? createDefaultWorkspace(activeGroup);
+    let isActive = true;
+
+    const loadDashboard = async () => {
+      setIsLoading(true);
+
+      const [studiesResult, questionsResult, materialsResult, summariesResult] =
+        await Promise.all([
+          listStudies(),
+          listQuestions(),
+          listMaterials(),
+          listSummaries(),
+        ]);
+
+      if (!isActive) {
+        return;
+      }
+
+      setGroups(studiesResult.data);
+      setQuestions(questionsResult.data);
+      setMaterials(materialsResult.data);
+      setSummaries(summariesResult.data);
+      setNotice(
+        collectServiceNotice([
+          studiesResult,
+          questionsResult,
+          materialsResult,
+          summariesResult,
+        ]),
+      );
+      setGroupSlug((currentSlug) => {
+        return studiesResult.data.some((group) => group.slug === currentSlug)
+          ? currentSlug
+          : (studiesResult.data[0]?.slug ?? currentSlug);
+      });
+      setIsLoading(false);
+    };
+
+    void loadDashboard();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  const activeGroup = groups.find((group) => group.slug === groupSlug) ?? groups[0] ?? null;
+  const activeQuestions = useMemo(() => {
+    if (!activeGroup) {
+      return [];
+    }
+
+    return questions.filter((question) => question.groupSlug === activeGroup.slug);
+  }, [activeGroup, questions]);
+  const activeMaterials = useMemo(() => {
+    if (!activeGroup) {
+      return [];
+    }
+
+    return materials.filter((material) => material.groupSlug === activeGroup.slug);
+  }, [activeGroup, materials]);
+  const activeSummary = useMemo(() => {
+    if (!activeGroup) {
+      return null;
+    }
+
+    return summaries.find((summary) => summary.groupSlug === activeGroup.slug) ?? null;
+  }, [activeGroup, summaries]);
+
+  useEffect(() => {
+    if (!activeGroup) {
+      return;
+    }
+
+    const summarySource = activeSummary?.content ?? "Resumo demonstrativo da semana.";
+    const stored = readWorkspace(activeGroup.slug);
+    const nextWorkspace = stored ?? createDefaultWorkspace(activeGroup, summarySource);
 
     setSelectedBook(nextWorkspace.selectedBook);
     setThemeChapter(nextWorkspace.themeChapter);
@@ -198,20 +269,33 @@ export const ProfessorPage = () => {
     setPreview(nextWorkspace.preview);
     setReviewState(nextWorkspace.reviewState);
     setActionMessage(nextWorkspace.actionMessage);
-  }, [activeGroup, groupSlug]);
+  }, [activeGroup, activeSummary]);
 
   const persistWorkspace = (nextWorkspace: TeacherWorkspace) => {
+    if (!activeGroup) {
+      return;
+    }
+
     setSelectedBook(nextWorkspace.selectedBook);
     setThemeChapter(nextWorkspace.themeChapter);
     setMeetLink(nextWorkspace.meetLink);
     setPreview(nextWorkspace.preview);
     setReviewState(nextWorkspace.reviewState);
     setActionMessage(nextWorkspace.actionMessage);
-    writeWorkspace(groupSlug, nextWorkspace);
+    writeWorkspace(activeGroup.slug, nextWorkspace);
   };
 
   const handleGenerate = (kind: PreviewKind) => {
-    const generated = buildPreview(activeGroup, themeChapter, meetLink);
+    if (!activeGroup) {
+      return;
+    }
+
+    const generated = buildPreview(
+      activeGroup,
+      themeChapter,
+      meetLink,
+      activeSummary?.content ?? "Resumo demonstrativo da semana.",
+    );
     const nextPreview =
       kind === "outline"
         ? { ...preview, outline: generated.outline }
@@ -290,34 +374,54 @@ export const ProfessorPage = () => {
         </div>
       </section>
 
+      {notice ? (
+        <AlertBox title="Modo demonstrativo ativo" tone="info">
+          {notice}
+        </AlertBox>
+      ) : null}
+
       <section className="page-section">
-        <div className="group-grid">
-          {groups.map((group) => {
-            const isActive = group.slug === groupSlug;
+        {isLoading ? (
+          <LoadingState
+            description="Estamos reunindo grupos, duvidas e materiais para montar o painel."
+            title="Carregando painel do professor"
+          />
+        ) : groups.length === 0 ? (
+          <EmptyState
+            description="Nenhum grupo foi encontrado para exibir agora."
+            title="Sem grupos disponiveis"
+          />
+        ) : (
+          <div className="group-grid">
+            {groups.map((group) => {
+              const isActive = group.slug === activeGroup?.slug;
 
-            return (
-              <Card
-                className={isActive ? "student-group-card student-group-card--active" : "student-group-card"}
-                id={groupCardIds[group.slug]}
-                key={group.slug}
-                tone={isActive ? "brand" : "default"}
-              >
-                <div className="student-group-card__top">
-                  <Badge tone="brand">{group.participantCount} participantes</Badge>
-                  <StatusTag label={isActive ? "Grupo ativo" : undefined} tone="upcoming" />
-                </div>
+              return (
+                <Card
+                  className={`student-group-card ${
+                    isActive ? "student-group-card--active" : ""
+                  }`}
+                  id={groupCardIds[group.slug]}
+                  key={group.slug}
+                  tone={isActive ? "brand" : "default"}
+                >
+                  <div className="student-group-card__top">
+                    <Badge tone="brand">{group.participantCount} participantes</Badge>
+                    <StatusTag label={isActive ? "Grupo ativo" : undefined} tone="upcoming" />
+                  </div>
 
-                <h2>{group.name}</h2>
-                <p className="student-panel__note">{group.nextLesson.title}</p>
-                <div className="button-row">
-                  <Button onClick={() => setGroupSlug(group.slug)} variant={isActive ? "primary" : "secondary"}>
-                    {isActive ? "Grupo selecionado" : "Escolher grupo"}
-                  </Button>
-                </div>
-              </Card>
-            );
-          })}
-        </div>
+                  <h2>{group.name}</h2>
+                  <p className="student-panel__note">{group.nextLesson.title}</p>
+                  <div className="button-row">
+                    <Button onClick={() => setGroupSlug(group.slug)} variant={isActive ? "primary" : "secondary"}>
+                      {isActive ? "Grupo selecionado" : "Escolher grupo"}
+                    </Button>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        )}
       </section>
 
       <section className="page-section">
@@ -334,178 +438,172 @@ export const ProfessorPage = () => {
         ajusta e aprova antes de compartilhar com a turma.
       </AlertBox>
 
-      <section className="page-section">
-        <div className="two-column-grid">
-          <Card tone="default">
-            <div className="student-panel__header">
-              <div>
-                <p className="card-eyebrow">Preparar proxima aula</p>
-                <h2>Grupo, tema e Meet</h2>
-              </div>
-              <StatusTag tone={reviewState === "published" ? "published" : reviewState === "approved" ? "active" : "draft"} />
-            </div>
-
-            <Select
-              id="teacher-book"
-              label="Livro"
-              onChange={(event) => setSelectedBook(event.target.value)}
-              options={groups.map((group) => ({
-                label: group.bookTitle,
-                value: group.bookTitle,
-              }))}
-              value={selectedBook}
-            />
-
-            <TextInput
-              id="teacher-theme"
-              label="Tema ou capitulo"
-              onChange={(event) => setThemeChapter(event.target.value)}
-              value={themeChapter}
-            />
-
-            <TextInput
-              id="teacher-meet"
-              label="Link do Google Meet"
-              onChange={(event) => setMeetLink(event.target.value)}
-              value={meetLink}
-            />
-
-            <div className="three-column-grid">
-              <ActionTile
-                actionLabel="Gerar"
-                className="action-tile--compact"
-                description="Monte um roteiro inicial curto."
-                eyebrow="Acoes"
-                title="Gerar roteiro"
-                tone="soft"
-              />
-              <ActionTile
-                actionLabel="Gerar"
-                className="action-tile--compact"
-                description="Liste perguntas simples para a aula."
-                title="Criar perguntas"
-                tone="soft"
-              />
-              <ActionTile
-                actionLabel="Gerar"
-                className="action-tile--compact"
-                description="Prepare um resumo inicial demonstrativo."
-                title="Gerar resumo"
-                tone="soft"
-              />
-            </div>
-
-            <div className="button-row">
-              <Button onClick={() => handleGenerate("outline")}>Gerar roteiro</Button>
-              <Button onClick={() => handleGenerate("questions")} variant="secondary">
-                Criar perguntas
-              </Button>
-              <Button onClick={() => handleGenerate("summary")} variant="ghost">
-                Gerar resumo
-              </Button>
-              <Button onClick={handlePublish} variant="secondary">
-                Publicar
-              </Button>
-            </div>
-          </Card>
-
-          <Card id="professor-duvidas" tone="soft">
-            <div className="student-panel__header">
-              <h2>Duvidas recebidas</h2>
-              <Badge tone="sand">{questions.length}</Badge>
-            </div>
-            <div className="page-stack">
-              {questions.slice(0, 4).map((question) => {
-                const status = getQuestionStatus(question.status);
-
-                return (
-                  <div key={question.id}>
-                    <div className="student-panel__header">
-                      <strong>{question.authorName}</strong>
-                      <StatusTag label={status.label} tone={status.tone} />
-                    </div>
-                    <p className="student-panel__note">{question.question}</p>
+      {isLoading || !activeGroup ? null : (
+        <>
+          <section className="page-section">
+            <div className="two-column-grid">
+              <Card tone="default">
+                <div className="student-panel__header">
+                  <div>
+                    <p className="card-eyebrow">Preparar proxima aula</p>
+                    <h2>Grupo, tema e Meet</h2>
                   </div>
-                );
-              })}
+                  <StatusTag
+                    tone={
+                      reviewState === "published"
+                        ? "published"
+                        : reviewState === "approved"
+                          ? "active"
+                          : "draft"
+                    }
+                  />
+                </div>
+
+                <Select
+                  id="teacher-book"
+                  label="Livro"
+                  onChange={(event) => setSelectedBook(event.target.value)}
+                  options={groups.map((group) => ({
+                    label: group.bookTitle,
+                    value: group.bookTitle,
+                  }))}
+                  value={selectedBook}
+                />
+
+                <TextInput
+                  id="teacher-theme"
+                  label="Tema ou capitulo"
+                  onChange={(event) => setThemeChapter(event.target.value)}
+                  value={themeChapter}
+                />
+
+                <TextInput
+                  id="teacher-meet"
+                  label="Link do Google Meet"
+                  onChange={(event) => setMeetLink(event.target.value)}
+                  value={meetLink}
+                />
+
+                <div className="button-row">
+                  <Button onClick={() => handleGenerate("outline")}>Gerar roteiro</Button>
+                  <Button onClick={() => handleGenerate("questions")} variant="secondary">
+                    Criar perguntas
+                  </Button>
+                  <Button onClick={() => handleGenerate("summary")} variant="ghost">
+                    Gerar resumo
+                  </Button>
+                  <Button onClick={handlePublish} variant="secondary">
+                    Publicar
+                  </Button>
+                </div>
+              </Card>
+
+              <Card id="professor-duvidas" tone="soft">
+                <div className="student-panel__header">
+                  <h2>Duvidas recebidas</h2>
+                  <Badge tone="sand">{activeQuestions.length}</Badge>
+                </div>
+                <div className="page-stack">
+                  {activeQuestions.slice(0, 4).map((question) => {
+                    const status = getQuestionStatus(question.status);
+
+                    return (
+                      <div key={question.id}>
+                        <div className="student-panel__header">
+                          <strong>{question.authorName}</strong>
+                          <StatusTag label={status.label} tone={status.tone} />
+                        </div>
+                        <p className="student-panel__note">{question.question}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card>
             </div>
-          </Card>
-        </div>
-      </section>
+          </section>
 
-      <section className="page-section">
-        <div className="two-column-grid">
-          <Card id="professor-resumos" tone="default">
-            <div className="student-panel__header">
-              <h2>Previa do conteudo</h2>
-              <Badge tone="sand">Editavel</Badge>
+          <section className="page-section">
+            <div className="two-column-grid">
+              <Card id="professor-resumos" tone="default">
+                <div className="student-panel__header">
+                  <h2>Previa do conteudo</h2>
+                  <Badge tone="sand">Editavel</Badge>
+                </div>
+
+                <TextArea
+                  id="preview-outline"
+                  label="Roteiro"
+                  onChange={(event) =>
+                    setPreview((current) => ({
+                      ...current,
+                      outline: event.target.value,
+                    }))
+                  }
+                  rows={7}
+                  value={preview.outline}
+                />
+
+                <TextArea
+                  id="preview-questions"
+                  label="Perguntas"
+                  onChange={(event) =>
+                    setPreview((current) => ({
+                      ...current,
+                      questions: event.target.value,
+                    }))
+                  }
+                  rows={6}
+                  value={preview.questions}
+                />
+
+                <TextArea
+                  id="preview-summary"
+                  label="Resumo"
+                  onChange={(event) =>
+                    setPreview((current) => ({
+                      ...current,
+                      summary: event.target.value,
+                    }))
+                  }
+                  rows={6}
+                  value={preview.summary}
+                />
+              </Card>
+
+              <Card id="professor-configuracoes" tone="soft">
+                <div className="student-panel__header">
+                  <h2>Aprovacao do professor</h2>
+                  <StatusTag
+                    tone={
+                      reviewState === "published"
+                        ? "published"
+                        : reviewState === "approved"
+                          ? "active"
+                          : "draft"
+                    }
+                  />
+                </div>
+
+                <p className="student-panel__note">{actionMessage}</p>
+                <p className="student-panel__note">
+                  Materiais de apoio: {activeMaterials.length} itens cadastrados. Resumos disponiveis:{" "}
+                  {activeSummary ? 1 : 0}.
+                </p>
+
+                <div className="button-row teacher-approval-actions">
+                  <Button onClick={handleSaveDraft} variant="ghost">
+                    Salvar rascunho
+                  </Button>
+                  <Button onClick={handleApprove} variant="secondary">
+                    Aprovar
+                  </Button>
+                  <Button onClick={handlePublish}>Publicar</Button>
+                </div>
+              </Card>
             </div>
-
-            <TextArea
-              id="preview-outline"
-              label="Roteiro"
-              onChange={(event) =>
-                setPreview((current) => ({
-                  ...current,
-                  outline: event.target.value,
-                }))
-              }
-              rows={7}
-              value={preview.outline}
-            />
-
-            <TextArea
-              id="preview-questions"
-              label="Perguntas"
-              onChange={(event) =>
-                setPreview((current) => ({
-                  ...current,
-                  questions: event.target.value,
-                }))
-              }
-              rows={6}
-              value={preview.questions}
-            />
-
-            <TextArea
-              id="preview-summary"
-              label="Resumo"
-              onChange={(event) =>
-                setPreview((current) => ({
-                  ...current,
-                  summary: event.target.value,
-                }))
-              }
-              rows={6}
-              value={preview.summary}
-            />
-          </Card>
-
-          <Card id="professor-configuracoes" tone="soft">
-            <div className="student-panel__header">
-              <h2>Aprovacao do professor</h2>
-              <StatusTag
-                tone={reviewState === "published" ? "published" : reviewState === "approved" ? "active" : "draft"}
-              />
-            </div>
-
-            <p className="student-panel__note">{actionMessage}</p>
-            <p className="student-panel__note">
-              Materiais de apoio: {materials.length} itens cadastrados. Resumos disponiveis: {summaries.length}.
-            </p>
-
-            <div className="button-row teacher-approval-actions">
-              <Button onClick={handleSaveDraft} variant="ghost">
-                Salvar rascunho
-              </Button>
-              <Button onClick={handleApprove} variant="secondary">
-                Aprovar
-              </Button>
-              <Button onClick={handlePublish}>Publicar</Button>
-            </div>
-          </Card>
-        </div>
-      </section>
+          </section>
+        </>
+      )}
     </div>
   );
 };
