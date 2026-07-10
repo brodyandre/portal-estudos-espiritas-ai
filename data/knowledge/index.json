@@ -1,0 +1,103 @@
+{
+  "version": 1,
+  "updatedAt": "2026-07-10",
+  "description": "Indice manual da base de conhecimento organizada por livro e grupo.",
+  "notes": [
+    "Todos os arquivos novos desta fase sao Markdown autoral, curto e demonstrativo.",
+    "Os PDFs dos livros nao devem ser armazenados nem expostos pela aplicacao.",
+    "Os arquivos antigos na raiz de data/knowledge foram mantidos por compatibilidade temporaria."
+  ],
+  "groups": [
+    {
+      "group": "Emmanuel",
+      "directory": "data/knowledge/emmanuel",
+      "audiences": ["aluno", "professor"],
+      "files": [
+        {
+          "id": "emmanuel-visao-geral",
+          "title": "Visao geral inicial do estudo Emmanuel",
+          "path": "data/knowledge/emmanuel/visao_geral.md",
+          "purpose": "panorama inicial do estudo para aluno e professor",
+          "source": "resumo autoral demonstrativo produzido para o portal",
+          "tags": ["emmanuel", "visao geral", "estudo", "aluno", "professor"],
+          "status": "prepared"
+        },
+        {
+          "id": "emmanuel-temas-centrais",
+          "title": "Temas centrais do estudo Emmanuel",
+          "path": "data/knowledge/emmanuel/temas_centrais.md",
+          "purpose": "organizar eixos de estudo e conversa",
+          "source": "resumo autoral demonstrativo produzido para o portal",
+          "tags": ["emmanuel", "temas", "constancia", "escuta", "cotidiano"],
+          "status": "prepared"
+        },
+        {
+          "id": "emmanuel-palavras-chave",
+          "title": "Palavras-chave do estudo Emmanuel",
+          "path": "data/knowledge/emmanuel/palavras_chave.md",
+          "purpose": "apoiar busca por palavras-chave e perguntas naturais",
+          "source": "resumo autoral demonstrativo produzido para o portal",
+          "tags": ["emmanuel", "palavras-chave", "busca", "sinonimos", "duvidas"],
+          "status": "prepared"
+        },
+        {
+          "id": "emmanuel-duvidas-frequentes",
+          "title": "Duvidas frequentes do estudo Emmanuel",
+          "path": "data/knowledge/emmanuel/duvidas_frequentes.md",
+          "purpose": "apoiar respostas simples e revisaveis",
+          "source": "resumo autoral demonstrativo produzido para o portal",
+          "tags": ["emmanuel", "duvidas", "aluno", "professor", "revisao"],
+          "status": "prepared"
+        }
+      ]
+    },
+    {
+      "group": "A Caminho da Luz",
+      "directory": "data/knowledge/a_caminho_da_luz",
+      "audiences": ["aluno", "professor"],
+      "files": [
+        {
+          "id": "a-caminho-da-luz-visao-geral",
+          "title": "Visao geral inicial do estudo A Caminho da Luz",
+          "path": "data/knowledge/a_caminho_da_luz/visao_geral.md",
+          "purpose": "panorama inicial do estudo para aluno e professor",
+          "source": "resumo autoral demonstrativo produzido para o portal",
+          "tags": ["a caminho da luz", "visao geral", "estudo", "aluno", "professor"],
+          "status": "prepared"
+        },
+        {
+          "id": "a-caminho-da-luz-temas-centrais",
+          "title": "Temas centrais do estudo A Caminho da Luz",
+          "path": "data/knowledge/a_caminho_da_luz/temas_centrais.md",
+          "purpose": "organizar eixos de estudo e conversa",
+          "source": "resumo autoral demonstrativo produzido para o portal",
+          "tags": ["a caminho da luz", "temas", "convivio", "escuta", "responsabilidade"],
+          "status": "prepared"
+        },
+        {
+          "id": "a-caminho-da-luz-palavras-chave",
+          "title": "Palavras-chave do estudo A Caminho da Luz",
+          "path": "data/knowledge/a_caminho_da_luz/palavras_chave.md",
+          "purpose": "apoiar busca por palavras-chave e perguntas naturais",
+          "source": "resumo autoral demonstrativo produzido para o portal",
+          "tags": ["a caminho da luz", "palavras-chave", "busca", "sinonimos", "duvidas"],
+          "status": "prepared"
+        },
+        {
+          "id": "a-caminho-da-luz-duvidas-frequentes",
+          "title": "Duvidas frequentes do estudo A Caminho da Luz",
+          "path": "data/knowledge/a_caminho_da_luz/duvidas_frequentes.md",
+          "purpose": "apoiar respostas simples e revisaveis",
+          "source": "resumo autoral demonstrativo produzido para o portal",
+          "tags": ["a caminho da luz", "duvidas", "aluno", "professor", "revisao"],
+          "status": "prepared"
+        }
+      ]
+    }
+  ],
+  "legacyRootFiles": [
+    "data/knowledge/emmanuel_demo.md",
+    "data/knowledge/a_caminho_da_luz_demo.md",
+    "data/knowledge/orientacoes_do_grupo.md"
+  ]
+}
