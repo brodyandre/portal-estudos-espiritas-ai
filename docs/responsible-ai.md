@@ -2,17 +2,29 @@
 
 ## Objetivo
 
-Registrar as regras de uso responsavel da assistencia do projeto, deixando claro o papel da tecnologia e os limites que nao devem ser ultrapassados.
+Registrar as regras de uso responsavel da assistencia do projeto, deixando claro o papel da tecnologia, os limites editoriais e a importancia da revisao humana.
 
-## Papel da assistencia neste projeto
+## Base usada nesta fase
 
-O sistema foi criado para apoiar grupos de estudo, nao para substituir professores.
+O projeto trabalha com dois livros organizados em resumos autorais curtos:
+
+- `Emmanuel`
+- `A Caminho da Luz`
+
+Pastas principais:
+
+- `data/knowledge/emmanuel`
+- `data/knowledge/a_caminho_da_luz`
+
+Os arquivos sao usados como apoio de estudo. Eles nao substituem leitura orientada, conversa em grupo nem acompanhamento do professor.
+
+## Papel da assistencia
 
 Na pratica, a assistencia serve para:
 
 - organizar uma resposta inicial para o aluno
 - sugerir roteiro, perguntas e resumo para o professor
-- recuperar contexto em materiais demonstrativos cadastrados
+- recuperar contexto em materiais cadastrados
 - manter linguagem simples, educativa e revisavel
 
 ## Limites do sistema
@@ -23,26 +35,28 @@ O sistema nao deve:
 - substituir revisao humana
 - inventar citacoes
 - reproduzir obras completas
-- responder como se fosse a palavra final do grupo ou do professor
+- orientar casos pessoais delicados como se fosse palavra final
 
-## Regras de conteudo
+## Como o assistente usa os materiais
 
-- usar apenas conteudo demonstrativo, autoral ou autorizado
-- nao copiar livros reais nem materiais protegidos em bloco
-- preferir sinteses curtas e trechos claramente permitidos
-- manter a origem do material o mais rastreavel possivel
+- a API local carrega os arquivos Markdown e o `index.json`
+- a recuperacao busca trechos curtos e metadados relacionados
+- o agente responde de forma breve e prudente
+- no GitHub Pages, o frontend usa fallback resumido quando a API nao esta disponivel
 
-## Regras de resposta
+## Direitos autorais
 
-Toda resposta do sistema deve buscar:
+Cuidados obrigatorios:
 
-- simplicidade
-- tom respeitoso
-- valor educativo
-- clareza sobre limites
-- possibilidade de revisao
+- nao versionar PDFs das obras
+- nao expor PDFs na aplicacao
+- nao copiar capitulos completos
+- nao copiar trechos longos
+- manter apenas resumos autorais, curtos e revisaveis
 
-Quando faltar contexto, a resposta deve orientar o usuario a levar a duvida ao professor.
+Nota editorial do projeto:
+
+> Por responsabilidade editorial e direitos autorais, o projeto nao versiona os PDFs das obras. A base de conhecimento utiliza arquivos Markdown autorais, curtos e revisaveis.
 
 ## Revisao humana obrigatoria
 
@@ -50,13 +64,48 @@ Quando faltar contexto, a resposta deve orientar o usuario a levar a duvida ao p
 
 - a resposta do assistente e apoio inicial
 - perguntas importantes devem ser confirmadas com o professor
-- o aluno deve tratar a interface como ferramenta de estudo, nao como fonte definitiva
+- a interface nao deve ser tratada como fonte definitiva
 
 ### Para o professor
 
 - roteiro, perguntas e resumo nascem como rascunho
 - o professor revisa, ajusta e aprova antes de publicar
-- nenhuma geracao automatica deve ser compartilhada sem leitura humana
+- temas sensiveis exigem leitura ainda mais cuidadosa
+
+## Temas sensiveis
+
+Alguns temas pedem prudencia reforcada:
+
+- sofrimento intenso
+- luto
+- mediunidade pessoal
+- reencarnacao
+- instituicoes religiosas
+- Capela
+- racas adamicas
+- guerras
+- futuro da humanidade
+- conflitos pessoais
+
+Quando esses temas aparecem:
+
+- a resposta deve ser curta e revisavel
+- o sistema deve recomendar conversa com o professor
+- o professor deve revisar antes de compartilhar
+
+## Diferenca entre GitHub Pages e backend local
+
+### GitHub Pages
+
+- publica apenas o frontend
+- usa fallback local quando a API nao responde
+- e adequado para portfolio e navegacao demonstrativa
+
+### Backend local
+
+- le a base real em Markdown
+- executa a busca local
+- integra o agente e o Ollama quando disponivel
 
 ## Como o projeto lida com falhas
 
@@ -64,52 +113,25 @@ Quando faltar contexto, a resposta deve orientar o usuario a levar a duvida ao p
 
 - a API usa fallback claro
 - a resposta continua disponivel em modo de contingencia
-- a interface nao esconde que houve fallback
 
 ### Se o contexto for insuficiente
 
-- o endpoint de resposta evita parecer excessivamente seguro
-- a resposta sugere conversar com o professor
+- a resposta evita parecer excessivamente segura
+- o usuario recebe orientacao para levar a duvida ao professor
 
 ### Se a API falhar
 
-- o frontend pode continuar com mocks locais
+- o frontend continua com fallback local
 - isso preserva a demonstracao, mas nao substitui validacao humana
 
-## Transparencia para o usuario
+## Como adicionar novos materiais com seguranca
 
-O projeto evita jargao tecnico na interface, mas isso nao significa esconder o funcionamento.
-
-Compromissos de transparencia:
-
-- indicar que a resposta foi baseada nos materiais cadastrados
-- deixar claro quando houver necessidade de revisao humana
-- tratar fallback como contingencia, nao como se fosse resultado identico ao modelo local
-
-## Seguranca de produto nesta etapa
-
-O projeto ainda e uma demo e, por isso, tem limites intencionais:
-
-- sem autenticacao
-- sem moderacao avancada
-- sem trilha completa de auditoria
-- sem politica formal de permissao por perfil
-
-Mesmo assim, algumas decisoes ja ajudam:
-
-- validacao simples de entrada na API
-- centralizacao de tratamento de erros
-- prompts e fallbacks em tom contido
-- lembrete constante de revisao humana
-
-## Boas praticas para evolucao
-
-- ampliar testes dos fluxos de assistencia
-- registrar melhor origem dos materiais demonstrativos
-- adicionar rastreio de fallback e de contexto usado
-- incluir moderacao adicional para entradas mais longas
-- criar processo de revisao editorial dos materiais em Markdown
+1. Crie um novo Markdown curto na pasta correta.
+2. Use frontmatter com `title`, `group`, `purpose` e `source`.
+3. Atualize `data/knowledge/index.json`.
+4. Marque `teacherReviewRecommended` quando houver tema sensivel.
+5. Rode `npm run rag:validate`.
 
 ## Resumo
 
-Este projeto usa assistencia como apoio de estudo e organizacao. A prioridade nao e parecer inteligente, e sim ser util, claro, seguro dentro do escopo e honesto sobre o que consegue ou nao consegue fazer.
+Este projeto usa assistencia como apoio de estudo e organizacao. A prioridade nao e parecer definitivo, e sim ser util, claro, prudente e honesto sobre o que consegue ou nao consegue fazer.

@@ -2,134 +2,139 @@
 
 ## Objetivo
 
-Explicar como usar o painel do professor para preparar a aula, revisar rascunhos e organizar a semana do grupo.
+Explicar como usar o painel do professor para preparar a aula, revisar rascunhos e aproveitar a base dos dois livros com seguranca editorial.
 
 ## Onde acessar
 
 - `/#/professor`: painel do professor
+- `/#/materiais`: pagina publica de apoio com os materiais organizados por livro
 
-## O que o professor encontra
-
-O painel foi desenhado para apoiar cinco etapas:
-
-1. escolher o grupo e o tema
-2. inserir o link do Google Meet
-3. pedir sugestoes de roteiro e perguntas
-4. revisar e aprovar
-5. publicar
-
-## Fluxo recomendado
-
-### 1. Selecionar o grupo
-
-No topo do painel, escolha entre os grupos demonstrativos:
+## Livros e grupos disponiveis
 
 - `Emmanuel`
 - `A Caminho da Luz`
 
-Ao trocar o grupo, o restante do painel acompanha o contexto selecionado.
+O professor pode trocar o livro ou grupo no topo do painel para atualizar o contexto da aula.
 
-### 2. Preparar a proxima aula
+## O que o professor encontra
 
-No card `Preparar proxima aula`, informe:
+O painel foi desenhado para apoiar estas etapas:
 
-- livro ou estudo base
-- tema ou capitulo
-- link do Google Meet
+1. escolher o grupo e o tema
+2. inserir o link do Google Meet
+3. selecionar materiais da base como apoio
+4. pedir sugestoes de roteiro, perguntas, resumo ou mensagem
+5. revisar, aprovar e salvar localmente
 
-Esses campos orientam a geracao dos rascunhos.
+## Base de apoio da aula
 
-### 3. Usar as acoes do painel
+O card `Base de apoio da aula` lista materiais curtos do grupo selecionado.
 
-O painel oferece quatro acoes:
+Ele ajuda o professor a:
 
-- `Gerar roteiro`
-- `Criar perguntas`
-- `Gerar resumo`
-- `Publicar`
+- selecionar um ou mais arquivos de apoio
+- ver tags principais
+- identificar temas sensiveis
+- montar melhor o contexto da aula
 
-Nas tres primeiras, a aplicacao tenta buscar um rascunho inicial pela API. Quando o modelo local nao estiver disponivel, a resposta vem em modo demonstrativo.
+Os materiais ficam organizados em:
+
+- `data/knowledge/emmanuel`
+- `data/knowledge/a_caminho_da_luz`
+
+## Gerar apoio para aula
+
+O painel permite solicitar:
+
+- `Gerar roteiro da aula`
+- `Gerar perguntas de reflexao`
+- `Gerar resumo para participantes`
+- `Gerar mensagem para o grupo`
+- `Listar pontos que exigem revisao`
+
+Essas acoes usam a API local quando disponivel. Se a API ou o modelo local falharem, o frontend continua em modo demonstrativo.
 
 ## Como funciona a previa editavel
 
-Todo conteudo gerado volta para a area `Previa do conteudo` com campos editaveis:
+Todo conteudo gerado volta para a area de previa com campos editaveis.
 
-- roteiro da aula
-- perguntas sugeridas
-- resumo da aula
+O objetivo e simples:
 
-O objetivo e simples: o sistema ajuda a ganhar tempo, mas a revisao e sempre humana.
+- ganhar tempo na preparacao
+- manter o professor no controle
+- facilitar ajuste de tom, foco e clareza
 
-## Aprovacao do professor
+## Pontos sensiveis
 
-No card `Aprovacao do professor`, use:
+O painel destaca com mais cuidado temas como:
 
-- `Editar`
-- `Aprovar`
-- `Salvar rascunho`
+- sofrimento
+- mediunidade
+- reencarnacao
+- instituicoes religiosas
+- Capela
+- racas adamicas
+- guerras
+- futuro
+- conflitos pessoais
 
-Comportamento atual da demo:
+Nesses casos, a recomendacao e direta:
 
-- a aprovacao e local
-- o rascunho e salvo no navegador com `localStorage`
-- `Publicar` marca o estado como publicado apenas localmente
+`O professor deve revisar antes de publicar.`
 
-Importante:
+## Como testar localmente
 
-- a demo nao distribui o conteudo para usuarios reais
-- a publicacao atual nao sincroniza automaticamente com o painel do aluno
+1. Suba a API:
 
-## Duvidas recebidas
+```bash
+npm run dev:api
+```
 
-O card `Duvidas recebidas` mostra perguntas demonstrativas do grupo ativo.
+2. Suba o frontend:
 
-Uso sugerido:
+```bash
+npm run dev:web
+```
 
-- identificar temas recorrentes
-- ajustar a abertura da aula
-- decidir quais pontos merecem reforco no encontro
+3. Experimente perguntas e geracoes com temas como:
 
-## Uso com e sem modelo local
+- `Como continuar estudando mesmo desanimado?`
+- `O que significa esforco proprio?`
+- `O livro A Caminho da Luz e historico ou espiritual?`
+- `Como entender Capela com prudencia?`
+- `Como viver o Evangelho na pratica?`
 
-### Com modelo local
+## Uso com e sem backend
 
-- a API tenta usar Ollama para gerar roteiro, perguntas e resumo
-- o resultado pode aproveitar contexto dos materiais e resumos cadastrados
+### Com backend local
 
-### Sem modelo local
+- a API le os arquivos Markdown dos dois livros
+- a busca local recupera os materiais mais aderentes
+- o agente monta respostas e rascunhos curtos
 
-- a API cai para um modo de contingencia
-- a interface continua funcionando
-- o professor ainda pode editar e seguir o fluxo completo
+### Sem backend
 
-## Uso no celular
+- o frontend continua funcional
+- a base aparece por fallback resumido
+- as respostas e geracoes passam a ser demonstrativas
 
-O painel tambem foi pensado para 360px:
-
-- menu em drawer
-- cards empilhados
-- campos em coluna unica
-- botoes com area confortavel para toque
-
-Mesmo no mobile, a ordem do fluxo continua clara.
+Esse comportamento foi pensado para manter o GitHub Pages util sem expor infraestrutura extra.
 
 ## Boas praticas
 
 - escrever um tema curto e objetivo
-- confirmar o link do Meet antes de salvar
-- revisar o texto gerado antes de aprovar
-- ajustar tom, foco e clareza para o publico do grupo
-- evitar publicar qualquer texto sem leitura humana
+- selecionar materiais realmente ligados ao encontro
+- revisar todo texto antes de aprovar
+- tratar a geracao como rascunho, nao como publicacao final
+- reforcar prudencia em temas sensiveis
 
 ## Limites desta demo
 
 - sem autenticacao
 - sem banco de dados
-- sem publicacao real para uma turma externa
-- sem historico persistente compartilhado entre dispositivos
-
-Esses limites sao intencionais para manter o projeto simples, portavel e util para demonstracao tecnica.
+- sem publicacao real para alunos externos
+- sem sincronizacao entre dispositivos
 
 ## Recomendacao final
 
-Use o painel como ferramenta de preparacao. O valor principal nao esta em automatizar o professor, e sim em reduzir trabalho repetitivo, organizar melhor a aula e deixar mais tempo para a revisao humana.
+Use o painel como ferramenta de preparacao. O valor principal nao esta em automatizar o professor, e sim em reduzir trabalho repetitivo, organizar a aula e preservar a revisao humana.

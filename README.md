@@ -1,6 +1,6 @@
 # portal-estudos-espiritas-ai
 
-Aplicacao web demonstrativa para apoiar grupos de estudos espiritas online via Google Meet, com experiencia separada para aluno e professor, backend local em Node.js e uso opcional de Ollama para respostas e rascunhos iniciais.
+Aplicacao web demonstrativa para apoiar grupos de estudos espiritas online via Google Meet, com experiencia separada para aluno e professor, frontend publicavel no GitHub Pages e backend local com apoio opcional de Ollama.
 
 Por responsabilidade editorial e direitos autorais, o projeto nao versiona os PDFs das obras. A base de conhecimento utiliza arquivos Markdown autorais, curtos e revisaveis.
 
@@ -10,11 +10,11 @@ Entregar um portal gratuito, responsivo e mobile-first que ajude a organizar enc
 
 ## Problema resolvido
 
-Grupos de estudo online costumam espalhar informacoes entre links, mensagens, resumos e duvidas soltas. Este projeto centraliza o essencial em uma interface simples:
+Grupos de estudo online costumam espalhar informacoes entre links, mensagens, resumos e duvidas. Este projeto centraliza o essencial em uma interface simples:
 
 - proxima aula e acesso ao Meet
-- materiais e resumos da semana
-- duvidas do aluno
+- materiais de apoio por livro e grupo
+- resumos e duvidas do aluno
 - progresso demonstrativo
 - rascunhos iniciais para apoio ao professor
 
@@ -22,56 +22,90 @@ Grupos de estudo online costumam espalhar informacoes entre links, mensagens, re
 
 - Home com apresentacao do projeto e acesso rapido para Portal, Aluno e Professor
 - Pagina `/portal` compartilhavel, sem login e pronta para GitHub Pages
-- Painel `/aluno` com proxima aula, assistente de estudo, materiais, resumo, duvidas e progresso
-- Painel `/professor` com fluxo de preparacao da aula, geracao de rascunhos, revisao e publicacao local
-- API local em Express com dados mockados e respostas JSON padronizadas
-- Base de conhecimento local em Markdown para recuperacao simples de contexto
+- Painel `/aluno` com proxima aula, materiais de apoio, assistente, duvidas, resumo e progresso
+- Painel `/professor` com selecao de livro, base de apoio da aula, geracao de rascunhos, revisao e publicacao local
+- Paginas de materiais com navegacao para os livros `Emmanuel` e `A Caminho da Luz`
+- API local em Express com dados mockados, base de conhecimento em Markdown e respostas JSON padronizadas
 - Integracao opcional com Ollama, com fallback claro quando o modelo nao estiver disponivel
-- Funcionamento da interface mesmo com backend desligado, usando mocks locais no frontend
+- Funcionamento da interface mesmo com backend desligado, usando mocks e respostas demonstrativas no frontend
 
 ## Stack
 
 - Frontend: React, TypeScript e Vite
 - Backend: Node.js, TypeScript e Express
 - Assistencia local: LangChain.js, LangGraph.js e Ollama
-- Base de conhecimento inicial: arquivos Markdown em `data/knowledge`
-- Testes iniciais da API: Vitest e Supertest
+- Base de conhecimento: arquivos Markdown em `data/knowledge`
+- Testes iniciais: Vitest e Supertest
 - Publicacao estatica do frontend: GitHub Pages
 
 ## Arquitetura
 
-O projeto usa monorepo simples com duas aplicacoes:
+O projeto usa um monorepo simples com duas aplicacoes:
 
-- `apps/web`: interface React com `HashRouter`, design system proprio e camada de servicos com fallback para mocks
-- `apps/api`: API Express com modulos por dominio, agente local, carga de documentos Markdown e busca simples por palavras-chave
-- `data/knowledge`: conteudo demonstrativo e autorizado para apoio ao assistente
+- `apps/web`: interface React com `HashRouter`, design system proprio, servicos reutilizaveis e fallback local
+- `apps/api`: API Express com modulos por dominio, agente local, RAG simples e endpoints da base de conhecimento
+- `data/knowledge`: resumos autorais curtos usados como apoio de contexto
 
 Resumo do fluxo:
 
 ```text
 Frontend
-  -> tenta consumir API via VITE_API_URL ou http://localhost:3333
-  -> se a API falhar, usa mocks locais
+  -> tenta consumir a API via VITE_API_URL ou http://localhost:3333
+  -> se a API falhar, usa mocks locais e respostas demonstrativas
 
 API
-  -> serve estudos, materiais, resumos, duvidas e progresso
-  -> usa dados mockados sem banco
-  -> consulta Markdown local para recuperar contexto
-  -> tenta usar Ollama para gerar rascunhos e respostas
-  -> se Ollama falhar, responde com modo de contingencia
+  -> serve estudos, materiais, resumos, duvidas, progresso e base de conhecimento
+  -> carrega Markdown local e index.json
+  -> recupera contexto por palavras-chave
+  -> tenta usar Ollama para responder e gerar rascunhos
+  -> se Ollama falhar, responde em modo de contingencia
 ```
 
 Documentacao complementar:
 
-- [docs/architecture.md](docs/architecture.md)
-- [docs/setup.md](docs/setup.md)
+- [docs/knowledge-base.md](docs/knowledge-base.md)
+- [docs/rag.md](docs/rag.md)
+- [docs/agent-flow.md](docs/agent-flow.md)
 - [docs/user-guide-student.md](docs/user-guide-student.md)
 - [docs/user-guide-teacher.md](docs/user-guide-teacher.md)
 - [docs/responsible-ai.md](docs/responsible-ai.md)
 - [docs/free-deployment.md](docs/free-deployment.md)
 - [docs/api.md](docs/api.md)
-- [docs/rag.md](docs/rag.md)
-- [docs/agent-flow.md](docs/agent-flow.md)
+
+## Base de conhecimento incluida
+
+Livros disponiveis:
+
+- `Emmanuel`
+- `A Caminho da Luz`
+
+Onde ficam os arquivos:
+
+- `data/knowledge/emmanuel`
+- `data/knowledge/a_caminho_da_luz`
+- `data/knowledge/index.json`
+
+O que essa base contem:
+
+- arquivos curtos por tema, capitulo, FAQ, palavras-chave e visao geral
+- metadados para busca simples
+- indicacao de temas sensiveis e necessidade de revisao humana
+- linguagem preparada para alunos e professores nao tecnicos
+
+Como o assistente usa os materiais:
+
+- a API carrega os Markdown e o indice local
+- o RAG simples recupera os trechos mais uteis por palavras-chave
+- o agente monta respostas curtas, educativas e revisaveis
+- se a API ou o modelo local nao estiverem disponiveis, o frontend usa fallback com dados resumidos em `apps/web/src/mocks/knowledge.ts`
+
+Exemplos de perguntas:
+
+- `Como continuar estudando mesmo desanimado?`
+- `O que significa esforco proprio?`
+- `O livro A Caminho da Luz e historico ou espiritual?`
+- `Como entender Capela com prudencia?`
+- `Como viver o Evangelho na pratica?`
 
 ## Estrutura do repositorio
 
@@ -86,6 +120,7 @@ data/
 docs/
 CODEX_CONTEXT.md
 package.json
+Makefile
 ```
 
 ## Comandos locais
@@ -106,10 +141,21 @@ npm run typecheck
 npm run rag:validate
 ```
 
-Observacao:
+Atalhos com Makefile:
 
-- nesta versao ainda nao existe script dedicado de `lint`
-- nesta versao ainda nao existe script dedicado de `demo:seed`
+```bash
+make help
+make install
+make dev
+make dev-web
+make dev-api
+make build
+make test
+make lint
+make pages-check
+make docker-up
+make docker-down
+```
 
 ## Rodando localmente
 
@@ -125,47 +171,35 @@ Servicos locais:
 - frontend em `http://localhost:5173`
 - API em `http://localhost:3333`
 
-Atalhos uteis:
+Para subir apenas a API:
 
 ```bash
-make help
-make dev
-make dev-web
-make dev-api
-make build
-make test
-make lint
+npm run dev:api
 ```
 
-## Docker
+## Como testar perguntas
 
-Para subir frontend e API em containers:
+Com a API local ativa, voce pode testar o endpoint do assistente:
 
 ```bash
-docker compose up --build
+curl -X POST http://localhost:3333/api/agent/answer \
+  -H "Content-Type: application/json" \
+  -d '{
+    "question": "Como continuar estudando mesmo desanimado?",
+    "group": "Emmanuel"
+  }'
 ```
 
-Servicos publicados:
+Outros exemplos uteis:
 
-- frontend em `http://localhost:3000`
-- API em `http://localhost:4000`
+- `O que significa esforco proprio?`
+- `O que e Capela?`
+- `Como entender racas adamicas com prudencia?`
+- `Como viver o Evangelho na pratica?`
 
-Para encerrar os containers:
+## Frontend no GitHub Pages x backend local
 
-```bash
-docker compose down
-```
-
-Observacoes importantes:
-
-- o `docker-compose.yml` nao inclui banco
-- o `docker-compose.yml` nao inclui Ollama
-- o frontend e buildado com `VITE_API_URL=http://localhost:4000`
-- o fluxo local com `npm run dev` continua igual, usando a API local em `http://localhost:3333`
-
-## GitHub Pages
-
-Nesta fase, o GitHub Pages publica apenas o frontend.
+O GitHub Pages publica apenas o frontend.
 
 O que fica publicado:
 
@@ -173,43 +207,21 @@ O que fica publicado:
 - Portal
 - Painel do Aluno
 - Painel do Professor
-- fallback para mocks quando nao houver backend
+- paginas de materiais
+- fallback local para grupos, materiais e respostas demonstrativas
 
-O que continua local:
+O que continua local nesta fase:
 
 - backend em Express
-- endpoints da assistencia
-- integracao com IA
+- endpoints da base de conhecimento
+- assistente completo
 - Ollama
+- carregamento real dos arquivos Markdown pelo backend
 
-## Testar a build do GitHub Pages
+Na pratica:
 
-Para validar localmente a mesma configuracao usada no workflow:
-
-```bash
-make pages-check
-```
-
-Esse comando:
-
-- ativa `GITHUB_PAGES=true`
-- usa base compativel com o caminho do repositorio
-- nao depende de `VITE_API_URL`
-- garante que o frontend continue funcional em modo de fallback
-
-## Como publicar no GitHub Pages
-
-1. Mantenha o workflow em `.github/workflows/pages.yml`.
-2. Garanta que o repositorio tenha o GitHub Pages configurado para usar `GitHub Actions`.
-3. Envie as mudancas para a branch `main`.
-4. O workflow vai buildar `apps/web` e publicar `apps/web/dist`.
-
-Caracteristicas da publicacao:
-
-- nao usa backend
-- nao usa Ollama
-- nao depende de secrets
-- publica apenas artefatos estaticos do frontend
+- o site publicado continua navegavel e util sem backend
+- a experiencia completa de respostas e busca na base roda melhor com a API local
 
 ## Uso sem Ollama
 
@@ -236,13 +248,6 @@ Use este modo quando quiser demonstrar o fluxo local de respostas e rascunhos ap
 4. Rode `npm run dev`.
 5. Use o painel do aluno ou do professor normalmente.
 
-Se estiver usando Docker Compose:
-
-- suba apenas `web` e `api` com `docker compose up --build`
-- mantenha o Ollama rodando separado na maquina host
-- por padrao, o compose aponta a API para `http://host.docker.internal:11434`
-- se necessario, sobrescreva `OLLAMA_BASE_URL` e `OLLAMA_MODEL` no ambiente antes de subir os containers
-
 Padroes atuais em `.env.example`:
 
 ```bash
@@ -252,6 +257,47 @@ VITE_API_URL=http://localhost:3333
 OLLAMA_MODEL=llama3.1:8b
 OLLAMA_BASE_URL=http://127.0.0.1:11434
 ```
+
+## Docker
+
+Para subir frontend e API em containers:
+
+```bash
+docker compose up --build
+```
+
+Servicos publicados:
+
+- frontend em `http://localhost:3000`
+- API em `http://localhost:4000`
+
+Para encerrar os containers:
+
+```bash
+docker compose down
+```
+
+Observacoes importantes:
+
+- o `docker-compose.yml` nao inclui banco
+- o `docker-compose.yml` nao inclui Ollama
+- o frontend e buildado com `VITE_API_URL=http://localhost:4000`
+- o Ollama deve rodar separado
+
+## GitHub Pages
+
+Para validar localmente a configuracao usada no workflow:
+
+```bash
+make pages-check
+```
+
+Caracteristicas da publicacao:
+
+- nao usa backend
+- nao usa Ollama
+- nao depende de secrets
+- publica apenas artefatos estaticos do frontend
 
 ## Scripts
 
@@ -267,56 +313,42 @@ OLLAMA_BASE_URL=http://127.0.0.1:11434
 - `npm run typecheck`: roda verificacao de tipos nas duas apps
 - `npm run rag:validate`: valida os arquivos Markdown em `data/knowledge`
 
-## Makefile
-
-- `make help`: lista os comandos disponiveis
-- `make install`: instala dependencias
-- `make dev`: sobe frontend e API localmente
-- `make dev-web`: sobe apenas o frontend
-- `make dev-api`: sobe apenas a API
-- `make build`: compila frontend e backend
-- `make test`: roda os testes atuais
-- `make lint`: roda as verificacoes estaticas atuais
-- `make docker-up`: sobe os containers
-- `make docker-down`: derruba os containers
-- `make pages-check`: valida a build do GitHub Pages
-- `make clean`: remove artefatos locais de build
-
 ## Screenshots placeholders
 
 - Home: inserir captura de `/#/`
 - Portal: inserir captura de `/#/portal`
 - Aluno: inserir captura de `/#/aluno`
 - Professor: inserir captura de `/#/professor`
+- Materiais: inserir captura de `/#/materiais`
 
 ## Proximos passos
 
-- adicionar persistencia real para duvidas, materiais e progresso
-- ampliar a cobertura de testes do frontend e dos fluxos de agente
+- ampliar a base de conhecimento com novos resumos autorais curtos
+- adicionar mais testes para frontend, RAG e agente
 - publicar uma API de demonstracao separada do ambiente local
-- enriquecer a base de conhecimento demonstrativa com mais temas autorizados
-- adicionar trilha de observabilidade simples para falhas e uso de fallback
+- melhorar rastreio de temas sensiveis e revisao humana
+- evoluir persistencia e autenticacao se o projeto sair do modo portfolio
 
 ## Direitos autorais
 
 - o projeto deve usar apenas conteudo demonstrativo, autoral ou autorizado
-- nao deve copiar livros reais nem obras completas
-- resumos, perguntas e roteiros devem ser sinteses proprias e revisaveis
-- os arquivos em `data/knowledge` foram pensados para demonstracao e nao para redistribuicao de conteudo protegido
+- os PDFs das obras nao devem ser versionados
+- nao devem ser copiados capitulos completos nem trechos longos
+- os arquivos em `data/knowledge` devem permanecer curtos, revisaveis e editoriais
 
 ## Revisao humana
 
 - o assistente de estudo nao substitui professores
 - toda resposta deve poder ser revisada, corrigida ou recusada por uma pessoa
-- no painel do professor, o conteudo gerado nasce como rascunho e exige revisao antes de publicar
-- no painel do aluno, a orientacao final continua sendo do grupo e do professor
+- temas sensiveis devem recomendar conversa com o professor
+- no painel do professor, o conteudo gerado nasce como rascunho
 
 ## Uso responsavel
 
-- nao tratar a interface como fonte de autoridade doutrinaria
+- nao tratar a interface como fonte de autoridade final
 - nao publicar texto gerado sem leitura humana
-- nao usar o assistente para inventar citacoes ou reproduzir obras completas
-- manter linguagem simples, respeitosa e educativa
+- nao usar o assistente para inventar citacoes
+- nao usar a base para redistribuir conteudo protegido
 
 Mais detalhes em [docs/responsible-ai.md](docs/responsible-ai.md).
 

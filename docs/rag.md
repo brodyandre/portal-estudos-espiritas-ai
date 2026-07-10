@@ -2,16 +2,17 @@
 
 ## Objetivo
 
-Implementar uma base inicial de recuperacao de contexto usando apenas arquivos Markdown locais em `data/knowledge`, sem banco vetorial nesta etapa.
+Implementar uma recuperacao inicial de contexto usando arquivos Markdown locais, sem banco vetorial nesta etapa.
 
-## Escopo atual
+## Fontes carregadas
 
-- Carrega `data/knowledge/*.md`.
-- Le frontmatter simples com metadados do documento.
-- Divide o texto em chunks pequenos para busca.
-- Faz busca por palavras-chave com score.
-- Retorna resultados com `source`, `title`, `content` e `score`.
-- Mantem a estrutura pronta para trocar a busca simples por vetor no futuro.
+O modulo de RAG trabalha com:
+
+- `data/knowledge/emmanuel/*.md`
+- `data/knowledge/a_caminho_da_luz/*.md`
+- `data/knowledge/index.json`
+
+Isso permite combinar conteudo curto com metadados prontos para busca e exibicao.
 
 ## Arquivos principais
 
@@ -24,56 +25,72 @@ apps/api/src/rag/
   validateDocuments.ts
 ```
 
-## Formato esperado dos documentos
+## O que e carregado de cada documento
 
-Cada Markdown deve ficar em `data/knowledge` e usar frontmatter simples:
+Do frontmatter:
 
-```md
----
-title: "Leitura demonstrativa"
-group: "Emmanuel"
-purpose: "apoio para encontro online"
-source: "conteudo autoral demonstrativo"
----
+- `title`
+- `group`
+- `purpose`
+- `source`
 
-# Titulo visivel
+Do indice:
 
-Texto curto, simples e autorizado.
-```
+- `book`
+- `filename`
+- `path`
+- `type`
+- `tags`
+- `description`
+- `sensitiveTopics`
+- `teacherReviewRecommended`
 
-## Regras de conteudo
+## Como o fluxo funciona
 
-- Usar apenas material demonstrativo, autoral ou autorizado.
-- Nao copiar obras completas.
-- Evitar trechos longos protegidos.
-- Manter textos curtos e apropriados para revisao humana.
+### 1. Loader
 
-## Como funciona
+- localiza os arquivos Markdown nas pastas dos dois livros
+- le frontmatter e conteudo
+- cruza o arquivo com o `index.json`
+- monta documentos com metadados consistentes
 
-### Loader
+### 2. Splitter
 
-- Localiza a pasta `data/knowledge`.
-- Lê apenas arquivos `.md`.
-- Extrai frontmatter e conteudo.
-- Monta objetos `KnowledgeDocument` com metadados e contagem basica.
+- divide o texto em chunks curtos
+- preserva contexto suficiente para resposta simples
+- evita trechos longos demais
+- mantem referencia ao arquivo original
 
-### Splitter
+### 3. Retriever
 
-- Divide o texto por paragrafos.
-- Mantem chunks pequenos por tamanho de caracteres.
-- Aplica pequena sobreposicao para preservar contexto.
-- Guarda metadados prontos para futura referencia vetorial, como `vectorRef`.
+- normaliza a consulta
+- expande algumas palavras-chave comuns
+- calcula score por ocorrencia e sobreposicao textual
+- aceita filtro opcional por `group` e `book`
+- ordena os resultados mais uteis
 
-### Retriever
+## Busca e score
 
-- Normaliza consulta e chunks.
-- Faz busca simples por palavras-chave.
-- Atribui score com peso maior para titulo e para cobertura de termos.
-- Ordena pelos melhores resultados e limita a quantidade retornada.
+O score considera, de forma simples:
 
-## Resultado da busca
+- ocorrencias no titulo
+- ocorrencias nas tags
+- ocorrencias na descricao
+- ocorrencias no conteudo
+- temas sensiveis relacionados
+- semelhanca textual basica
 
-Cada item retornado tem este formato:
+Consultas como estas sao usadas nos testes e no uso manual:
+
+- `prece`
+- `constancia`
+- `Capela`
+- `Evangelho`
+- `mediunidade`
+
+## Resposta retornada pelo retriever
+
+Cada resultado mantem campos legiveis para aluno e professor:
 
 ```ts
 {
@@ -81,10 +98,15 @@ Cada item retornado tem este formato:
   title: string;
   content: string;
   score: number;
+  group: string;
+  book: string;
+  tags: string[];
+  sensitiveTopics: string[];
+  teacherReviewRecommended: boolean;
 }
 ```
 
-Tambem sao mantidos metadados adicionais como `documentId`, `chunkIndex` e `vectorRef`.
+O conteudo retornado deve permanecer curto. Se o contexto ficar fraco ou ambiguuo, o agente orienta levar a duvida ao professor.
 
 ## Validacao dos documentos
 
@@ -97,14 +119,44 @@ npm run rag:validate
 Ele verifica:
 
 - se a pasta `data/knowledge` existe
-- se ha arquivos `.md`
-- se o frontmatter tem `title`, `group`, `purpose` e `source`
-- se o conteudo tem tamanho minimo
-- se o campo `source` indica material demonstrativo, autoral ou autorizado
+- se ha arquivos Markdown
+- se o frontmatter tem os campos obrigatorios
+- se o conteudo nao esta vazio
+- se o campo `source` indica material demonstrativo ou autoral
 
-## Proxima evolucao sugerida
+## Como testar localmente
 
-- conectar o retriever ao endpoint `/api/agent/answer`
+1. Suba a API:
+
+```bash
+npm run dev:api
+```
+
+2. Rode os testes:
+
+```bash
+npm run test
+```
+
+3. Teste perguntas que ativem a recuperacao:
+
+- `Como continuar estudando mesmo desanimado?`
+- `A prece muda meus problemas?`
+- `O que e Capela?`
+- `Como entender racas adamicas com prudencia?`
+- `Como viver o Evangelho na pratica?`
+
+## Relacao com o frontend publicado
+
+O GitHub Pages nao executa esse modulo. No ambiente publicado:
+
+- o frontend continua funcional
+- os materiais aparecem por fallback resumido
+- a recuperacao real dos Markdown depende da API local
+
+## Evolucao futura
+
 - adicionar cache em memoria para documentos e chunks
-- trocar a busca por palavras-chave por embeddings e vector database
-- registrar trechos usados nas respostas do assistente
+- ampliar testes de recuperacao por livro e grupo
+- trocar a busca simples por embeddings e vector database quando fizer sentido
+- manter a mesma camada de metadados para facilitar a migracao
