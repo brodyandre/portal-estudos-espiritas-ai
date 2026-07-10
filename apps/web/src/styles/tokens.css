@@ -39,6 +39,8 @@
   --sidebar-width: 280px;
   --header-height: 72px;
   --mobile-header-height: 64px;
+  --page-context-height: 72px;
+  --sticky-offset: 152px;
   --card-padding-mobile: 20px;
   --card-padding-desktop: 24px;
   --button-height: 44px;

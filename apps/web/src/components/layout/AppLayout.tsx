@@ -1,18 +1,67 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 
 import {
   appSidebarConfig,
   pageMeta,
+  pageSections,
   studentSidebarConfig,
   teacherSidebarConfig,
 } from "../../app/navigation";
 import { MobileHeader } from "./MobileHeader";
 import { Sidebar } from "./Sidebar";
 
+const resolveActiveSection = (sectionIds: string[]) => {
+  if (typeof window === "undefined" || sectionIds.length === 0) {
+    return null;
+  }
+
+  const stickyOffset = window.innerWidth >= 1024 ? 112 : 152;
+  const sections = sectionIds
+    .map((sectionId) => {
+      const element = document.getElementById(sectionId);
+
+      if (!element) {
+        return null;
+      }
+
+      const rect = element.getBoundingClientRect();
+
+      return {
+        sectionId,
+        top: rect.top,
+        bottom: rect.bottom,
+      };
+    })
+    .filter((section): section is { sectionId: string; top: number; bottom: number } => section !== null);
+
+  if (sections.length === 0) {
+    return null;
+  }
+
+  sections.sort((firstSection, secondSection) => firstSection.top - secondSection.top);
+
+  let currentSectionId = sections[0].sectionId;
+
+  for (const section of sections) {
+    if (section.bottom <= stickyOffset) {
+      continue;
+    }
+
+    currentSectionId = section.sectionId;
+
+    if (section.top > stickyOffset) {
+      break;
+    }
+  }
+
+  return currentSectionId;
+};
+
 export const AppLayout = () => {
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
 
   useEffect(() => {
     setIsMobileMenuOpen(false);
@@ -46,6 +95,48 @@ export const AppLayout = () => {
       : location.pathname === "/professor"
         ? teacherSidebarConfig
         : appSidebarConfig;
+  const trackedSections = useMemo(() => {
+    return pageSections[location.pathname as keyof typeof pageSections] ?? [];
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (trackedSections.length === 0) {
+      setActiveSectionId(null);
+      return;
+    }
+
+    let animationFrameId = 0;
+
+    const updateActiveSection = () => {
+      const nextSectionId = resolveActiveSection(trackedSections.map((section) => section.targetId));
+      setActiveSectionId((currentSectionId) => {
+        return currentSectionId === nextSectionId ? currentSectionId : nextSectionId;
+      });
+    };
+
+    const handleViewportChange = () => {
+      if (animationFrameId) {
+        window.cancelAnimationFrame(animationFrameId);
+      }
+
+      animationFrameId = window.requestAnimationFrame(updateActiveSection);
+    };
+
+    updateActiveSection();
+    window.addEventListener("scroll", handleViewportChange, { passive: true });
+    window.addEventListener("resize", handleViewportChange);
+
+    return () => {
+      window.removeEventListener("scroll", handleViewportChange);
+      window.removeEventListener("resize", handleViewportChange);
+      if (animationFrameId) {
+        window.cancelAnimationFrame(animationFrameId);
+      }
+    };
+  }, [trackedSections]);
+
+  const currentSection = trackedSections.find((section) => section.targetId === activeSectionId) ?? null;
+  const activeSidebarSectionTargetId = currentSection?.navTargetId ?? currentSection?.targetId ?? null;
 
   return (
     <div className="app-shell">
@@ -54,7 +145,7 @@ export const AppLayout = () => {
       </a>
 
       <div className="app-shell__sidebar">
-        <Sidebar config={sidebarConfig} />
+        <Sidebar activeSectionTargetId={activeSidebarSectionTargetId} config={sidebarConfig} />
       </div>
 
       <div className="app-shell__content">
@@ -74,13 +165,30 @@ export const AppLayout = () => {
               type="button"
             />
             <div className="mobile-drawer__panel">
-              <Sidebar config={sidebarConfig} mode="mobile" onNavigate={() => setIsMobileMenuOpen(false)} />
+              <Sidebar
+                activeSectionTargetId={activeSidebarSectionTargetId}
+                config={sidebarConfig}
+                mode="mobile"
+                onNavigate={() => setIsMobileMenuOpen(false)}
+              />
             </div>
           </div>
         ) : null}
 
         <main className="app-main" id="main-content">
           <div className="app-main__inner">
+            <div className="page-context-bar" aria-label="Contexto da pagina">
+              <div className="page-context-bar__body">
+                <span className="page-context-bar__eyebrow">Tela atual</span>
+                <strong>{currentPage.title}</strong>
+              </div>
+              {currentSection ? (
+                <div className="page-context-bar__status">
+                  <span className="page-context-bar__label">Secao</span>
+                  <span className="page-context-bar__value">{currentSection.label}</span>
+                </div>
+              ) : null}
+            </div>
             <Outlet />
           </div>
         </main>

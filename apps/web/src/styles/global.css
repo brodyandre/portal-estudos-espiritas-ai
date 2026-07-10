@@ -75,8 +75,11 @@ img {
 }
 
 .app-main__inner {
+  display: grid;
+  gap: var(--space-5);
   max-width: var(--layout-max-width);
   margin: 0 auto;
+  padding-bottom: calc(var(--space-8) + env(safe-area-inset-bottom, 0px));
 }
 
 .app-shell,
@@ -113,13 +116,14 @@ img {
 
 .student-hero[id],
 .teacher-hero[id],
+.page-anchor[id],
 .page-section[id],
 .student-group-card[id],
 .teacher-group-card[id],
 .group-card[id],
 .student-panel[id],
 .teacher-panel[id] {
-  scroll-margin-top: calc(var(--mobile-header-height) + var(--space-5));
+  scroll-margin-top: var(--sticky-offset);
 }
 
 .mobile-header {
@@ -183,6 +187,7 @@ img {
   height: 100%;
   background: var(--color-brand-900);
   box-shadow: var(--shadow-popover);
+  overflow-y: auto;
 }
 
 .sidebar {
@@ -190,7 +195,12 @@ img {
   flex-direction: column;
   gap: var(--space-8);
   min-height: 100%;
+  height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
   padding: var(--space-8) var(--space-6);
+  padding-bottom: calc(var(--space-8) + env(safe-area-inset-bottom, 0px));
   color: var(--color-card);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 180px),
@@ -214,15 +224,33 @@ img {
 .sidebar__nav {
   display: grid;
   gap: var(--space-3);
+  padding-bottom: var(--space-2);
 }
 
 .sidebar__link {
+  position: relative;
   display: block;
   padding: var(--space-4);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--radius-md);
   background: rgba(255, 255, 255, 0.04);
-  transition: background-color 160ms ease, transform 160ms ease, border-color 160ms ease;
+  transition:
+    background-color 160ms ease,
+    transform 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.sidebar__link::before {
+  content: "";
+  position: absolute;
+  left: -1px;
+  top: var(--space-4);
+  bottom: var(--space-4);
+  width: 4px;
+  border-radius: 999px;
+  background: transparent;
+  transition: background-color 160ms ease;
 }
 
 .sidebar__link:hover,
@@ -233,12 +261,22 @@ img {
 }
 
 .sidebar__link--active {
-  background: rgba(255, 255, 255, 0.16);
-  border-color: rgba(255, 255, 255, 0.32);
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.34);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.sidebar__link--active::before {
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.sidebar__link--active .sidebar__link-description {
+  color: rgba(255, 255, 255, 0.92);
 }
 
 .sidebar__link-button {
   width: 100%;
+  appearance: none;
   color: inherit;
   font: inherit;
   text-align: left;
@@ -263,6 +301,56 @@ img {
   padding: var(--space-5);
   border-radius: var(--radius-lg);
   background: rgba(255, 255, 255, 0.08);
+}
+
+.page-context-bar {
+  position: sticky;
+  top: var(--mobile-header-height);
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: var(--page-context-height);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid rgba(216, 222, 230, 0.82);
+  border-radius: var(--radius-lg);
+  background: rgba(252, 250, 246, 0.94);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 12px 28px rgba(22, 58, 95, 0.08);
+}
+
+.page-context-bar__body {
+  min-width: 0;
+}
+
+.page-context-bar__eyebrow,
+.page-context-bar__label {
+  display: block;
+  margin: 0;
+  color: var(--color-text-500);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.page-context-bar__body strong,
+.page-context-bar__value {
+  display: block;
+  margin-top: var(--space-1);
+  color: var(--color-brand-900);
+  font-family: var(--font-title);
+  font-size: 1.1rem;
+  line-height: 1.15;
+}
+
+.page-context-bar__status {
+  min-width: fit-content;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: rgba(22, 58, 95, 0.06);
+  border: 1px solid rgba(22, 58, 95, 0.08);
 }
 
 .sidebar__footer h2 {
@@ -537,8 +625,16 @@ img {
   order: 2;
 }
 
-.student-page__steps-section {
+.student-page__resources-section {
   order: 3;
+}
+
+.student-page__progress-section {
+  order: 4;
+}
+
+.student-page__steps-section {
+  order: 5;
 }
 
 .student-hero {
@@ -741,6 +837,7 @@ img {
 .two-column-grid {
   display: grid;
   gap: var(--space-4);
+  align-items: start;
 }
 
 .student-group-card {
@@ -1399,6 +1496,14 @@ img {
     width: 100%;
   }
 
+  .page-context-bar {
+    padding-inline: var(--space-3);
+  }
+
+  .page-context-bar__status {
+    width: 100%;
+  }
+
   .student-hero__actions,
   .teacher-hero__actions {
     flex-wrap: wrap;
@@ -1408,6 +1513,21 @@ img {
   .teacher-icon-button,
   .assistant-chip {
     min-height: 44px;
+  }
+}
+
+@media (max-width: 430px) {
+  .mobile-header__brand p {
+    display: none;
+  }
+
+  .page-context-bar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .page-context-bar__status {
+    min-width: 100%;
   }
 }
 
@@ -1474,9 +1594,21 @@ img {
     justify-content: space-between;
     align-items: center;
   }
+
+  .student-page__resources-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .student-page__resources-grid > :last-child {
+    grid-column: 1 / -1;
+  }
 }
 
 @media (min-width: 1024px) {
+  :root {
+    --sticky-offset: 112px;
+  }
+
   .app-shell {
     display: grid;
     grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
@@ -1487,6 +1619,7 @@ img {
     position: sticky;
     top: 0;
     height: 100vh;
+    min-height: 0;
   }
 
   .mobile-header {
@@ -1495,6 +1628,10 @@ img {
 
   .app-main {
     padding: var(--space-8);
+  }
+
+  .page-context-bar {
+    top: 0;
   }
 
   .group-grid {
@@ -1528,6 +1665,14 @@ img {
 
   .student-page__dashboard-section {
     order: 3;
+  }
+
+  .student-page__resources-section {
+    order: 4;
+  }
+
+  .student-page__progress-section {
+    order: 5;
   }
 
   .teacher-dashboard {

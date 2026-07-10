@@ -1,5 +1,6 @@
 import { Annotation, END, START, StateGraph } from "@langchain/langgraph";
 
+import { env } from "../config/env";
 import type { StudyGroup } from "../data/studies";
 import { studyGroups } from "../data/studies";
 import { createKeywordRetriever } from "../rag/retriever";
@@ -16,6 +17,8 @@ import { buildAnswerPrompt } from "./prompts";
 import { buildAnswerFallback, buildInsufficientContextAnswer } from "./fallbacks";
 import { generateWithOllama } from "./llm";
 import { buildShortExcerpt, normalizeInputText, sanitizeGeneratedText } from "./safety";
+
+const ANSWER_GRAPH_TIMEOUT_MS = env.nodeEnv === "test" ? 1500 : 12000;
 
 const AnswerGraphState = Annotation.Root({
   request: Annotation<AnswerRequest>(),
@@ -399,12 +402,40 @@ const answerGraph = new StateGraph(AnswerGraphState)
     name: "study-answer-graph",
   });
 
+const invokeAnswerGraphWithTimeout = async (
+  request: AnswerRequest,
+  group: StudyGroup,
+) => {
+  const graphPromise = answerGraph.invoke(createInitialState(request, group));
+
+  return await new Promise<AnswerGraphStateValue>((resolve, reject) => {
+    const timeoutId = setTimeout(() => {
+      reject(
+        new Error(
+          "O fluxo de resposta excedeu o tempo esperado e voltou ao modo de contingencia.",
+        ),
+      );
+    }, ANSWER_GRAPH_TIMEOUT_MS);
+
+    graphPromise.then(
+      (result) => {
+        clearTimeout(timeoutId);
+        resolve(result);
+      },
+      (error) => {
+        clearTimeout(timeoutId);
+        reject(error);
+      },
+    );
+  });
+};
+
 export const answerQuestionWithGraph = async (
   request: AnswerRequest,
   group: StudyGroup,
 ): Promise<AgentAnswerResult> => {
   try {
-    const finalState = await answerGraph.invoke(createInitialState(request, group));
+    const finalState = await invokeAnswerGraphWithTimeout(request, group);
 
     return {
       answer: finalState.answer,

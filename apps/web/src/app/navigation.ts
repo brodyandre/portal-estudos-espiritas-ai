@@ -22,6 +22,12 @@ export interface SidebarConfig {
   items: NavigationItem[];
 }
 
+export interface PageSectionContext {
+  targetId: string;
+  label: string;
+  navTargetId?: string;
+}
+
 export const appSidebarConfig: SidebarConfig = {
   badge: "Projeto demonstrativo",
   title: "Portal de Estudos Espiritas AI",
@@ -172,3 +178,101 @@ export const pageMeta = {
     description: "Planejamento da semana, revisao de conteudo e publicacao consciente.",
   },
 } satisfies Record<string, { title: string; description: string }>;
+
+export const pageSections: Record<string, PageSectionContext[]> = {
+  "/": [],
+  "/portal": [
+    {
+      targetId: "portal-inicio",
+      label: "Boas-vindas",
+    },
+    {
+      targetId: "portal-grupos",
+      label: "Grupos e Google Meet",
+    },
+    {
+      targetId: "portal-tema",
+      label: "Tema da semana",
+    },
+    {
+      targetId: "portal-materiais",
+      label: "Materiais",
+    },
+    {
+      targetId: "portal-duvidas",
+      label: "Enviar duvida",
+    },
+    {
+      targetId: "portal-orientacoes",
+      label: "Orientacoes",
+    },
+  ],
+  "/aluno": [
+    {
+      targetId: "aluno-inicio",
+      label: "Inicio",
+    },
+    {
+      targetId: "grupo-emmanuel",
+      label: "Emmanuel",
+    },
+    {
+      targetId: "grupo-a-caminho-da-luz",
+      label: "A Caminho da Luz",
+    },
+    {
+      targetId: "aluno-proxima-aula",
+      label: "Proxima aula",
+      navTargetId: "aluno-inicio",
+    },
+    {
+      targetId: "aluno-duvidas",
+      label: "Duvidas",
+      navTargetId: "duvidas-enviadas",
+    },
+    {
+      targetId: "materiais-da-semana",
+      label: "Materiais",
+    },
+    {
+      targetId: "aluno-resumo",
+      label: "Resumo",
+      navTargetId: "materiais-da-semana",
+    },
+    {
+      targetId: "meu-progresso",
+      label: "Progresso",
+    },
+  ],
+  "/professor": [
+    {
+      targetId: "professor-inicio",
+      label: "Inicio",
+    },
+    {
+      targetId: "professor-grupo-emmanuel",
+      label: "Emmanuel",
+    },
+    {
+      targetId: "professor-grupo-a-caminho-da-luz",
+      label: "A Caminho da Luz",
+    },
+    {
+      targetId: "professor-preparar-aula",
+      label: "Preparar aula",
+      navTargetId: "professor-inicio",
+    },
+    {
+      targetId: "professor-duvidas",
+      label: "Duvidas",
+    },
+    {
+      targetId: "professor-resumos",
+      label: "Previa",
+    },
+    {
+      targetId: "professor-configuracoes",
+      label: "Aprovacao",
+    },
+  ],
+};

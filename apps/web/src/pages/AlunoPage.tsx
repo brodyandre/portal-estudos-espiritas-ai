@@ -257,9 +257,7 @@ export const AlunoPage = () => {
 
   return (
     <div className="student-page page-stack">
-      <div id="aluno-inicio" />
-
-      <section className="student-hero">
+      <section className="student-hero" id="aluno-inicio">
         <div className="student-hero__intro">
           <Badge tone="sand">Area do aluno</Badge>
           <h1>Portal dos Estudos Espiritas Online</h1>
@@ -379,7 +377,7 @@ export const AlunoPage = () => {
         <>
           <section className="student-page__dashboard-section page-section">
             <div className="two-column-grid">
-              <Card tone="brand">
+              <Card className="student-panel student-panel--upcoming" id="aluno-proxima-aula" tone="brand">
                 <div className="student-panel__header">
                   <div>
                     <p className="card-eyebrow">Proxima aula</p>
@@ -398,79 +396,138 @@ export const AlunoPage = () => {
                 </div>
               </Card>
 
-              <Card aria-busy={isAssistantLoading} tone="default">
+              <Card
+                aria-busy={isAssistantLoading}
+                className="student-panel student-panel--assistant"
+                id="aluno-duvidas"
+                tone="default"
+              >
                 <div className="student-panel__header">
                   <div>
                     <p className="card-eyebrow">Pergunte ao assistente</p>
                     <h2>Apoio inicial para estudar</h2>
                   </div>
-                  <Badge tone="sand">Revisavel</Badge>
+                    <Badge tone="sand">Revisavel</Badge>
                 </div>
 
-                <TextInput
-                  id="assistant-question"
-                  label="Sua duvida"
-                  onChange={(event) => setAssistantInput(event.target.value)}
-                  placeholder="Exemplo: como revisar melhor a aula desta semana?"
-                  value={assistantInput}
-                />
-
-                <div className="button-row">
+                <div className="assistant-card__chips" aria-label="Sugestoes de perguntas" role="list">
                   {questionSuggestions.map((suggestion) => (
-                    <Button key={suggestion} onClick={() => handleAssistantSubmit(suggestion)} variant="ghost">
+                    <button
+                      className="assistant-chip"
+                      key={suggestion}
+                      onClick={() => void handleAssistantSubmit(suggestion)}
+                      type="button"
+                    >
                       {suggestion}
-                    </Button>
+                    </button>
                   ))}
                 </div>
 
-                <div className="button-row">
+                <div className="assistant-card__composer">
+                  <TextInput
+                    id="assistant-question"
+                    label="Sua duvida"
+                    onChange={(event) => setAssistantInput(event.target.value)}
+                    placeholder="Exemplo: como revisar melhor a aula desta semana?"
+                    value={assistantInput}
+                  />
                   <Button onClick={() => void handleAssistantSubmit()}>
                     {isAssistantLoading ? "Enviando..." : "Enviar"}
                   </Button>
                 </div>
 
-                <AlertBox title="Resposta demonstrativa" tone="info">
-                  {assistantResponse.answer}
-                </AlertBox>
-
-                <p className="assistant-card__source">{assistantResponse.supportNotice}</p>
-                <div className="button-row">
-                  {assistantResponse.sources.map((source) => (
-                    <Badge key={source} tone="sand">
-                      {source}
-                    </Badge>
-                  ))}
+                <div className="assistant-card__response">
+                  <strong>Resposta demonstrativa</strong>
+                  <p>{assistantResponse.answer}</p>
+                  <p className="assistant-card__source">
+                    Resposta baseada nos materiais cadastrados.
+                  </p>
+                  <p className="assistant-card__helper">{assistantResponse.supportNotice}</p>
                 </div>
 
-                <div className="button-row">
-                  <Button onClick={() => setAssistantFeedback("helpful")} variant="secondary">
-                    Foi util
-                  </Button>
-                  <Button onClick={() => setAssistantFeedback("not-helpful")} variant="ghost">
-                    Nao foi util
-                  </Button>
-                  <Button onClick={() => void handleSendQuestionToTeacher()} variant="secondary">
-                    {isSendingTeacherQuestion ? "Enviando..." : "Enviar duvida ao professor"}
-                  </Button>
+                <div className="assistant-card__sources">
+                  <p className="assistant-card__sources-label">Fontes indicadas</p>
+                  <div className="button-row">
+                    {assistantResponse.sources.map((source) => (
+                      <Badge key={source} tone="sand">
+                        {source}
+                      </Badge>
+                    ))}
+                  </div>
                 </div>
 
-                {assistantFeedback ? (
-                  <p className="student-panel__note">
-                    Feedback registrado: {assistantFeedback === "helpful" ? "foi util" : "nao foi util"}.
-                  </p>
-                ) : null}
-                {assistantMessage ? (
-                  <p aria-live="polite" className="student-panel__note">
-                    {assistantMessage}
-                  </p>
-                ) : null}
+                <div className="assistant-card__feedback">
+                  <div className="button-row">
+                    <Button onClick={() => setAssistantFeedback("helpful")} variant="secondary">
+                      Foi util
+                    </Button>
+                    <Button onClick={() => setAssistantFeedback("not-helpful")} variant="ghost">
+                      Nao foi util
+                    </Button>
+                    <Button onClick={() => void handleSendQuestionToTeacher()} variant="secondary">
+                      {isSendingTeacherQuestion ? "Enviando..." : "Enviar duvida ao professor"}
+                    </Button>
+                  </div>
+
+                  {assistantFeedback ? (
+                    <p className="student-panel__note">
+                      Feedback registrado: {assistantFeedback === "helpful" ? "foi util" : "nao foi util"}.
+                    </p>
+                  ) : null}
+                  {assistantMessage ? (
+                    <p aria-live="polite" className="student-panel__note">
+                      {assistantMessage}
+                    </p>
+                  ) : null}
+                </div>
               </Card>
             </div>
           </section>
 
-          <section className="page-section">
-            <div className="three-column-grid">
-              <Card tone="soft">
+          <section className="student-page__resources-section page-section">
+            <div className="three-column-grid student-page__resources-grid">
+              <Card className="student-panel" id="materiais-da-semana" tone="soft">
+                <div className="student-panel__header">
+                  <h2>Materiais da semana</h2>
+                  <Badge tone="sand">{activeMaterials.length} itens</Badge>
+                </div>
+                <div className="stack-list">
+                  {activeMaterials.map((material) => (
+                    <article className="stack-list__item" key={material.id}>
+                      <div className="stack-list__header">
+                        <strong>{material.title}</strong>
+                        <Badge tone="sand">{material.kind}</Badge>
+                      </div>
+                      <p className="student-panel__note">{material.description}</p>
+                      <p className="stack-list__meta">{material.publishedLabel}</p>
+                    </article>
+                  ))}
+                </div>
+              </Card>
+
+              <Card className="student-panel" id="duvidas-enviadas" tone="soft">
+                <div className="student-panel__header">
+                  <h2>Minhas duvidas enviadas</h2>
+                  <Badge tone="sand">{filteredQuestions.length}</Badge>
+                </div>
+                <div className="stack-list">
+                  {filteredQuestions.slice(0, 3).map((question) => {
+                    const status = getQuestionStatus(question.status);
+
+                    return (
+                      <article className="stack-list__item" key={question.id}>
+                        <div className="student-panel__header">
+                          <strong>{question.question}</strong>
+                          <StatusTag label={status.label} tone={status.tone} />
+                        </div>
+                        <p className="student-panel__note">{question.lessonTitle}</p>
+                      </article>
+                    );
+                  })}
+                </div>
+              </Card>
+
+              <Card className="student-panel" id="aluno-resumo" tone="soft">
                 <div className="student-panel__header">
                   <h2>Resumo da ultima aula</h2>
                   <Badge tone="sand">{activeSummary?.readingTimeLabel ?? "Leitura breve"}</Badge>
@@ -478,66 +535,38 @@ export const AlunoPage = () => {
                 <p className="student-panel__note">
                   {activeSummary?.content ?? "Resumo demonstrativo disponivel para revisao."}
                 </p>
-              </Card>
-
-              <Card id="materiais-da-semana" tone="soft">
-                <div className="student-panel__header">
-                  <h2>Materiais da semana</h2>
-                  <Badge tone="sand">{activeMaterials.length} itens</Badge>
-                </div>
-                <div className="page-stack">
-                  {activeMaterials.map((material) => (
-                    <div key={material.id}>
-                      <strong>{material.title}</strong>
-                      <p className="student-panel__note">{material.description}</p>
-                    </div>
-                  ))}
-                </div>
-              </Card>
-
-              <Card id="duvidas-enviadas" tone="soft">
-                <div className="student-panel__header">
-                  <h2>Minhas duvidas enviadas</h2>
-                  <Badge tone="sand">{filteredQuestions.length}</Badge>
-                </div>
-                <div className="page-stack">
-                  {filteredQuestions.slice(0, 3).map((question) => {
-                    const status = getQuestionStatus(question.status);
-
-                    return (
-                      <div key={question.id}>
-                        <div className="student-panel__header">
-                          <strong>{question.question}</strong>
-                          <StatusTag label={status.label} tone={status.tone} />
-                        </div>
-                        <p className="student-panel__note">{question.lessonTitle}</p>
-                      </div>
-                    );
-                  })}
-                </div>
+                {activeSummary?.takeaways.length ? (
+                  <ul className="bullet-list">
+                    {activeSummary.takeaways.map((takeaway) => (
+                      <li key={takeaway}>{takeaway}</li>
+                    ))}
+                  </ul>
+                ) : null}
               </Card>
             </div>
           </section>
 
-          <section className="page-section" id="meu-progresso">
+          <section className="student-page__progress-section page-section" id="meu-progresso">
             <div className="two-column-grid">
-              <Card tone="default">
+              <Card className="student-panel" tone="default">
                 <div className="student-panel__header">
                   <h2>Meu progresso</h2>
                   <Badge tone="success">Demonstrativo</Badge>
                 </div>
-                <div className="page-stack">
+                <div className="student-progress-list">
                   {progressHighlights.map((highlight) => (
                     <div className="student-progress-row" key={highlight.label}>
-                      <strong>{highlight.label}</strong>
-                      <p>{highlight.value}</p>
+                      <div className="student-progress-row__top">
+                        <strong>{highlight.label}</strong>
+                        <span>{highlight.value}</span>
+                      </div>
                       <p>{highlight.note}</p>
                     </div>
                   ))}
                 </div>
               </Card>
 
-              <Card tone="default">
+              <Card className="student-panel" tone="default">
                 <div className="student-panel__header">
                   <h2>Meu foco nesta semana</h2>
                   <StatusTag tone="active" />

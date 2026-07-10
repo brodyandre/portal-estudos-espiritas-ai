@@ -361,9 +361,7 @@ export const ProfessorPage = () => {
 
   return (
     <div className="teacher-page page-stack">
-      <div id="professor-inicio" />
-
-      <section className="teacher-hero">
+      <section className="teacher-hero" id="professor-inicio">
         <div>
           <Badge tone="sand">Area do professor</Badge>
           <h1>Portal dos Estudos Espiritas Online</h1>
@@ -411,20 +409,22 @@ export const ProfessorPage = () => {
 
               return (
                 <Card
-                  className={`student-group-card ${
-                    isActive ? "student-group-card--active" : ""
+                  className={`teacher-group-card ${
+                    isActive ? "teacher-group-card--active" : ""
                   }`}
                   id={groupCardIds[group.slug]}
                   key={group.slug}
                   tone={isActive ? "brand" : "default"}
                 >
-                  <div className="student-group-card__top">
+                  <div className="teacher-group-card__top">
                     <Badge tone="brand">{group.participantCount} participantes</Badge>
                     <StatusTag label={isActive ? "Grupo ativo" : undefined} tone="upcoming" />
                   </div>
 
-                  <h2>{group.name}</h2>
-                  <p className="student-panel__note">{group.nextLesson.title}</p>
+                  <div className="teacher-group-card__body">
+                    <h2>{group.name}</h2>
+                    <p className="teacher-panel__note">{group.nextLesson.title}</p>
+                  </div>
                   <div className="button-row">
                     <Button onClick={() => setGroupSlug(group.slug)} variant={isActive ? "primary" : "secondary"}>
                       {isActive ? "Grupo selecionado" : "Escolher grupo"}
@@ -455,7 +455,12 @@ export const ProfessorPage = () => {
         <>
           <section className="page-section">
             <div className="two-column-grid">
-              <Card aria-busy={activeAction !== null} tone="default">
+              <Card
+                aria-busy={activeAction !== null}
+                className="teacher-panel"
+                id="professor-preparar-aula"
+                tone="default"
+              >
                 <div className="student-panel__header">
                   <div>
                     <p className="card-eyebrow">Preparar proxima aula</p>
@@ -513,23 +518,23 @@ export const ProfessorPage = () => {
                 </div>
               </Card>
 
-              <Card id="professor-duvidas" tone="soft">
+              <Card className="teacher-panel" id="professor-duvidas" tone="soft">
                 <div className="student-panel__header">
                   <h2>Duvidas recebidas</h2>
                   <Badge tone="sand">{activeQuestions.length}</Badge>
                 </div>
-                <div className="page-stack">
+                <div className="stack-list">
                   {activeQuestions.slice(0, 4).map((question) => {
                     const status = getQuestionStatus(question.status);
 
                     return (
-                      <div key={question.id}>
+                      <article className="stack-list__item" key={question.id}>
                         <div className="student-panel__header">
                           <strong>{question.authorName}</strong>
                           <StatusTag label={status.label} tone={status.tone} />
                         </div>
                         <p className="student-panel__note">{question.question}</p>
-                      </div>
+                      </article>
                     );
                   })}
                 </div>
@@ -539,7 +544,7 @@ export const ProfessorPage = () => {
 
           <section className="page-section">
             <div className="two-column-grid">
-              <Card id="professor-resumos" tone="default">
+              <Card className="teacher-panel" id="professor-resumos" tone="default">
                 <div className="student-panel__header">
                   <h2>Previa do conteudo</h2>
                   <Badge tone="sand">Editavel</Badge>
@@ -585,7 +590,7 @@ export const ProfessorPage = () => {
                 />
               </Card>
 
-              <Card id="professor-configuracoes" tone="soft">
+              <Card className="teacher-panel" id="professor-configuracoes" tone="soft">
                 <div className="student-panel__header">
                   <h2>Aprovacao do professor</h2>
                   <StatusTag

@@ -129,28 +129,30 @@ export const PortalPage = () => {
 
   return (
     <div className="portal-page page-stack">
-      <ProfileHeader
-        actions={
-          <div className="button-row">
-            <Button to="/aluno">Abrir area do aluno</Button>
-            <Button to="/professor" variant="secondary">
-              Abrir area do professor
-            </Button>
-          </div>
-        }
-        badge="Pagina compartilhavel"
-        description="Boas-vindas ao portal dos encontros online. Aqui voce encontra os grupos, o tema da semana, materiais de apoio e um caminho simples para enviar duvidas sem login."
-        eyebrow="Portal"
-        meta={[
-          { label: "Grupos ativos", value: String(groups.length || 2) },
-          {
-            label: "Participantes",
-            value: participantTotal > 0 ? `${participantTotal} ao todo` : "Carregando",
-          },
-          { label: "Acesso", value: "Sem login" },
-        ]}
-        title="Boas-vindas aos estudos espiritas online"
-      />
+      <div className="page-anchor" id="portal-inicio">
+        <ProfileHeader
+          actions={
+            <div className="button-row">
+              <Button to="/aluno">Abrir area do aluno</Button>
+              <Button to="/professor" variant="secondary">
+                Abrir area do professor
+              </Button>
+            </div>
+          }
+          badge="Pagina compartilhavel"
+          description="Boas-vindas ao portal dos encontros online. Aqui voce encontra os grupos, o tema da semana, materiais de apoio e um caminho simples para enviar duvidas sem login."
+          eyebrow="Portal"
+          meta={[
+            { label: "Grupos ativos", value: String(groups.length || 2) },
+            {
+              label: "Participantes",
+              value: participantTotal > 0 ? `${participantTotal} ao todo` : "Carregando",
+            },
+            { label: "Acesso", value: "Sem login" },
+          ]}
+          title="Boas-vindas aos estudos espiritas online"
+        />
+      </div>
 
       <AlertBox
         title={notice ? "Modo demonstrativo ativo" : "Portal aberto e acolhedor"}
@@ -160,7 +162,7 @@ export const PortalPage = () => {
           "Esta pagina pode ser compartilhada com novos participantes. Os encontros, materiais e orientacoes aparecem de forma simples, sem exigir cadastro."}
       </AlertBox>
 
-      <section className="page-section">
+      <section className="page-section" id="portal-grupos">
         <SectionTitle
           description="Os dois grupos ficam visiveis no topo para facilitar o acesso rapido ao encontro e aos detalhes da semana."
           title="Grupos e Google Meet"
@@ -241,7 +243,7 @@ export const PortalPage = () => {
 
       {isLoading || !activeGroup ? null : (
         <>
-          <section className="page-section">
+          <section className="page-section" id="portal-tema">
             <SectionTitle
               description={`Tudo o que voce precisa para acompanhar o grupo ${activeGroup.name} nesta semana.`}
               title="Tema da semana e resumo da ultima aula"
@@ -268,7 +270,7 @@ export const PortalPage = () => {
             </div>
           </section>
 
-          <section className="page-section">
+          <section className="page-section" id="portal-materiais">
             <SectionTitle
               description="Materiais curtos ajudam novos participantes e alunos regulares a chegar ao encontro com mais serenidade."
               title="Materiais da semana"
@@ -276,7 +278,7 @@ export const PortalPage = () => {
 
             <div className="three-column-grid">
               {activeMaterials.map((material) => (
-                <Card key={material.id} tone="soft">
+                <Card className="portal-materials-card" key={material.id} tone="soft">
                   <div className="student-panel__header">
                     <h3>{material.title}</h3>
                     <Badge tone="sand">{material.kind}</Badge>
@@ -288,14 +290,14 @@ export const PortalPage = () => {
             </div>
           </section>
 
-          <section className="page-section">
+          <section className="page-section" id="portal-duvidas">
             <SectionTitle
               description="Use este campo para registrar uma duvida curta. O professor podera revisar antes do proximo encontro."
               title="Enviar duvida"
             />
 
             <div className="two-column-grid">
-              <Card tone="default">
+              <Card className="portal-question-form" tone="default">
                 <Select
                   id="portal-group"
                   label="Grupo"
@@ -337,9 +339,9 @@ export const PortalPage = () => {
               <Card tone="sand">
                 <p className="card-eyebrow">Uso responsavel do assistente</p>
                 <h3>Apoio simples, sempre com revisao humana</h3>
-                <div className="page-stack">
+                <div className="stack-list">
                   {responsibleUsePoints.map((item) => (
-                    <p className="student-panel__note" key={item}>
+                    <p className="stack-list__item student-panel__note" key={item}>
                       {item}
                     </p>
                   ))}
@@ -348,7 +350,7 @@ export const PortalPage = () => {
             </div>
           </section>
 
-          <section className="page-section">
+          <section className="page-section" id="portal-orientacoes">
             <SectionTitle
               description="Novos participantes conseguem entender o ritmo do grupo com poucos passos e sem termos tecnicos."
               title="Orientacao para novos participantes"
@@ -356,9 +358,9 @@ export const PortalPage = () => {
 
             <div className="two-column-grid">
               <Card tone="soft">
-                <div className="page-stack">
+                <div className="stack-list">
                   {newcomerTips.map((tip) => (
-                    <p className="student-panel__note" key={tip}>
+                    <p className="stack-list__item student-panel__note" key={tip}>
                       {tip}
                     </p>
                   ))}

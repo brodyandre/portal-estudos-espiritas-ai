@@ -8,6 +8,7 @@ interface SidebarProps {
   mode?: "desktop" | "mobile";
   onNavigate?: () => void;
   config: SidebarConfig;
+  activeSectionTargetId?: string | null;
 }
 
 const focusSectionTarget = (target: HTMLElement) => {
@@ -38,7 +39,12 @@ const handleSectionNavigation = (item: Extract<NavigationItem, { type: "section"
   onNavigate?.();
 };
 
-export const Sidebar = ({ mode = "desktop", onNavigate, config }: SidebarProps) => {
+export const Sidebar = ({
+  mode = "desktop",
+  onNavigate,
+  config,
+  activeSectionTargetId,
+}: SidebarProps) => {
   return (
     <aside className={cn("sidebar", mode === "mobile" && "sidebar--mobile")}>
       <div className="sidebar__brand">
@@ -66,7 +72,11 @@ export const Sidebar = ({ mode = "desktop", onNavigate, config }: SidebarProps) 
           ) : (
             <button
               key={item.targetId}
-              className="sidebar__link sidebar__link-button"
+              aria-current={activeSectionTargetId === item.targetId ? "location" : undefined}
+              className={cn(
+                "sidebar__link sidebar__link-button",
+                activeSectionTargetId === item.targetId && "sidebar__link--active",
+              )}
               onClick={() => handleSectionNavigation(item, onNavigate)}
               type="button"
             >
