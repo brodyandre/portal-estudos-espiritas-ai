@@ -97,6 +97,9 @@ img {
 .teacher-form-grid,
 .teacher-action-grid,
 .teacher-preview-stack,
+.teacher-side-stack,
+.materials-page,
+.materials-file-list,
 .student-resources-layout,
 .student-resources-stack,
 .portal-section-grid,
@@ -113,6 +116,8 @@ img {
 .teacher-form-grid > *,
 .teacher-action-grid > *,
 .teacher-preview-stack > *,
+.teacher-side-stack > *,
+.materials-file-list > *,
 .student-resources-layout > *,
 .student-resources-stack > * {
   min-width: 0;
@@ -843,6 +848,10 @@ img {
   gap: var(--space-6);
 }
 
+.materials-page {
+  gap: var(--space-6);
+}
+
 .group-grid,
 .steps-grid,
 .three-column-grid,
@@ -1052,6 +1061,30 @@ img {
   gap: var(--space-4);
 }
 
+.materials-overview-card,
+.materials-file-card,
+.materials-faq-card,
+.materials-group-card {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.materials-file-list {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.materials-tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.materials-sensitive-block {
+  display: grid;
+  gap: var(--space-2);
+}
+
 .portal-card-note {
   margin: 0;
   color: var(--color-text-700);
@@ -1116,6 +1149,12 @@ img {
   gap: var(--space-4);
 }
 
+.teacher-side-stack,
+.teacher-support-list {
+  display: grid;
+  gap: var(--space-4);
+}
+
 .teacher-preview-stack .field {
   gap: var(--space-3);
 }
@@ -1137,6 +1176,71 @@ img {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-3);
+}
+
+.teacher-support-item {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid rgba(22, 58, 95, 0.1);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.78);
+  cursor: pointer;
+}
+
+.teacher-support-item--selected {
+  border-color: rgba(22, 58, 95, 0.22);
+  box-shadow: inset 0 0 0 1px rgba(22, 58, 95, 0.05);
+  background: rgba(255, 255, 255, 0.95);
+}
+
+.teacher-support-item__select {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: start;
+}
+
+.teacher-support-item__select input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin-top: 4px;
+  accent-color: var(--color-brand-900);
+}
+
+.teacher-support-item__content {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.teacher-support-item__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.teacher-support-item__header strong {
+  display: block;
+}
+
+.teacher-support-item__tags,
+.teacher-sensitive-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.teacher-support-item__topics {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.teacher-support-item__topics-label {
+  color: var(--color-text-500);
+  font-size: 0.9375rem;
+  font-weight: 700;
 }
 
 .action-tile {
@@ -1640,6 +1744,7 @@ img {
   .form-grid,
   .student-detail-list,
   .teacher-form-grid,
+  .materials-file-list,
   .student-resources-layout {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

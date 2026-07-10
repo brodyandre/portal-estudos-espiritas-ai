@@ -134,6 +134,9 @@ export const PortalPage = () => {
           actions={
             <div className="button-row">
               <Button to="/aluno">Abrir area do aluno</Button>
+              <Button to="/materiais" variant="secondary">
+                Abrir materiais dos livros
+              </Button>
               <Button to="/professor" variant="secondary">
                 Abrir area do professor
               </Button>
@@ -227,9 +230,12 @@ export const PortalPage = () => {
                     <Button href={group.meetUrl} rel="noreferrer" target="_blank">
                       Entrar no Google Meet
                     </Button>
+                    <Button to={`/materiais/${group.slug}`} variant="secondary">
+                      Ver materiais do livro
+                    </Button>
                     <Button
                       onClick={() => setActiveGroupSlug(group.slug)}
-                      variant={isActive ? "primary" : "secondary"}
+                      variant={isActive ? "primary" : "ghost"}
                     >
                       {isActive ? "Detalhes abertos" : "Ver detalhes"}
                     </Button>
@@ -285,6 +291,11 @@ export const PortalPage = () => {
                   </div>
                   <p className="student-panel__note">{material.description}</p>
                   <p className="student-panel__note">{material.publishedLabel}</p>
+                  <div className="button-row">
+                    <Button size="compact" to={`/materiais/${activeGroup.slug}`} variant="secondary">
+                      Abrir pagina do livro
+                    </Button>
+                  </div>
                 </Card>
               ))}
             </div>

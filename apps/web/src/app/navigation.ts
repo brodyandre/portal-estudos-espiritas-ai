@@ -57,6 +57,12 @@ export const appSidebarConfig: SidebarConfig = {
     },
     {
       type: "route",
+      to: "/materiais",
+      label: "Materiais",
+      description: "Biblioteca simples com os livros, arquivos e duvidas frequentes.",
+    },
+    {
+      type: "route",
       to: "/professor",
       label: "Professor",
       description: "Planejamento, revisao e publicacao do encontro.",
@@ -109,6 +115,12 @@ export const studentSidebarConfig: SidebarConfig = {
       label: "Meu progresso",
       description: "Acompanhar presenca, aulas e constancia.",
     },
+    {
+      type: "route",
+      to: "/materiais",
+      label: "Materiais dos livros",
+      description: "Abrir a biblioteca com resumos curtos e arquivos do estudo.",
+    },
   ],
 };
 
@@ -157,6 +169,12 @@ export const teacherSidebarConfig: SidebarConfig = {
       label: "Configuracoes",
       description: "Conferir aprovacao, rascunho e publicacao final.",
     },
+    {
+      type: "route",
+      to: "/materiais",
+      label: "Materiais dos livros",
+      description: "Abrir a biblioteca com a base de apoio dos grupos.",
+    },
   ],
 };
 
@@ -172,6 +190,18 @@ export const pageMeta = {
   "/aluno": {
     title: "Painel do Aluno",
     description: "Encontros, materiais, assistente e progresso em um so lugar.",
+  },
+  "/materiais": {
+    title: "Materiais dos Livros",
+    description: "Biblioteca simples com arquivos curtos para alunos e professores.",
+  },
+  "/materiais/emmanuel": {
+    title: "Materiais de Emmanuel",
+    description: "Arquivos curtos, tags e duvidas frequentes do grupo Emmanuel.",
+  },
+  "/materiais/a-caminho-da-luz": {
+    title: "Materiais de A Caminho da Luz",
+    description: "Arquivos curtos, tags e duvidas frequentes do grupo A Caminho da Luz.",
   },
   "/professor": {
     title: "Painel do Professor",
@@ -242,6 +272,56 @@ export const pageSections: Record<string, PageSectionContext[]> = {
     {
       targetId: "meu-progresso",
       label: "Progresso",
+    },
+  ],
+  "/materiais": [
+    {
+      targetId: "materiais-inicio",
+      label: "Inicio",
+    },
+    {
+      targetId: "materiais-grupos",
+      label: "Livros",
+    },
+    {
+      targetId: "materiais-aviso",
+      label: "Revisao humana",
+    },
+  ],
+  "/materiais/emmanuel": [
+    {
+      targetId: "materiais-inicio",
+      label: "Inicio",
+    },
+    {
+      targetId: "materiais-arquivos",
+      label: "Arquivos",
+    },
+    {
+      targetId: "materiais-duvidas",
+      label: "Duvidas frequentes",
+    },
+    {
+      targetId: "materiais-aviso",
+      label: "Revisao humana",
+    },
+  ],
+  "/materiais/a-caminho-da-luz": [
+    {
+      targetId: "materiais-inicio",
+      label: "Inicio",
+    },
+    {
+      targetId: "materiais-arquivos",
+      label: "Arquivos",
+    },
+    {
+      targetId: "materiais-duvidas",
+      label: "Duvidas frequentes",
+    },
+    {
+      targetId: "materiais-aviso",
+      label: "Revisao humana",
     },
   ],
   "/professor": [
