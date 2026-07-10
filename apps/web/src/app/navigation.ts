@@ -51,6 +51,12 @@ export const appSidebarConfig: SidebarConfig = {
     },
     {
       type: "route",
+      to: "/educacao-continuada",
+      label: "Educacao continuada",
+      description: "Entrada publica para visitantes que chegam pelo QR Code do cartaz.",
+    },
+    {
+      type: "route",
       to: "/aluno",
       label: "Aluno",
       description: "Aulas, materiais, resumos, duvidas e progresso.",
@@ -187,6 +193,10 @@ export const pageMeta = {
     title: "Portal",
     description: "Panorama acolhedor dos grupos, encontros e proximos passos.",
   },
+  "/educacao-continuada": {
+    title: "Educacao Continuada Online",
+    description: "Entrada publica para novos participantes conhecerem os grupos e o proximo passo.",
+  },
   "/aluno": {
     title: "Painel do Aluno",
     description: "Encontros, materiais, assistente e progresso em um so lugar.",
@@ -235,6 +245,24 @@ export const pageSections: Record<string, PageSectionContext[]> = {
     {
       targetId: "portal-orientacoes",
       label: "Orientacoes",
+    },
+  ],
+  "/educacao-continuada": [
+    {
+      targetId: "educacao-continuada-inicio",
+      label: "Inicio",
+    },
+    {
+      targetId: "educacao-continuada-proposta",
+      label: "Proposta",
+    },
+    {
+      targetId: "educacao-continuada-grupos",
+      label: "Grupos",
+    },
+    {
+      targetId: "educacao-continuada-acoes",
+      label: "Proximo passo",
     },
   ],
   "/aluno": [

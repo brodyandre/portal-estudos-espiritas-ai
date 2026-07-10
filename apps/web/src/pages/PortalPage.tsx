@@ -137,7 +137,10 @@ export const PortalPage = () => {
               <Button to="/materiais" variant="secondary">
                 Abrir materiais dos livros
               </Button>
-              <Button to="/professor" variant="secondary">
+              <Button to="/educacao-continuada" variant="secondary">
+                Entrada pelo QR Code
+              </Button>
+              <Button to="/professor" variant="ghost">
                 Abrir area do professor
               </Button>
             </div>
@@ -164,6 +167,23 @@ export const PortalPage = () => {
         {notice ??
           "Esta pagina pode ser compartilhada com novos participantes. Os encontros, materiais e orientacoes aparecem de forma simples, sem exigir cadastro."}
       </AlertBox>
+
+      <Card className="portal-invite-card" tone="soft">
+        <div className="portal-invite-card__content">
+          <div>
+            <p className="card-eyebrow">Novo participante</p>
+            <h3>Chegou pelo cartaz ou pelo QR Code?</h3>
+            <p className="student-panel__note">
+              Use a entrada publica para conhecer os grupos, entender como funciona a revisao dos
+              professores e seguir para o proximo passo sem expor o encontro publicamente.
+            </p>
+          </div>
+
+          <div className="button-row">
+            <Button to="/educacao-continuada">Abrir entrada publica</Button>
+          </div>
+        </div>
+      </Card>
 
       <section className="page-section" id="portal-grupos">
         <SectionTitle

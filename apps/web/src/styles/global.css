@@ -848,6 +848,10 @@ img {
   gap: var(--space-6);
 }
 
+.education-page {
+  gap: var(--space-6);
+}
+
 .materials-page {
   gap: var(--space-6);
 }
@@ -891,6 +895,53 @@ img {
 
 .student-group-card__body p {
   margin-top: var(--space-3);
+}
+
+.education-intro-grid {
+  align-items: stretch;
+}
+
+.education-intro-card,
+.education-group-card,
+.education-cta-card,
+.portal-invite-card {
+  min-width: 0;
+}
+
+.education-teachers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: var(--space-4) 0;
+}
+
+.education-group-card {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.education-group-card__top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.education-group-card__schedule {
+  margin: 0;
+  color: var(--color-text-700);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.education-cta-card__content,
+.portal-invite-card__content {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-5);
 }
 
 .student-group-card__meta,

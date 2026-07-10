@@ -2,6 +2,7 @@ import { HashRouter, Navigate, Route, Routes } from "react-router-dom";
 
 import { AppLayout } from "./components/layout/AppLayout";
 import { AlunoPage } from "./pages/AlunoPage";
+import { EducationContinuedPage } from "./pages/EducationContinuedPage";
 import { HomePage } from "./pages/HomePage";
 import { MaterialsPage } from "./pages/MaterialsPage";
 import { PortalPage } from "./pages/PortalPage";
@@ -14,6 +15,7 @@ export const App = () => {
         <Route element={<AppLayout />}>
           <Route element={<HomePage />} path="/" />
           <Route element={<PortalPage />} path="/portal" />
+          <Route element={<EducationContinuedPage />} path="/educacao-continuada" />
           <Route element={<MaterialsPage />} path="/materiais" />
           <Route element={<MaterialsPage />} path="/materiais/:groupSlug" />
           <Route element={<AlunoPage />} path="/aluno" />
