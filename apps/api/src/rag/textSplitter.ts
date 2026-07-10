@@ -1,7 +1,7 @@
 import type { KnowledgeChunk, KnowledgeDocument, TextSplitterOptions } from "./types";
 
-const DEFAULT_MAX_CHUNK_LENGTH = 420;
-const DEFAULT_CHUNK_OVERLAP = 60;
+const DEFAULT_MAX_CHUNK_LENGTH = 360;
+const DEFAULT_CHUNK_OVERLAP = 48;
 
 const normalizeText = (value: string): string => {
   return value.replace(/\r\n/gu, "\n").replace(/[ \t]+/gu, " ").replace(/\n{3,}/gu, "\n\n").trim();
@@ -156,14 +156,25 @@ export const splitDocumentIntoChunks = (
     return {
       id: buildChunkId(document, chunkIndex),
       documentId: document.id,
-      source: document.source,
       title: document.title,
       group: document.group,
+      book: document.book,
+      source: document.source,
+      sourceLabel: document.sourceLabel,
+      filename: document.filename,
+      path: document.path,
+      type: document.type,
+      tags: document.tags,
+      description: document.description,
+      sensitiveTopics: document.sensitiveTopics,
+      teacherReviewRecommended: document.teacherReviewRecommended,
       content: compactContent,
       chunkIndex,
       startOffset: resolvedStart,
       endOffset,
-      keywordHints: tokenizeForHints(`${document.title} ${compactContent}`),
+      keywordHints: tokenizeForHints(
+        `${document.title} ${document.group} ${document.book} ${document.tags.join(" ")} ${document.sensitiveTopics.join(" ")} ${compactContent}`,
+      ),
       vectorRef: null,
     };
   });

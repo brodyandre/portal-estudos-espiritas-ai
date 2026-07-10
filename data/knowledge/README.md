@@ -7,7 +7,7 @@ source: "resumo autoral demonstrativo produzido para o portal"
 
 # README da base de conhecimento
 
-Este diretorio guarda a base de conhecimento do portal em formato Markdown.
+Este diretorio guarda a base de conhecimento do portal em formato Markdown autoral e resumido.
 
 Nesta etapa, a organizacao foi preparada por livro e por grupo:
 
@@ -20,7 +20,7 @@ Tambem existe um arquivo `index.json` com metadados simples para busca, cataloga
 
 - apoiar respostas simples e revisaveis para alunos;
 - dar material curto de apoio para professores;
-- organizar resumos autorais sem expor PDFs;
+- organizar resumos autorais sem expor PDFs na aplicacao;
 - manter conteudo facil de revisar e atualizar.
 
 ## Regras de autoria
@@ -29,7 +29,15 @@ Tambem existe um arquivo `index.json` com metadados simples para busca, cataloga
 - nao incluir capitulo completo;
 - nao incluir transcricao longa;
 - usar linguagem simples, educativa e respeitosa;
+- manter foco em apoio ao estudo, nao em reproducao da obra;
 - manter revisao humana como etapa obrigatoria.
+
+## Uso de PDFs originais
+
+- os PDFs das obras servem apenas como fonte privada de leitura e referencia;
+- os PDFs originais nao devem ser commitados no repositorio;
+- o projeto deve versionar apenas arquivos Markdown autorais, curtos e revisaveis;
+- se houver tema sensivel, o professor deve revisar antes de publicar ou usar como base de resposta.
 
 ## Estrutura sugerida por grupo
 

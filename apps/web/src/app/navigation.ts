@@ -95,7 +95,7 @@ export const studentSidebarConfig: SidebarConfig = {
       type: "section",
       targetId: "materiais-da-semana",
       label: "Materiais",
-      description: "Ver os materiais e a leitura recomendada da semana.",
+      description: "Ver materiais de apoio, resumos e leitura recomendada do livro selecionado.",
     },
     {
       type: "section",
@@ -232,7 +232,7 @@ export const pageSections: Record<string, PageSectionContext[]> = {
     },
     {
       targetId: "materiais-da-semana",
-      label: "Materiais",
+      label: "Materiais de apoio",
     },
     {
       targetId: "aluno-resumo",

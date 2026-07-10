@@ -1,6 +1,7 @@
 import {
   AGENT_REVIEW_NOTE,
   AGENT_SOURCE_NOTE,
+  type AgentAnswerGroup,
   type AgentAnswerResult,
   type AgentAnswerSource,
   type AgentDraft,
@@ -9,7 +10,13 @@ import {
   type ReflectionQuestionsRequest,
   type SummarizeRequest,
 } from "./types";
-import { buildShortExcerpt, buildSentenceList, formatList } from "./safety";
+import {
+  assessAnswerSafety,
+  buildAnswerKeywords,
+  buildShortExcerpt,
+  buildSentenceList,
+  formatList,
+} from "./safety";
 
 interface GroupContext {
   groupName: string;
@@ -20,6 +27,8 @@ interface AnswerFallbackOptions {
   contextText?: string;
   sources?: AgentAnswerSource[];
   extraSafetyNotes?: string[];
+  group: AgentAnswerGroup;
+  keywords?: string[];
 }
 
 const dedupeNotes = (notes: string[]): string[] => {
@@ -110,7 +119,7 @@ export const buildAnswerFallback = (
   input: AnswerRequest,
   group: GroupContext,
   reason: string,
-  options: AnswerFallbackOptions = {},
+  options: AnswerFallbackOptions,
 ): AgentAnswerResult => {
   const fallbackContext = options.contextText ?? input.context;
   const highlights = fallbackContext ? buildSentenceList(fallbackContext, 2) : [];
@@ -121,21 +130,35 @@ export const buildAnswerFallback = (
     .trim();
   const answerBody =
     highlightsText.length > 0
-      ? `Resposta inicial: o material demonstrativo reunido para ${group.groupName} reforca este ponto: ${highlightsText}`
+      ? `Resposta inicial: o material demonstrativo reunido para ${group.groupName} sugere este caminho: ${highlightsText}`
       : fallbackContext && fallbackContext.trim().length > 0
         ? `Resposta inicial: com base no contexto enviado, vale retomar com calma este ponto: ${buildShortExcerpt(fallbackContext, 220)}`
         : `Resposta inicial: ainda nao ha contexto suficiente para responder com seguranca sobre o grupo ${group.groupName}.`;
+  const answer = `${answerBody}\n\nOrientacao: use esta resposta apenas como apoio inicial e confirme o entendimento com o professor antes de compartilhar como conclusao final.`;
+  const keywords =
+    options.keywords ??
+    buildAnswerKeywords(input.question, input.theme ?? "", []);
+  const safetyAssessment = assessAnswerSafety({
+    question: input.question,
+    answer,
+    hasEnoughContext: Boolean(highlightsText || fallbackContext),
+    groupLabel: options.group.name,
+  });
 
   return {
-    answer: `${answerBody}\n\nOrientacao: use esta resposta apenas como apoio inicial e confirme o entendimento com o professor antes de compartilhar como conclusao final.`,
+    answer,
+    group: options.group,
     sources: options.sources ?? [],
+    keywords,
     needsTeacherReview: true,
     safetyNotes: dedupeNotes([
       ...(options.extraSafetyNotes ?? []),
       `Modo de contingencia ativo: ${reason}`,
+      ...safetyAssessment.safetyNotes,
       AGENT_REVIEW_NOTE,
       AGENT_SOURCE_NOTE,
     ]),
+    suggestedTeacherFollowUp: safetyAssessment.suggestedTeacherFollowUp,
     provider: "fallback",
     usedFallback: true,
     fallbackReason: reason,
@@ -143,18 +166,39 @@ export const buildAnswerFallback = (
 };
 
 export const buildInsufficientContextAnswer = (
-  group: GroupContext,
-  sources: AgentAnswerSource[] = [],
+  group: AgentAnswerGroup,
+  options: {
+    question: string;
+    theme?: string;
+    sources?: AgentAnswerSource[];
+    keywords?: string[];
+    extraSafetyNotes?: string[];
+  },
 ): AgentAnswerResult => {
+  const answer = `Ainda nao encontrei contexto demonstrativo suficiente para responder com seguranca sobre ${group.name}. O melhor caminho e levar esta duvida ao professor, junto com o resumo e os materiais da semana.`;
+  const keywords =
+    options.keywords ??
+    buildAnswerKeywords(options.question, options.theme ?? "", []);
+  const safetyAssessment = assessAnswerSafety({
+    question: options.question,
+    answer,
+    hasEnoughContext: false,
+    groupLabel: group.name,
+  });
+
   return {
-    answer: `Ainda nao encontrei contexto demonstrativo suficiente para responder com seguranca sobre o grupo ${group.groupName}. O melhor caminho e levar esta duvida ao professor, junto com o resumo e os materiais da semana.`,
-    sources,
+    answer,
+    group,
+    sources: options.sources ?? [],
+    keywords,
     needsTeacherReview: true,
     safetyNotes: dedupeNotes([
-      "Contexto insuficiente para montar uma resposta segura.",
+      ...safetyAssessment.safetyNotes,
+      ...(options.extraSafetyNotes ?? []),
       AGENT_REVIEW_NOTE,
       AGENT_SOURCE_NOTE,
     ]),
+    suggestedTeacherFollowUp: safetyAssessment.suggestedTeacherFollowUp,
     provider: "local",
     usedFallback: false,
   };

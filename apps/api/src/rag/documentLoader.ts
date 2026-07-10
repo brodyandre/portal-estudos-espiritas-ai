@@ -3,6 +3,8 @@ import path from "node:path";
 
 import type {
   DocumentLoadOptions,
+  KnowledgeIndex,
+  KnowledgeIndexEntry,
   DocumentValidationIssue,
   DocumentValidationResult,
   KnowledgeDocument,
@@ -11,6 +13,7 @@ import type {
 
 const KNOWLEDGE_DIR_SEGMENTS = ["data", "knowledge"] as const;
 const REQUIRED_FRONTMATTER_FIELDS = ["title", "group", "purpose", "source"] as const;
+const KNOWLEDGE_INDEX_FILE = "index.json";
 
 const normalizeText = (value: string): string => {
   return value.replace(/\r\n/gu, "\n").replace(/[ \t]+/gu, " ").replace(/\n{3,}/gu, "\n\n").trim();
@@ -27,6 +30,14 @@ const slugify = (value: string): string => {
 
 const removeWrappingQuotes = (value: string): string => {
   return value.replace(/^['"]|['"]$/gu, "").trim();
+};
+
+const normalizePathSlashes = (value: string): string => {
+  return value.replace(/\\/gu, "/");
+};
+
+const normalizeCatalogPath = (value: string): string => {
+  return normalizePathSlashes(value).replace(/^\.?\//u, "").replace(/^\/+/u, "");
 };
 
 const candidateKnowledgeDirectories = (): string[] => {
@@ -58,6 +69,38 @@ export const resolveKnowledgeDirectory = async (
   }
 
   throw new Error("Nao foi possivel localizar a pasta data/knowledge.");
+};
+
+const buildRelativeKnowledgePath = (
+  knowledgeDir: string,
+  filePath: string,
+): string => {
+  const relativePath = normalizeCatalogPath(path.relative(knowledgeDir, filePath));
+
+  return normalizeCatalogPath(path.posix.join("data", "knowledge", relativePath));
+};
+
+const collectMarkdownFiles = async (directory: string): Promise<string[]> => {
+  const entries = await fs.readdir(directory, { withFileTypes: true });
+  const nestedFiles = await Promise.all(
+    entries.map(async (entry) => {
+      const fullPath = path.join(directory, entry.name);
+
+      if (entry.isDirectory()) {
+        return collectMarkdownFiles(fullPath);
+      }
+
+      if (entry.isFile() && entry.name.toLowerCase().endsWith(".md")) {
+        return [fullPath];
+      }
+
+      return [];
+    }),
+  );
+
+  return nestedFiles
+    .flat()
+    .sort((left, right) => left.localeCompare(right));
 };
 
 const parseFrontmatter = (
@@ -116,23 +159,147 @@ const extractTitleFromBody = (body: string): string | null => {
   return headingLine ? headingLine.slice(2).trim() : null;
 };
 
-const buildDocument = (source: string, rawContent: string): KnowledgeDocument => {
-  const { frontmatter, body } = parseFrontmatter(rawContent, source);
+const uniqueStringList = (values: string[]): string[] => {
+  return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
+};
+
+const inferBook = (documentPath: string, group: string): string => {
+  const normalizedPath = normalizeCatalogPath(documentPath);
+  const normalizedGroup = slugify(group);
+
+  if (normalizedPath.includes("a_caminho_da_luz/") || normalizedGroup === "a-caminho-da-luz") {
+    return "A Caminho da Luz";
+  }
+
+  if (normalizedPath.includes("emmanuel/") || normalizedGroup === "emmanuel") {
+    return "Emmanuel";
+  }
+
+  return "Base compartilhada";
+};
+
+const inferType = (documentPath: string): string => {
+  const normalizedPath = normalizeCatalogPath(documentPath).toLowerCase();
+
+  if (normalizedPath.endsWith("/readme.md") || normalizedPath === "data/knowledge/readme.md") {
+    return "readme";
+  }
+
+  if (normalizedPath.includes("orientacoes")) {
+    return "orientacoes";
+  }
+
+  if (normalizedPath.includes("demo")) {
+    return "demo";
+  }
+
+  if (normalizedPath.includes("visao_geral")) {
+    return "visao_geral";
+  }
+
+  if (normalizedPath.includes("capitulo")) {
+    return "capitulo";
+  }
+
+  if (normalizedPath.includes("duvidas_frequentes")) {
+    return "faq";
+  }
+
+  if (normalizedPath.includes("palavras_chave")) {
+    return "palavras_chave";
+  }
+
+  return "tema";
+};
+
+const buildSourceLabel = (
+  title: string,
+  group: string,
+  book: string,
+): string => {
+  const normalizedGroup = slugify(group);
+
+  if (normalizedGroup === "compartilhado" || normalizedGroup === "geral") {
+    return `${book} · ${title}`;
+  }
+
+  return `${group} · ${title}`;
+};
+
+const readKnowledgeIndex = async (knowledgeDir: string): Promise<KnowledgeIndex | null> => {
+  const indexPath = path.join(knowledgeDir, KNOWLEDGE_INDEX_FILE);
+
+  try {
+    const rawIndex = await fs.readFile(indexPath, "utf8");
+    const parsedIndex = JSON.parse(rawIndex) as Partial<KnowledgeIndex>;
+
+    if (!parsedIndex || !Array.isArray(parsedIndex.files)) {
+      throw new Error("Arquivo data/knowledge/index.json sem a lista files.");
+    }
+
+    return {
+      ...parsedIndex,
+      files: parsedIndex.files,
+    } as KnowledgeIndex;
+  } catch (error) {
+    const nodeError = error as NodeJS.ErrnoException;
+
+    if (nodeError.code === "ENOENT") {
+      return null;
+    }
+
+    if (error instanceof SyntaxError) {
+      throw new Error("Arquivo data/knowledge/index.json contem JSON invalido.");
+    }
+
+    throw error;
+  }
+};
+
+const buildIndexEntryMap = (knowledgeIndex: KnowledgeIndex | null): Map<string, KnowledgeIndexEntry> => {
+  const entries = knowledgeIndex?.files ?? [];
+
+  return new Map(
+    entries.map((entry) => [normalizeCatalogPath(entry.path), entry]),
+  );
+};
+
+const buildDocument = (
+  absolutePath: string,
+  rawContent: string,
+  knowledgeDir: string,
+  indexEntry?: KnowledgeIndexEntry,
+): KnowledgeDocument => {
+  const { frontmatter, body } = parseFrontmatter(rawContent, absolutePath);
   const normalizedBody = normalizeText(body);
   const titleFromBody = extractTitleFromBody(body);
-  const title = titleFromBody && titleFromBody.length > 0 ? titleFromBody : frontmatter.title;
-  const fileName = path.basename(source);
-  const documentId = slugify(`${fileName}-${title}`);
+  const relativePath = indexEntry?.path ?? buildRelativeKnowledgePath(knowledgeDir, absolutePath);
+  const title = indexEntry?.title ?? (titleFromBody && titleFromBody.length > 0 ? titleFromBody : frontmatter.title);
+  const filename = indexEntry?.filename ?? path.basename(absolutePath);
+  const group = indexEntry?.group ?? frontmatter.group;
+  const book = indexEntry?.book ?? inferBook(relativePath, group);
+  const documentId = indexEntry?.id ?? slugify(`${filename}-${title}`);
   const wordCount = normalizedBody.split(/\s+/u).filter(Boolean).length;
+  const tags = uniqueStringList(indexEntry?.tags ?? []);
+  const sensitiveTopics = uniqueStringList(indexEntry?.sensitiveTopics ?? []);
 
   return {
     id: documentId,
-    source,
-    fileName,
     title,
-    group: frontmatter.group,
+    group,
+    book,
+    source: frontmatter.source,
+    sourceLabel: buildSourceLabel(title, group, book),
+    filename,
+    path: relativePath,
+    absolutePath,
+    type: indexEntry?.type ?? inferType(relativePath),
+    tags,
+    description: indexEntry?.description ?? frontmatter.purpose,
+    sensitiveTopics,
+    teacherReviewRecommended:
+      indexEntry?.teacherReviewRecommended ?? sensitiveTopics.length > 0,
     purpose: frontmatter.purpose,
-    attribution: frontmatter.source,
     content: normalizedBody,
     rawContent,
     frontmatter,
@@ -145,28 +312,34 @@ export const loadKnowledgeDocuments = async (
   options: DocumentLoadOptions = {},
 ): Promise<KnowledgeDocument[]> => {
   const knowledgeDir = await resolveKnowledgeDirectory(options.knowledgeDir);
-  const entries = await fs.readdir(knowledgeDir, { withFileTypes: true });
-  const markdownFiles = entries
-    .filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith(".md"))
-    .map((entry) => path.join(knowledgeDir, entry.name))
-    .sort((left, right) => left.localeCompare(right));
+  const [knowledgeIndex, markdownFiles] = await Promise.all([
+    readKnowledgeIndex(knowledgeDir),
+    collectMarkdownFiles(knowledgeDir),
+  ]);
+  const indexEntriesByPath = buildIndexEntryMap(knowledgeIndex);
 
   const documents = await Promise.all(
     markdownFiles.map(async (filePath) => {
       const rawContent = await fs.readFile(filePath, "utf8");
+      const relativePath = buildRelativeKnowledgePath(knowledgeDir, filePath);
 
-      return buildDocument(filePath, rawContent);
+      return buildDocument(
+        filePath,
+        rawContent,
+        knowledgeDir,
+        indexEntriesByPath.get(normalizeCatalogPath(relativePath)),
+      );
     }),
   );
 
-  return documents;
+  return documents.sort((left, right) => left.path.localeCompare(right.path));
 };
 
 const validateProtectedContentHints = (
   document: KnowledgeDocument,
 ): DocumentValidationIssue[] => {
   const issues: DocumentValidationIssue[] = [];
-  const normalizedSource = document.attribution.toLowerCase();
+  const normalizedSource = document.source.toLowerCase();
 
   if (
     !normalizedSource.includes("demonstrativo") &&
@@ -174,7 +347,7 @@ const validateProtectedContentHints = (
     !normalizedSource.includes("autorizado")
   ) {
     issues.push({
-      source: document.source,
+      source: document.path,
       severity: "warning",
       message:
         "O campo source deveria indicar claramente que o material e demonstrativo, autoral ou autorizado.",
@@ -183,10 +356,19 @@ const validateProtectedContentHints = (
 
   if (document.charCount > 5000) {
     issues.push({
-      source: document.source,
+      source: document.path,
       severity: "warning",
       message:
         "O documento esta longo para uma base demonstrativa inicial. Revise para evitar material excessivo.",
+    });
+  }
+
+  if (document.sensitiveTopics.length > 0 && !document.teacherReviewRecommended) {
+    issues.push({
+      source: document.path,
+      severity: "warning",
+      message:
+        "O documento lista temas sensiveis, mas nao marcou revisao humana recomendada.",
     });
   }
 
@@ -197,11 +379,19 @@ export const validateKnowledgeDocuments = async (
   options: DocumentLoadOptions = {},
 ): Promise<DocumentValidationResult> => {
   const issues: DocumentValidationIssue[] = [];
+  let knowledgeDir = "";
 
   let documents: KnowledgeDocument[] = [];
+  let knowledgeIndex: KnowledgeIndex | null = null;
+  let markdownFiles: string[] = [];
 
   try {
-    documents = await loadKnowledgeDocuments(options);
+    knowledgeDir = await resolveKnowledgeDirectory(options.knowledgeDir);
+    [knowledgeIndex, markdownFiles, documents] = await Promise.all([
+      readKnowledgeIndex(knowledgeDir),
+      collectMarkdownFiles(knowledgeDir),
+      loadKnowledgeDocuments({ knowledgeDir }),
+    ]);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Falha ao carregar documentos.";
 
@@ -218,6 +408,41 @@ export const validateKnowledgeDocuments = async (
     };
   }
 
+  if (!knowledgeIndex) {
+    issues.push({
+      source: "data/knowledge/index.json",
+      severity: "warning",
+      message: "O catalogo index.json nao foi encontrado. A busca usara apenas o frontmatter dos arquivos.",
+    });
+  } else {
+    const indexedPaths = new Set(
+      knowledgeIndex.files.map((entry) => normalizeCatalogPath(entry.path)),
+    );
+    const markdownPaths = new Set(
+      markdownFiles.map((filePath) => normalizeCatalogPath(buildRelativeKnowledgePath(knowledgeDir, filePath))),
+    );
+
+    for (const indexedPath of indexedPaths) {
+      if (!markdownPaths.has(indexedPath)) {
+        issues.push({
+          source: indexedPath,
+          severity: "warning",
+          message: "O catalogo index.json aponta para um arquivo Markdown que nao foi encontrado.",
+        });
+      }
+    }
+
+    for (const markdownPath of markdownPaths) {
+      if (!indexedPaths.has(markdownPath)) {
+        issues.push({
+          source: markdownPath,
+          severity: "warning",
+          message: "O arquivo Markdown nao possui entrada correspondente em data/knowledge/index.json.",
+        });
+      }
+    }
+  }
+
   if (documents.length === 0) {
     issues.push({
       source: "data/knowledge",
@@ -231,7 +456,7 @@ export const validateKnowledgeDocuments = async (
   for (const document of documents) {
     if (!document.title || document.title.trim().length < 3) {
       issues.push({
-        source: document.source,
+        source: document.path,
         severity: "error",
         message: "O documento precisa de um titulo claro.",
       });
@@ -239,7 +464,7 @@ export const validateKnowledgeDocuments = async (
 
     if (!document.content || document.content.trim().length < 30) {
       issues.push({
-        source: document.source,
+        source: document.path,
         severity: "error",
         message: "O documento precisa ter conteudo suficiente para busca e resumo.",
       });
@@ -247,7 +472,7 @@ export const validateKnowledgeDocuments = async (
 
     if (seenTitles.has(document.title.toLowerCase())) {
       issues.push({
-        source: document.source,
+        source: document.path,
         severity: "warning",
         message: "Existe outro documento com titulo igual. Isso pode atrapalhar a busca futura.",
       });

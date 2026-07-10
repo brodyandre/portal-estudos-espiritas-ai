@@ -7,6 +7,12 @@ export type AgentTaskKind =
   | "answer";
 
 export type AgentProvider = "ollama" | "fallback" | "local";
+export type AgentAnswerGroupId = StudyGroupId | "both";
+export type AgentGroupMatchMode =
+  | "selected_group"
+  | "question_hint"
+  | "retrieved_context"
+  | "broad_search";
 
 export interface AgentBaseRequest {
   groupId: StudyGroupId;
@@ -46,17 +52,28 @@ export interface AgentDraft {
   fallbackReason?: string;
 }
 
+export interface AgentAnswerGroup {
+  id: AgentAnswerGroupId;
+  name: string;
+  bookTitle: string;
+  matchMode: AgentGroupMatchMode;
+}
+
 export interface AgentAnswerSource {
   source: string;
   title: string;
   score: number;
+  group?: string;
 }
 
 export interface AgentAnswerResult {
   answer: string;
+  group: AgentAnswerGroup;
   sources: AgentAnswerSource[];
+  keywords: string[];
   needsTeacherReview: boolean;
   safetyNotes: string[];
+  suggestedTeacherFollowUp: string;
   provider: AgentProvider;
   usedFallback: boolean;
   fallbackReason?: string;

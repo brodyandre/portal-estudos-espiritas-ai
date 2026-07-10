@@ -6,14 +6,45 @@ export interface MarkdownFrontmatter {
   [key: string]: string;
 }
 
-export interface KnowledgeDocument {
+export interface KnowledgeIndexEntry {
   id: string;
-  source: string;
-  fileName: string;
   title: string;
   group: string;
+  book: string;
+  filename: string;
+  path: string;
+  type: string;
+  tags: string[];
+  description: string;
+  sensitiveTopics: string[];
+  teacherReviewRecommended: boolean;
+}
+
+export interface KnowledgeIndex {
+  version?: number;
+  updatedAt?: string;
+  description?: string;
+  books?: string[];
+  contentTypes?: string[];
+  files: KnowledgeIndexEntry[];
+}
+
+export interface KnowledgeDocument {
+  id: string;
+  title: string;
+  group: string;
+  book: string;
+  source: string;
+  sourceLabel: string;
+  filename: string;
+  path: string;
+  absolutePath: string;
+  type: string;
+  tags: string[];
+  description: string;
+  sensitiveTopics: string[];
+  teacherReviewRecommended: boolean;
   purpose: string;
-  attribution: string;
   content: string;
   rawContent: string;
   frontmatter: MarkdownFrontmatter;
@@ -45,9 +76,18 @@ export interface TextSplitterOptions {
 export interface KnowledgeChunk {
   id: string;
   documentId: string;
-  source: string;
   title: string;
   group: string;
+  book: string;
+  source: string;
+  sourceLabel: string;
+  filename: string;
+  path: string;
+  type: string;
+  tags: string[];
+  description: string;
+  sensitiveTopics: string[];
+  teacherReviewRecommended: boolean;
   content: string;
   chunkIndex: number;
   startOffset: number;
@@ -59,16 +99,27 @@ export interface KnowledgeChunk {
 export interface RetrieveOptions {
   limit?: number;
   minScore?: number;
+  group?: string;
+  book?: string;
 }
 
 export interface RetrievedChunk {
   id: string;
   documentId: string;
-  source: string;
   title: string;
+  group: string;
+  book: string;
+  source: string;
+  sourceLabel: string;
+  filename: string;
+  path: string;
+  type: string;
+  tags: string[];
+  description: string;
+  sensitiveTopics: string[];
+  teacherReviewRecommended: boolean;
   content: string;
   score: number;
-  group: string;
   chunkIndex: number;
   startOffset: number;
   endOffset: number;

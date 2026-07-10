@@ -2,6 +2,8 @@
 
 Aplicacao web demonstrativa para apoiar grupos de estudos espiritas online via Google Meet, com experiencia separada para aluno e professor, backend local em Node.js e uso opcional de Ollama para respostas e rascunhos iniciais.
 
+Por responsabilidade editorial e direitos autorais, o projeto nao versiona os PDFs das obras. A base de conhecimento utiliza arquivos Markdown autorais, curtos e revisaveis.
+
 ## Objetivo
 
 Entregar um portal gratuito, responsivo e mobile-first que ajude a organizar encontros online, materiais, resumos, duvidas e apoio de estudo sem substituir a orientacao humana do professor.

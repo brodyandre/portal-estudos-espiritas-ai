@@ -1,4 +1,5 @@
 import type { DemoGroup, DemoMaterial, DemoSummary } from "../mocks";
+import type { KnowledgeSupportFile } from "./knowledgeService";
 import { loadWithFallback } from "./api";
 
 type AgentProvider = "ollama" | "fallback" | "local";
@@ -8,13 +9,24 @@ interface ApiAssistantSource {
   source: string;
   title: string;
   score: number;
+  group?: string;
+}
+
+interface ApiAssistantGroup {
+  id: string;
+  name: string;
+  bookTitle: string;
+  matchMode: string;
 }
 
 interface ApiAssistantAnswer {
   answer: string;
+  group?: ApiAssistantGroup;
   sources: ApiAssistantSource[];
+  keywords?: string[];
   needsTeacherReview: boolean;
   safetyNotes: string[];
+  suggestedTeacherFollowUp?: string;
   provider: AgentProvider;
   usedFallback: boolean;
   fallbackReason?: string;
@@ -38,6 +50,10 @@ export interface AssistantReply {
   supportNotice: string;
   needsTeacherReview: boolean;
   usedFallback: boolean;
+  warnings: string[];
+  keywords: string[];
+  teacherFollowUp: string | null;
+  groupLabel: string | null;
 }
 
 export interface TeacherDraftReply {
@@ -52,6 +68,7 @@ interface AskStudyAssistantInput {
   group: DemoGroup;
   materials: DemoMaterial[];
   summary?: DemoSummary | null;
+  supportFiles?: KnowledgeSupportFile[];
 }
 
 export interface TeacherAssistInput {
@@ -64,12 +81,118 @@ export interface TeacherAssistInput {
 }
 
 const SUPPORT_NOTICE = "Resposta baseada nos materiais cadastrados.";
+const KNOWLEDGE_STOPWORDS = new Set([
+  "a",
+  "ao",
+  "aos",
+  "as",
+  "como",
+  "com",
+  "da",
+  "das",
+  "de",
+  "do",
+  "dos",
+  "e",
+  "em",
+  "eu",
+  "me",
+  "meu",
+  "minha",
+  "na",
+  "no",
+  "o",
+  "os",
+  "ou",
+  "para",
+  "por",
+  "pra",
+  "qual",
+  "que",
+  "se",
+  "sem",
+  "ser",
+  "um",
+  "uma",
+]);
+
+const questionKeywordExpansions: Array<{ match: RegExp; extraTerms: string[] }> = [
+  { match: /desanim|cansad|desanimo/iu, extraTerms: ["constancia", "perseveranca", "estudo sereno"] },
+  { match: /esforco proprio|disciplina|regularidade/iu, extraTerms: ["constancia", "aplicacao pratica", "regularidade"] },
+  { match: /evangelho|pratica|cotidiano|dia a dia/iu, extraTerms: ["evangelho", "aplicacao pratica", "vida diaria"] },
+  { match: /mediunidade/iu, extraTerms: ["mediunidade", "duvidas frequentes"] },
+  { match: /historico|espiritual|historia/iu, extraTerms: ["historia espiritual", "visao geral"] },
+  { match: /capela/iu, extraTerms: ["capela", "civilizacoes antigas"] },
+  { match: /racas adamicas|racas adamic|prudencia/iu, extraTerms: ["racas adamicas", "prudencia", "civilizacoes antigas"] },
+  { match: /futuro|humanidade/iu, extraTerms: ["futuro", "evangelho", "humanidade"] },
+];
 
 const dedupeStrings = (items: string[]) => {
   return [...new Set(items.map((item) => item.trim()).filter(Boolean))];
 };
 
 const normalizeQuestion = (value: string) => value.trim().toLowerCase();
+
+const normalizeText = (value: string) => {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/gu, "")
+    .toLowerCase()
+    .trim();
+};
+
+const extractKnowledgeTerms = (question: string) => {
+  const normalizedQuestion = normalizeText(question);
+  const baseTerms = normalizedQuestion
+    .replace(/[^a-z0-9\s]/gu, " ")
+    .split(/\s+/u)
+    .filter((term) => term.length >= 3 && !KNOWLEDGE_STOPWORDS.has(term));
+  const expandedTerms = questionKeywordExpansions
+    .filter((entry) => entry.match.test(normalizedQuestion))
+    .flatMap((entry) => entry.extraTerms)
+    .map(normalizeText);
+
+  return dedupeStrings([...baseTerms, ...expandedTerms]);
+};
+
+const countOccurrences = (text: string, term: string) => {
+  if (!term) {
+    return 0;
+  }
+
+  return text.split(term).length - 1;
+};
+
+const findKnowledgeMatches = (question: string, supportFiles: KnowledgeSupportFile[]) => {
+  const terms = extractKnowledgeTerms(question);
+
+  return supportFiles
+    .map((file) => {
+      const titleText = normalizeText(file.title);
+      const tagText = normalizeText(file.tags.join(" "));
+      const summaryText = normalizeText(file.summary);
+      const topicText = normalizeText(file.sensitiveTopics.join(" "));
+
+      let score = 0;
+
+      for (const term of terms) {
+        score += countOccurrences(titleText, term) * 5;
+        score += countOccurrences(tagText, term) * 4;
+        score += countOccurrences(summaryText, term) * 2;
+        score += countOccurrences(topicText, term) * 3;
+      }
+
+      if (file.teacherReviewRecommended) {
+        score += terms.some((term) => topicText.includes(term)) ? 2 : 0;
+      }
+
+      return { file, score };
+    })
+    .filter((item) => item.score > 0)
+    .sort((left, right) => right.score - left.score)
+    .slice(0, 3)
+    .map((item) => item.file);
+};
 
 const buildSourceLabels = (options: {
   group: DemoGroup;
@@ -156,6 +279,10 @@ const mapAssistantReply = (
     supportNotice: SUPPORT_NOTICE,
     needsTeacherReview: payload.needsTeacherReview,
     usedFallback: payload.usedFallback,
+    warnings: dedupeStrings(payload.safetyNotes ?? []),
+    keywords: dedupeStrings(payload.keywords ?? []),
+    teacherFollowUp: payload.suggestedTeacherFollowUp?.trim() || null,
+    groupLabel: payload.group?.name ?? null,
   };
 };
 
@@ -173,10 +300,38 @@ const buildStudentFallbackReply = ({
   group,
   materials,
   summary,
+  supportFiles = [],
 }: AskStudyAssistantInput): AssistantReply => {
   const normalized = normalizeQuestion(question);
   const readingMaterial = materials.find((material) => material.kind === "Leitura");
   const sourceLabels = buildSourceLabels({ group, materials, summary });
+  const knowledgeMatches = findKnowledgeMatches(question, supportFiles);
+  const firstKnowledgeMatch = knowledgeMatches[0] ?? null;
+
+  if (firstKnowledgeMatch) {
+    const caution = firstKnowledgeMatch.teacherReviewRecommended
+      ? " Como esse tema pede cuidado, vale conversar com o professor antes de fechar uma conclusao."
+      : "";
+
+    return {
+      answer: `${firstKnowledgeMatch.summary} Esse material pode ajudar a orientar sua revisao no grupo ${group.name}.${caution}`,
+      sources: dedupeStrings([
+        ...knowledgeMatches.map((item) => item.title),
+        ...sourceLabels,
+      ]),
+      supportNotice: SUPPORT_NOTICE,
+      needsTeacherReview: firstKnowledgeMatch.teacherReviewRecommended,
+      usedFallback: true,
+      warnings: firstKnowledgeMatch.teacherReviewRecommended
+        ? ["Tema sensivel identificado. Vale revisar com o professor."]
+        : [],
+      keywords: extractKnowledgeTerms(question).slice(0, 6),
+      teacherFollowUp: firstKnowledgeMatch.teacherReviewRecommended
+        ? "Se a duvida continuar, leve este ponto ao professor no proximo encontro."
+        : null,
+      groupLabel: group.name,
+    };
+  }
 
   if (normalized.includes("meet") || normalized.includes("entr") || normalized.includes("aula")) {
     return {
@@ -185,6 +340,10 @@ const buildStudentFallbackReply = ({
       supportNotice: SUPPORT_NOTICE,
       needsTeacherReview: true,
       usedFallback: true,
+      warnings: [],
+      keywords: extractKnowledgeTerms(question).slice(0, 6),
+      teacherFollowUp: null,
+      groupLabel: group.name,
     };
   }
 
@@ -195,6 +354,10 @@ const buildStudentFallbackReply = ({
       supportNotice: SUPPORT_NOTICE,
       needsTeacherReview: true,
       usedFallback: true,
+      warnings: [],
+      keywords: extractKnowledgeTerms(question).slice(0, 6),
+      teacherFollowUp: null,
+      groupLabel: group.name,
     };
   }
 
@@ -207,6 +370,10 @@ const buildStudentFallbackReply = ({
       supportNotice: SUPPORT_NOTICE,
       needsTeacherReview: true,
       usedFallback: true,
+      warnings: [],
+      keywords: extractKnowledgeTerms(question).slice(0, 6),
+      teacherFollowUp: null,
+      groupLabel: group.name,
     };
   }
 
@@ -216,6 +383,10 @@ const buildStudentFallbackReply = ({
     supportNotice: SUPPORT_NOTICE,
     needsTeacherReview: true,
     usedFallback: true,
+    warnings: [],
+    keywords: extractKnowledgeTerms(question).slice(0, 6),
+    teacherFollowUp: null,
+    groupLabel: group.name,
   };
 };
 
@@ -283,6 +454,10 @@ export const getInitialAssistantReply = (): AssistantReply => {
     supportNotice: SUPPORT_NOTICE,
     needsTeacherReview: true,
     usedFallback: false,
+    warnings: [],
+    keywords: [],
+    teacherFollowUp: null,
+    groupLabel: null,
   };
 };
 
@@ -291,8 +466,21 @@ export const askStudyAssistant = async ({
   group,
   materials,
   summary,
+  supportFiles,
 }: AskStudyAssistantInput) => {
   const fallbackSources = buildSourceLabels({ group, materials, summary });
+  const supportContext = supportFiles
+    ?.slice(0, 4)
+    .map((file) => `- ${file.title}: ${file.summary}`)
+    .join("\n");
+  const requestContext = buildCommonTeacherContext({
+    group,
+    materials,
+    summary,
+    theme: group.nextLesson.theme,
+    bookTitle: group.name,
+    meetLink: group.meetUrl,
+  }).concat(supportContext ? `\n\nMateriais de apoio do livro:\n${supportContext}` : "");
 
   return loadWithFallback<ApiAssistantAnswer, AssistantReply>({
     path: "/api/agent/answer",
@@ -301,19 +489,12 @@ export const askStudyAssistant = async ({
       body: JSON.stringify({
         groupId: group.slug,
         theme: group.nextLesson.theme,
-        bookTitle: group.bookTitle,
-        context: buildCommonTeacherContext({
-          group,
-          materials,
-          summary,
-          theme: group.nextLesson.theme,
-          bookTitle: group.bookTitle,
-          meetLink: group.meetUrl,
-        }),
+        bookTitle: group.name,
+        context: requestContext,
         question,
       }),
     },
-    fallback: () => buildStudentFallbackReply({ question, group, materials, summary }),
+    fallback: () => buildStudentFallbackReply({ question, group, materials, summary, supportFiles }),
     mapData: (payload) => mapAssistantReply(payload, fallbackSources),
     friendlyMessage:
       "Nao foi possivel consultar os materiais pelo servidor agora. Seguimos com uma resposta demonstrativa para voce continuar o estudo.",
