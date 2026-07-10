@@ -57,6 +57,12 @@ export const appSidebarConfig: SidebarConfig = {
     },
     {
       type: "route",
+      to: "/inscricao",
+      label: "Inscricao",
+      description: "Formulario simples de interesse para novos participantes.",
+    },
+    {
+      type: "route",
       to: "/aluno",
       label: "Aluno",
       description: "Aulas, materiais, resumos, duvidas e progresso.",
@@ -197,6 +203,10 @@ export const pageMeta = {
     title: "Educacao Continuada Online",
     description: "Entrada publica para novos participantes conhecerem os grupos e o proximo passo.",
   },
+  "/inscricao": {
+    title: "Inscricao",
+    description: "Cadastro simples de interesse para os estudos online.",
+  },
   "/aluno": {
     title: "Painel do Aluno",
     description: "Encontros, materiais, assistente e progresso em um so lugar.",
@@ -263,6 +273,16 @@ export const pageSections: Record<string, PageSectionContext[]> = {
     {
       targetId: "educacao-continuada-acoes",
       label: "Proximo passo",
+    },
+  ],
+  "/inscricao": [
+    {
+      targetId: "inscricao-inicio",
+      label: "Inicio",
+    },
+    {
+      targetId: "inscricao-formulario",
+      label: "Formulario",
     },
   ],
   "/aluno": [

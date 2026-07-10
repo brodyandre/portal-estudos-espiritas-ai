@@ -64,7 +64,7 @@ export const EducationContinuedPage = () => {
         <ProfileHeader
           actions={
             <div className="button-row">
-              <Button to="/portal">Quero participar</Button>
+              <Button to="/inscricao">Quero participar</Button>
               <Button onClick={scrollToGroups} variant="secondary">
                 Conhecer os grupos
               </Button>
@@ -198,7 +198,7 @@ export const EducationContinuedPage = () => {
             </div>
 
             <div className="button-row">
-              <Button to="/portal">Quero participar</Button>
+              <Button to="/inscricao">Quero participar</Button>
               <Button to="/materiais" variant="secondary">
                 Ver materiais dos grupos
               </Button>

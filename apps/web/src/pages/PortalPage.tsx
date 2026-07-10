@@ -133,6 +133,7 @@ export const PortalPage = () => {
         <ProfileHeader
           actions={
             <div className="button-row">
+              <Button to="/inscricao">Quero participar</Button>
               <Button to="/aluno">Abrir area do aluno</Button>
               <Button to="/materiais" variant="secondary">
                 Abrir materiais dos livros
@@ -180,7 +181,10 @@ export const PortalPage = () => {
           </div>
 
           <div className="button-row">
-            <Button to="/educacao-continuada">Abrir entrada publica</Button>
+            <Button to="/inscricao">Fazer inscricao</Button>
+            <Button to="/educacao-continuada" variant="secondary">
+              Abrir entrada publica
+            </Button>
           </div>
         </div>
       </Card>

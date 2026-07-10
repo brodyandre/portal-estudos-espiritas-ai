@@ -852,6 +852,10 @@ img {
   gap: var(--space-6);
 }
 
+.enrollment-page {
+  gap: var(--space-6);
+}
+
 .materials-page {
   gap: var(--space-6);
 }
@@ -942,6 +946,45 @@ img {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-5);
+}
+
+.enrollment-layout,
+.enrollment-form-card,
+.enrollment-success-card {
+  min-width: 0;
+}
+
+.enrollment-form {
+  align-items: start;
+}
+
+.enrollment-consent {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid rgba(82, 96, 109, 0.18);
+  border-radius: var(--radius-md);
+  background: rgba(246, 241, 232, 0.38);
+}
+
+.enrollment-consent__control {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-3);
+}
+
+.enrollment-consent input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+  accent-color: var(--color-brand-900);
+}
+
+.enrollment-consent__text {
+  color: var(--color-text-900);
+  font-weight: 600;
+  line-height: 1.6;
 }
 
 .student-group-card__meta,
