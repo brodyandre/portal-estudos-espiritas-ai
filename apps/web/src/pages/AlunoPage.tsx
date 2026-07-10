@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import { FlowStepCard } from "../components/display/FlowStepCard";
 import { AlertBox } from "../components/ui/AlertBox";
@@ -121,6 +122,7 @@ const BellIcon = () => {
 };
 
 export const AlunoPage = () => {
+  const [searchParams] = useSearchParams();
   const [groups, setGroups] = useState<DemoGroup[]>([]);
   const [materials, setMaterials] = useState<Awaited<ReturnType<typeof listMaterials>>["data"]>([]);
   const [summaries, setSummaries] = useState<Awaited<ReturnType<typeof listSummaries>>["data"]>([]);
@@ -246,6 +248,22 @@ export const AlunoPage = () => {
   const activeQuickQuestions = activeGroup
     ? quickQuestionSuggestions[activeGroup.slug]
     : quickQuestionSuggestions.emmanuel;
+  const requestedGroupSlug = searchParams.get("grupo");
+
+  useEffect(() => {
+    if (!requestedGroupSlug) {
+      return;
+    }
+
+    const normalizedRequestedGroup = requestedGroupSlug.trim().toLowerCase();
+
+    if (
+      normalizedRequestedGroup === "emmanuel" ||
+      normalizedRequestedGroup === "a-caminho-da-luz"
+    ) {
+      setActiveGroupSlug(normalizedRequestedGroup as DemoGroup["slug"]);
+    }
+  }, [requestedGroupSlug]);
 
   useEffect(() => {
     setAssistantResponse(getInitialAssistantReply());
@@ -474,6 +492,9 @@ export const AlunoPage = () => {
                   <Button href={activeGroup.meetUrl} rel="noreferrer" target="_blank">
                     Entrar no Google Meet
                   </Button>
+                  <Button to={`/materiais/${activeGroup.slug}`} variant="secondary">
+                    Ver materiais do livro
+                  </Button>
                 </div>
               </Card>
 
@@ -593,7 +614,12 @@ export const AlunoPage = () => {
                       e a conversa do encontro.
                     </p>
                   </div>
-                  <Badge tone="sand">{activeSupportFiles.length} arquivos</Badge>
+                  <div className="button-row">
+                    <Badge tone="sand">{activeSupportFiles.length} arquivos</Badge>
+                    <Button size="compact" to={`/materiais/${activeGroup.slug}`} variant="secondary">
+                      Abrir pagina do livro
+                    </Button>
+                  </div>
                 </div>
                 {activeSupportFiles.length > 0 ? (
                   <div className="student-support-list">
