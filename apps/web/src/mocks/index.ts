@@ -100,6 +100,25 @@ export interface DemoProgressResponse {
   items: DemoProgressItem[];
 }
 
+export type {
+  Enrollment,
+  EnrollmentAlreadyParticipates,
+  EnrollmentGroupInterest,
+  EnrollmentInput,
+  EnrollmentStatus,
+  EnrollmentValidationErrors,
+} from "../types/enrollment";
+export {
+  ENROLLMENT_GROUP_INTERESTS,
+  ENROLLMENT_MESSAGE_MAX_LENGTH,
+  ENROLLMENT_PARTICIPATION_OPTIONS,
+  ENROLLMENT_STATUSES,
+  ENROLLMENT_TEACHER_NOTE_MAX_LENGTH,
+  isValidEnrollmentEmail,
+  validateEnrollmentInput,
+} from "../types/enrollment";
+export { enrollments as mockEnrollments, listMockEnrollments } from "./enrollments";
+
 export interface CreateMockQuestionInput {
   groupSlug: GroupSlug;
   lessonId: string;
