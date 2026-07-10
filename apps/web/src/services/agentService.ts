@@ -1,5 +1,6 @@
 import type { DemoGroup, DemoMaterial, DemoSummary } from "../mocks";
 import type { KnowledgeSupportFile } from "./knowledgeService";
+import type { ServiceResult } from "./api";
 import { loadWithFallback } from "./api";
 
 type AgentProvider = "ollama" | "fallback" | "local";
@@ -75,12 +76,15 @@ export interface TeacherAssistInput {
   group: DemoGroup;
   materials: DemoMaterial[];
   summary?: DemoSummary | null;
+  supportFiles?: KnowledgeSupportFile[];
   theme: string;
   bookTitle: string;
   meetLink: string;
 }
 
 const SUPPORT_NOTICE = "Resposta baseada nos materiais cadastrados.";
+const LOCAL_AGENT_FALLBACK_MESSAGE =
+  "Esta é uma resposta demonstrativa baseada nos materiais locais. Para resposta completa, use o backend do agente.";
 const KNOWLEDGE_STOPWORDS = new Set([
   "a",
   "ao",
@@ -214,10 +218,25 @@ const mapAssistantSourceLabel = (source: ApiAssistantSource) => {
   return source.title;
 };
 
+const buildSupportContextLines = (supportFiles: KnowledgeSupportFile[] = []) => {
+  return supportFiles
+    .slice(0, 5)
+    .map((file) => {
+      const sensitiveTopics =
+        file.sensitiveTopics.length > 0
+          ? ` Temas sensiveis: ${file.sensitiveTopics.join(", ")}.`
+          : "";
+
+      return `- ${file.title} (${file.typeLabel}): ${file.summary}.${sensitiveTopics}`;
+    })
+    .join("\n");
+};
+
 const buildCommonTeacherContext = ({
   group,
   materials,
   summary,
+  supportFiles,
   theme,
   bookTitle,
   meetLink,
@@ -226,6 +245,7 @@ const buildCommonTeacherContext = ({
     .slice(0, 4)
     .map((material) => `- ${material.title}: ${material.description}`)
     .join("\n");
+  const supportLines = buildSupportContextLines(supportFiles);
   const summaryLines = summary
     ? [`Resumo mais recente: ${summary.title}.`, summary.content, ...summary.takeaways]
     : [];
@@ -238,6 +258,7 @@ const buildCommonTeacherContext = ({
     `Proxima aula: ${group.nextLesson.title}.`,
     `Observacao do professor: ${group.nextLesson.teacherNote}.`,
     materialLines ? `Materiais da semana:\n${materialLines}` : "",
+    supportLines ? `Base de apoio da aula:\n${supportLines}` : "",
     summaryLines.length > 0 ? `Resumo e pontos de apoio:\n${summaryLines.join("\n")}` : "",
   ]
     .filter(Boolean)
@@ -248,6 +269,10 @@ const buildSummarySourceText = (input: TeacherAssistInput) => {
   const materialsText = input.materials
     .slice(0, 4)
     .map((material) => `${material.title}: ${material.description}`)
+    .join(" ");
+  const supportText = (input.supportFiles ?? [])
+    .slice(0, 5)
+    .map((file) => `${file.title}: ${file.summary}`)
     .join(" ");
   const summaryText = input.summary
     ? `${input.summary.title}. ${input.summary.content} ${input.summary.takeaways.join(" ")}`
@@ -261,6 +286,7 @@ const buildSummarySourceText = (input: TeacherAssistInput) => {
     input.group.nextLesson.theme,
     input.group.nextLesson.teacherNote,
     materialsText,
+    supportText,
     summaryText,
   ]
     .filter(Boolean)
@@ -307,6 +333,7 @@ const buildStudentFallbackReply = ({
   const sourceLabels = buildSourceLabels({ group, materials, summary });
   const knowledgeMatches = findKnowledgeMatches(question, supportFiles);
   const firstKnowledgeMatch = knowledgeMatches[0] ?? null;
+  const fallbackKeywords = extractKnowledgeTerms(question).slice(0, 6);
 
   if (firstKnowledgeMatch) {
     const caution = firstKnowledgeMatch.teacherReviewRecommended
@@ -314,7 +341,7 @@ const buildStudentFallbackReply = ({
       : "";
 
     return {
-      answer: `${firstKnowledgeMatch.summary} Esse material pode ajudar a orientar sua revisao no grupo ${group.name}.${caution}`,
+      answer: `${LOCAL_AGENT_FALLBACK_MESSAGE} Material local relacionado: ${firstKnowledgeMatch.title}.${caution}`,
       sources: dedupeStrings([
         ...knowledgeMatches.map((item) => item.title),
         ...sourceLabels,
@@ -325,7 +352,7 @@ const buildStudentFallbackReply = ({
       warnings: firstKnowledgeMatch.teacherReviewRecommended
         ? ["Tema sensivel identificado. Vale revisar com o professor."]
         : [],
-      keywords: extractKnowledgeTerms(question).slice(0, 6),
+      keywords: fallbackKeywords,
       teacherFollowUp: firstKnowledgeMatch.teacherReviewRecommended
         ? "Se a duvida continuar, leve este ponto ao professor no proximo encontro."
         : null,
@@ -335,13 +362,13 @@ const buildStudentFallbackReply = ({
 
   if (normalized.includes("meet") || normalized.includes("entr") || normalized.includes("aula")) {
     return {
-      answer: `A proxima aula do grupo ${group.name} acontece em ${group.nextLesson.scheduledLabel}. Quando estiver perto do horario, use o botao Entrar no Google Meet no card da proxima aula.`,
+      answer: `${LOCAL_AGENT_FALLBACK_MESSAGE} A proxima aula do grupo ${group.name} acontece em ${group.nextLesson.scheduledLabel}.`,
       sources: dedupeStrings([group.nextLesson.title, ...sourceLabels]),
       supportNotice: SUPPORT_NOTICE,
       needsTeacherReview: true,
       usedFallback: true,
       warnings: [],
-      keywords: extractKnowledgeTerms(question).slice(0, 6),
+      keywords: fallbackKeywords,
       teacherFollowUp: null,
       groupLabel: group.name,
     };
@@ -349,13 +376,13 @@ const buildStudentFallbackReply = ({
 
   if (normalized.includes("leitura") || normalized.includes("material")) {
     return {
-      answer: `Para hoje, vale comecar por ${readingMaterial?.title ?? "uma leitura curta do grupo"} e depois retomar o resumo mais recente com calma.`,
+      answer: `${LOCAL_AGENT_FALLBACK_MESSAGE} Vale comecar por ${readingMaterial?.title ?? "uma leitura curta do grupo"} e depois retomar o resumo mais recente com calma.`,
       sources: dedupeStrings([readingMaterial?.title ?? "", ...sourceLabels]),
       supportNotice: SUPPORT_NOTICE,
       needsTeacherReview: true,
       usedFallback: true,
       warnings: [],
-      keywords: extractKnowledgeTerms(question).slice(0, 6),
+      keywords: fallbackKeywords,
       teacherFollowUp: null,
       groupLabel: group.name,
     };
@@ -363,34 +390,42 @@ const buildStudentFallbackReply = ({
 
   if (normalized.includes("resumo") || normalized.includes("ultima")) {
     return {
-      answer:
+      answer: `${LOCAL_AGENT_FALLBACK_MESSAGE} ${
         summary?.content ??
-        "O ultimo encontro reforcou constancia, escuta respeitosa e simplicidade no estudo. Vale reler o resumo breve antes da aula.",
+        "O ultimo encontro reforcou constancia, escuta respeitosa e simplicidade no estudo. Vale reler o resumo breve antes da aula."
+      }`,
       sources: dedupeStrings([summary?.title ?? "", ...sourceLabels]),
       supportNotice: SUPPORT_NOTICE,
       needsTeacherReview: true,
       usedFallback: true,
       warnings: [],
-      keywords: extractKnowledgeTerms(question).slice(0, 6),
+      keywords: fallbackKeywords,
       teacherFollowUp: null,
       groupLabel: group.name,
     };
   }
 
   return {
-    answer: `Uma boa forma de seguir e revisar o resumo mais recente, escolher uma leitura curta e registrar uma pergunta simples para levar ao encontro do grupo ${group.name}.`,
+    answer: `${LOCAL_AGENT_FALLBACK_MESSAGE} Uma boa forma de seguir e revisar o resumo mais recente, escolher uma leitura curta e registrar uma pergunta simples para levar ao encontro do grupo ${group.name}.`,
     sources: sourceLabels,
     supportNotice: SUPPORT_NOTICE,
     needsTeacherReview: true,
     usedFallback: true,
     warnings: [],
-    keywords: extractKnowledgeTerms(question).slice(0, 6),
+    keywords: fallbackKeywords,
     teacherFollowUp: null,
     groupLabel: group.name,
   };
 };
 
 const buildLessonPlanFallbackReply = (input: TeacherAssistInput): TeacherDraftReply => {
+  const supportNote =
+    input.supportFiles && input.supportFiles.length > 0
+      ? `Leituras de apoio escolhidas: ${input.supportFiles
+          .slice(0, 3)
+          .map((file) => file.title)
+          .join(", ")}.`
+      : "";
   const content = [
     `Objetivo da aula: acolher o grupo ${input.group.name} e trabalhar o tema "${input.theme}" com linguagem simples e participacao respeitosa.`,
     `1. Abertura: receber os participantes, confirmar o link ${input.meetLink} e apresentar o foco principal da noite.`,
@@ -398,6 +433,7 @@ const buildLessonPlanFallbackReply = (input: TeacherAssistInput): TeacherDraftRe
     "3. Conversa guiada: abrir duas ou tres participacoes breves, com tempo para escuta e duvidas honestas.",
     "4. Aplicacao pratica: convidar cada participante a separar um passo simples para a semana.",
     "5. Encerramento: resumir o que mais ajudou o grupo e lembrar o proximo encontro.",
+    supportNote,
     "Lembrete final: revise o texto antes de publicar.",
   ].join("\n");
 
@@ -412,12 +448,16 @@ const buildLessonPlanFallbackReply = (input: TeacherAssistInput): TeacherDraftRe
 const buildReflectionQuestionsFallbackReply = (
   input: TeacherAssistInput,
 ): TeacherDraftReply => {
+  const supportPrompt =
+    input.supportFiles && input.supportFiles.length > 0
+      ? ` ${input.supportFiles[0]?.title} pode servir como apoio para uma das perguntas.`
+      : "";
   const questions = [
     `1. Qual ponto de ${input.theme.toLowerCase()} mais conversa com a realidade do grupo?`,
     "2. Que atitude simples pode ser levada para a semana com serenidade?",
     `3. Que parte de ${input.bookTitle} merece uma leitura mais atenta?`,
     "4. Como acolher opinioes diferentes sem perder o foco da aula?",
-    "5. Que duvida sincera vale deixar aberta para o proximo encontro?",
+    `5. Que duvida sincera vale deixar aberta para o proximo encontro?${supportPrompt}`,
   ].join("\n");
 
   return {
@@ -430,10 +470,15 @@ const buildReflectionQuestionsFallbackReply = (
 
 const buildSummaryFallbackReply = (input: TeacherAssistInput): TeacherDraftReply => {
   const summarySource = input.summary?.content ?? input.group.nextLesson.theme;
+  const supportLine =
+    input.supportFiles && input.supportFiles.length > 0
+      ? `- Apoiar a mensagem final com ${input.supportFiles[0]?.title}.`
+      : "";
   const content = [
     `Resumo inicial: ${summarySource}`,
     "",
     "- Retomar o tema da semana com linguagem clara e acolhedora.",
+    supportLine,
     "- Fechar a aula com uma sintese curta e um proximo passo simples.",
     "- Confirmar o texto final antes de compartilhar com os alunos.",
   ].join("\n");
@@ -559,4 +604,61 @@ export const generateSummaryDraft = async (input: TeacherAssistInput) => {
     friendlyMessage:
       "Nao foi possivel preparar o resumo pelo servidor agora. Criamos uma versao demonstrativa para voce revisar.",
   });
+};
+
+export const generateGroupMessageDraft = async (
+  input: TeacherAssistInput,
+): Promise<ServiceResult<TeacherDraftReply>> => {
+  const supportTitle = input.supportFiles?.[0]?.title;
+  const content = [
+    `Queridos amigos do grupo ${input.group.name},`,
+    "",
+    `Nesta semana vamos nos preparar para a aula sobre "${input.theme}".`,
+    supportTitle
+      ? `Se puderem, vale revisar o material "${supportTitle}" com calma antes do encontro.`
+      : `Se puderem, vale separar alguns minutos para uma leitura breve antes do encontro.`,
+    `Nos encontraremos em ${input.group.nextLesson.scheduledLabel} pelo link ${input.meetLink}.`,
+    "Quem desejar pode levar uma pergunta simples para enriquecer a conversa.",
+    "",
+    "Mensagem inicial demonstrativa. Revise antes de publicar.",
+  ].join("\n");
+
+  return {
+    data: {
+      title: `Mensagem para o grupo ${input.group.name}`,
+      content,
+      usedFallback: true,
+      reviewNote: "Revise antes de publicar.",
+    },
+    source: "mock",
+    notice: "Mensagem inicial gerada localmente para voce revisar.",
+  };
+};
+
+export const generateReviewPointsDraft = async (
+  input: TeacherAssistInput,
+): Promise<ServiceResult<TeacherDraftReply>> => {
+  const sensitiveTopics = [...new Set((input.supportFiles ?? []).flatMap((file) => file.sensitiveTopics))];
+  const content = [
+    `Pontos que pedem revisao no grupo ${input.group.name}:`,
+    "",
+    sensitiveTopics.length > 0
+      ? `- Temas sensiveis encontrados: ${sensitiveTopics.join(", ")}.`
+      : "- Verificar se o tema da aula esta claro e adequado ao grupo.",
+    "- Confirmar se a linguagem esta simples, respeitosa e educativa.",
+    "- Evitar conclusoes fechadas em assuntos delicados.",
+    "- Revisar se ha convite explicito para conversa com o professor quando necessario.",
+    "- Conferir se o texto final esta pronto para os participantes.",
+  ].join("\n");
+
+  return {
+    data: {
+      title: `Pontos de revisao para ${input.group.name}`,
+      content,
+      usedFallback: true,
+      reviewNote: "O professor deve revisar antes de publicar.",
+    },
+    source: "mock",
+    notice: "Lista de revisao gerada localmente para apoiar sua conferencia.",
+  };
 };
