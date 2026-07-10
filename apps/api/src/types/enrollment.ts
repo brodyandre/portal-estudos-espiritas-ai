@@ -90,6 +90,8 @@ export const validateEnrollmentInput = (
 
   if (!input.groupInterest) {
     errors.groupInterest = "Escolha o grupo de interesse.";
+  } else if (!ENROLLMENT_GROUP_INTERESTS.includes(input.groupInterest)) {
+    errors.groupInterest = "Escolha um grupo de interesse valido.";
   }
 
   if (message.length > ENROLLMENT_MESSAGE_MAX_LENGTH) {

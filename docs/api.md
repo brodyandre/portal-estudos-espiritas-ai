@@ -164,6 +164,98 @@ Query opcionais:
 - `studentId`
 - `groupId`
 
+### `POST /api/enrollments`
+
+Recebe um cadastro simples de interesse vindo da pagina publica do portal.
+
+Body esperado:
+
+```json
+{
+  "fullName": "Bianca Ferreira",
+  "email": "bianca.ferreira.demo@example.com",
+  "whatsapp": "+55 11 99999-8888",
+  "groupInterest": "Emmanuel",
+  "alreadyParticipates": "Não",
+  "message": "Gostaria de conhecer o grupo com tranquilidade."
+}
+```
+
+Comportamento:
+
+- valida os campos obrigatorios;
+- cria um registro em memoria com status `pending`;
+- nao expõe link do Google Meet;
+- retorna a mensagem:
+  `Sua solicitação foi recebida. Os professores revisarão seu cadastro.`
+
+Validacoes basicas:
+
+- `fullName` obrigatorio
+- `email` obrigatorio e valido
+- `whatsapp` obrigatorio
+- `groupInterest` obrigatorio
+- `message` opcional com limite de tamanho
+- `teacherNote` opcional
+
+### `GET /api/enrollments`
+
+Lista os interessados para o painel do professor.
+
+Query opcionais:
+
+- `status`: `pending`, `approved`, `rejected`, `needs_contact`
+- `groupInterest`: `Emmanuel`, `A Caminho da Luz`, `Ainda não sei`
+
+Exemplo:
+
+```text
+/api/enrollments?status=approved
+/api/enrollments?groupInterest=A%20Caminho%20da%20Luz
+```
+
+### `GET /api/enrollments/:id`
+
+Retorna um cadastro especifico de interesse.
+
+Se o item nao existir, a API devolve:
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "ENROLLMENT_NOT_FOUND",
+    "message": "Cadastro de interesse nao encontrado."
+  }
+}
+```
+
+### `PATCH /api/enrollments/:id/status`
+
+Atualiza o status do cadastro depois da revisao do professor.
+
+Body esperado:
+
+```json
+{
+  "status": "approved",
+  "teacherNote": "Aprovado para acompanhar o proximo encontro."
+}
+```
+
+Status aceitos nesta etapa:
+
+- `approved`
+- `rejected`
+- `needs_contact`
+
+Comportamento:
+
+- preenche `reviewedAt`
+- define `reviewedBy` como `Professor`
+- aceita `teacherNote` opcional
+- nao expõe link do Meet
+
 ### `GET /api/knowledge`
 
 Retorna uma visao geral curta da base de conhecimento, com total de arquivos publicos, grupos disponiveis e materiais compartilhados.

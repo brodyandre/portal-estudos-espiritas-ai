@@ -1,6 +1,7 @@
 import { Router } from "express";
 
 import { agentRouter } from "../modules/agent/agent.routes";
+import { enrollmentsRouter } from "../modules/enrollments/enrollments.routes";
 import { knowledgeRouter } from "../modules/knowledge/knowledge.routes";
 import { materialsRouter } from "../modules/materials/materials.routes";
 import { progressRouter } from "../modules/progress/progress.routes";
@@ -17,3 +18,4 @@ apiRouter.use("/materials", materialsRouter);
 apiRouter.use("/progress", progressRouter);
 apiRouter.use("/agent", agentRouter);
 apiRouter.use("/knowledge", knowledgeRouter);
+apiRouter.use("/enrollments", enrollmentsRouter);
