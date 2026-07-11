@@ -856,6 +856,10 @@ img {
   gap: var(--space-6);
 }
 
+.student-access-gate {
+  gap: var(--space-6);
+}
+
 .materials-page {
   gap: var(--space-6);
 }
@@ -946,6 +950,10 @@ img {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-5);
+}
+
+.student-access-gate__card {
+  min-width: 0;
 }
 
 .enrollment-layout,

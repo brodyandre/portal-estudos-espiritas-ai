@@ -100,6 +100,13 @@ Quando esses temas aparecem:
 - publica apenas o frontend
 - usa fallback local quando a API nao responde
 - e adequado para portfolio e navegacao demonstrativa
+- usa um controle local simples para o acesso do aluno no MVP
+
+Nota importante:
+
+- esse controle local de acesso nao e autenticacao real
+- ele existe apenas para demonstrar que o link da aula deve ficar restrito a alunos aprovados
+- em producao, o projeto deve evoluir para autenticacao e autorizacao reais
 
 ### Backend local
 

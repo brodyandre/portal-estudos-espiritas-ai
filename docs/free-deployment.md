@@ -30,7 +30,7 @@ Fica online:
 
 - home
 - portal compartilhavel
-- painel do aluno em modo funcional
+- painel do aluno com controle demonstrativo de acesso no navegador
 - painel do professor em modo funcional
 - paginas de materiais
 - fallback local para grupos, materiais, perguntas frequentes e respostas demonstrativas
@@ -61,6 +61,7 @@ Na pratica:
 - a navegacao funciona no GitHub Pages
 - o usuario consegue ver grupos, materiais e resumos
 - o assistente e as acoes do professor continuam em modo demonstrativo
+- a area do aluno usa status local `visitor`, `pending` e `approved` apenas como protecao MVP
 
 ## Como rodar localmente antes de publicar
 
@@ -140,6 +141,7 @@ O frontend continua util porque:
 - usa dados de fallback para grupos, materiais e progresso
 - mostra respostas demonstrativas quando o backend nao esta disponivel
 - nao depende de segredos nem de servicos externos para navegar
+- usa um bloqueio local simples para evitar mostrar o link da aula a visitantes nao aprovados
 
 ## Com backend local
 

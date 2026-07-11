@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
+import { StudentAccessGate } from "../components/access/StudentAccessGate";
 import { FlowStepCard } from "../components/display/FlowStepCard";
 import { AlertBox } from "../components/ui/AlertBox";
 import { Badge } from "../components/ui/Badge";
@@ -34,6 +35,12 @@ import { listMaterials } from "../services/materialsService";
 import { buildProgressHighlights, getProgress } from "../services/progressService";
 import { createQuestion, listQuestions } from "../services/questionsService";
 import { listStudies } from "../services/studiesService";
+import {
+  getStudentAccessStatusFromSearch,
+  readStudentAccessStatus,
+  writeStudentAccessStatus,
+  type StudentAccessStatus,
+} from "../services/studentAccessService";
 import { listSummaries } from "../services/summariesService";
 
 type AssistantFeedback = "helpful" | "not-helpful" | null;
@@ -123,6 +130,8 @@ const BellIcon = () => {
 
 export const AlunoPage = () => {
   const [searchParams] = useSearchParams();
+  const initialAccessStatus = getStudentAccessStatusFromSearch(searchParams) ?? readStudentAccessStatus();
+  const [studentAccessStatus, setStudentAccessStatus] = useState<StudentAccessStatus>(initialAccessStatus);
   const [groups, setGroups] = useState<DemoGroup[]>([]);
   const [materials, setMaterials] = useState<Awaited<ReturnType<typeof listMaterials>>["data"]>([]);
   const [summaries, setSummaries] = useState<Awaited<ReturnType<typeof listSummaries>>["data"]>([]);
@@ -142,6 +151,22 @@ export const AlunoPage = () => {
   const [isSendingTeacherQuestion, setIsSendingTeacherQuestion] = useState(false);
 
   useEffect(() => {
+    const nextStatus = getStudentAccessStatusFromSearch(searchParams);
+
+    if (!nextStatus) {
+      return;
+    }
+
+    writeStudentAccessStatus(nextStatus);
+    setStudentAccessStatus(nextStatus);
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (studentAccessStatus !== "approved") {
+      setIsLoading(false);
+      return;
+    }
+
     let isActive = true;
 
     const loadDashboard = async () => {
@@ -202,7 +227,7 @@ export const AlunoPage = () => {
     return () => {
       isActive = false;
     };
-  }, []);
+  }, [studentAccessStatus]);
 
   const availableGroups = groups.length > 0 ? groups : demoGroups;
   const activeGroup =
@@ -251,6 +276,10 @@ export const AlunoPage = () => {
   const requestedGroupSlug = searchParams.get("grupo");
 
   useEffect(() => {
+    if (studentAccessStatus !== "approved") {
+      return;
+    }
+
     if (!requestedGroupSlug) {
       return;
     }
@@ -263,7 +292,7 @@ export const AlunoPage = () => {
     ) {
       setActiveGroupSlug(normalizedRequestedGroup as DemoGroup["slug"]);
     }
-  }, [requestedGroupSlug]);
+  }, [requestedGroupSlug, studentAccessStatus]);
 
   useEffect(() => {
     setAssistantResponse(getInitialAssistantReply());
@@ -279,6 +308,10 @@ export const AlunoPage = () => {
         : (activeSupportFiles[0]?.id ?? null);
     });
   }, [activeSupportFiles]);
+
+  if (studentAccessStatus !== "approved") {
+    return <StudentAccessGate status={studentAccessStatus} />;
+  }
 
   const handleAssistantSubmit = async (nextQuestion?: string) => {
     const content = (nextQuestion ?? assistantInput).trim();

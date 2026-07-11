@@ -17,6 +17,7 @@ import {
   validateEnrollmentInput,
 } from "../types/enrollment";
 import { createEnrollment } from "../services/enrollmentsService";
+import { writeStudentAccessStatus } from "../services/studentAccessService";
 
 type EnrollmentFormState = EnrollmentInput & {
   consentAccepted: boolean;
@@ -87,6 +88,7 @@ export const EnrollmentPage = () => {
     const result = await createEnrollment(formState);
 
     setSubmittedNotice(result.notice);
+    writeStudentAccessStatus("pending");
     setHasSubmitted(true);
     setIsSubmitting(false);
     setFormState(initialFormState);

@@ -53,6 +53,7 @@ describe("paginas principais com fallback local", () => {
   });
 
   it("/aluno renderiza materiais dos dois grupos e continua util sem backend", async () => {
+    window.localStorage.setItem("portal-estudos-espiritas-ai:student-access", "approved");
     renderRoute("/aluno?grupo=emmanuel", <AlunoPage />);
 
     expect(
@@ -67,6 +68,15 @@ describe("paginas principais com fallback local", () => {
     });
 
     expect(await screen.findByText("A Caminho da Luz - visao geral")).toBeInTheDocument();
+  });
+
+  it("/aluno bloqueia visitantes e oculta a area quando o acesso nao foi aprovado", async () => {
+    renderRoute("/aluno", <AlunoPage />);
+
+    expect(screen.getByRole("heading", { name: "Acesso nao liberado" })).toBeInTheDocument();
+    expect(await screen.findByText("Revisao antes do acesso")).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: "Fazer inscricao" }).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("link", { name: "Entrar no Google Meet" })).not.toBeInTheDocument();
   });
 
   it("/professor renderiza a base de apoio e troca o contexto do livro sem backend", async () => {
