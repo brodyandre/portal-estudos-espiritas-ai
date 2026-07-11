@@ -50,9 +50,12 @@ Comportamento esperado:
 
 Experiencia voltada para participantes aprovados.
 
-Rotas de aluno:
+Rotas implementadas no MVP:
 
 - `/aluno`
+
+Rotas planejadas para evolucao futura:
+
 - `/aluno/materiais`
 - `/aluno/assistente`
 - `/aluno/progresso`
@@ -68,9 +71,12 @@ Comportamento esperado:
 
 Experiencia de preparacao de aulas e revisao de interessados.
 
-Rotas de professor:
+Rotas implementadas no MVP:
 
 - `/professor`
+
+Rotas planejadas para evolucao futura:
+
 - `/professor/interessados`
 - `/professor/aulas`
 - `/professor/revisao`
@@ -87,7 +93,7 @@ Comportamento esperado:
 
 Experiencia administrativa mais ampla, separada do fluxo cotidiano do professor.
 
-Rotas administrativas:
+Rotas implementadas no MVP:
 
 - `/admin`
 - `/admin/dashboard`
