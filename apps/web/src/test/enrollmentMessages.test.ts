@@ -11,7 +11,7 @@ const enrollmentBase: Enrollment = {
   id: "enrollment-001",
   fullName: "Mariana Souza",
   email: "mariana.souza.demo@example.com",
-  whatsapp: "+55 11 99876-1101",
+  whatsapp: "+55 00 90000-0001",
   groupInterest: "Emmanuel",
   alreadyParticipates: "Não",
   message: "Gostaria de conhecer melhor o grupo.",

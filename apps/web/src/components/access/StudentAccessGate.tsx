@@ -3,6 +3,7 @@ import { AlertBox } from "../ui/AlertBox";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import type { StudentAccessStatus } from "../../services/studentAccessService";
+import { DEMO_MODE_NOTICE, PUBLIC_MEET_NOTICE, appConfig } from "../../config/appMode";
 
 interface StudentAccessGateProps {
   status: StudentAccessStatus;
@@ -49,6 +50,12 @@ export const StudentAccessGate = ({ status }: StudentAccessGateProps) => {
       <AlertBox title="Revisão antes do acesso" tone="warning">
         A aprovação dos professores libera o acesso à área do aluno e ao link da aula.
       </AlertBox>
+
+      {appConfig.appMode === "demo" ? (
+        <AlertBox title="Versão pública" tone="info">
+          {DEMO_MODE_NOTICE} {PUBLIC_MEET_NOTICE}
+        </AlertBox>
+      ) : null}
 
       <Card className="student-access-gate__card" tone="soft">
         <h2>Acesso ainda não liberado</h2>

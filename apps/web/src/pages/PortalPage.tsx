@@ -11,6 +11,7 @@ import { SectionTitle } from "../components/ui/SectionTitle";
 import { Select } from "../components/ui/Select";
 import { StatusTag } from "../components/ui/StatusTag";
 import { TextArea } from "../components/ui/TextArea";
+import { DEMO_MODE_NOTICE, PUBLIC_MEET_NOTICE, appConfig } from "../config/appMode";
 import type { DemoGroup, DemoMaterial, DemoSummary, GroupSlug } from "../mocks";
 import { collectServiceNotice } from "../services/api";
 import { listMaterials } from "../services/materialsService";
@@ -80,6 +81,7 @@ export const PortalPage = () => {
 
   const participantTotal = groups.reduce((total, group) => total + group.participantCount, 0);
   const activeGroup = groups.find((group) => group.slug === activeGroupSlug) ?? groups[0] ?? null;
+  const canShowMeetLink = appConfig.canShowRealMeetLink;
   const activeSummary = useMemo(() => {
     if (!activeGroup) {
       return null;
@@ -169,6 +171,12 @@ export const PortalPage = () => {
           "Esta página pode ser compartilhada com novos participantes. Os encontros, materiais e orientações aparecem de forma simples, sem exigir cadastro."}
       </AlertBox>
 
+      {appConfig.appMode === "demo" ? (
+        <AlertBox title="Versão pública" tone="warning">
+          {DEMO_MODE_NOTICE} {PUBLIC_MEET_NOTICE}
+        </AlertBox>
+      ) : null}
+
       <Card className="portal-invite-card" tone="soft">
         <div className="portal-invite-card__content">
           <div>
@@ -251,9 +259,13 @@ export const PortalPage = () => {
                   </dl>
 
                   <div className="button-row">
-                    <Button href={group.meetUrl} rel="noreferrer" target="_blank">
-                      Entrar no Google Meet
-                    </Button>
+                    {canShowMeetLink ? (
+                      <Button href={group.meetUrl} rel="noreferrer" target="_blank">
+                        Entrar no Google Meet
+                      </Button>
+                    ) : (
+                      <p className="student-panel__note">{PUBLIC_MEET_NOTICE}</p>
+                    )}
                     <Button to={`/materiais/${group.slug}`} variant="secondary">
                       Ver materiais do livro
                     </Button>
@@ -286,9 +298,13 @@ export const PortalPage = () => {
                 <p className="card-subtitle">{activeGroup.nextLesson.scheduledLabel}</p>
                 <p>{activeGroup.nextLesson.theme}</p>
                 <div className="button-row">
-                  <Button href={activeGroup.meetUrl} rel="noreferrer" target="_blank">
-                    Entrar no Google Meet
-                  </Button>
+                  {canShowMeetLink ? (
+                    <Button href={activeGroup.meetUrl} rel="noreferrer" target="_blank">
+                      Entrar no Google Meet
+                    </Button>
+                  ) : (
+                    <p className="student-panel__note">{PUBLIC_MEET_NOTICE}</p>
+                  )}
                 </div>
               </Card>
 

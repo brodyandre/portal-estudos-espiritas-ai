@@ -85,6 +85,12 @@ export const appSidebarConfig: SidebarConfig = {
       label: "Professor",
       description: "Planejamento, revisão e publicação do encontro.",
     },
+    {
+      type: "route",
+      to: "/admin",
+      label: "Admin",
+      description: "Acesso administrativo local para revisão e acompanhamento.",
+    },
   ],
 };
 
@@ -196,6 +202,54 @@ export const teacherSidebarConfig: SidebarConfig = {
   ],
 };
 
+export const adminSidebarConfig: SidebarConfig = {
+  badge: "Área Administrativa",
+  title: "Educação Continuada",
+  description: "Gestão demonstrativa de usuários, grupos, conteúdos, configurações e auditoria.",
+  footerTitle: "Uso local e privado",
+  footerDescription:
+    "A operação administrativa real depende de backend local e futura autenticação segura por perfil.",
+  navLabel: "Navegação da área administrativa",
+  items: [
+    {
+      type: "route",
+      to: "/admin/dashboard",
+      label: "Dashboard",
+      description: "Resumo administrativo com pendências, grupos e status geral.",
+    },
+    {
+      type: "route",
+      to: "/admin/usuarios",
+      label: "Usuários",
+      description: "Perfis demonstrativos, acessos e situação dos participantes.",
+    },
+    {
+      type: "route",
+      to: "/admin/grupos",
+      label: "Grupos",
+      description: "Organização dos grupos, horários e capacidade de acompanhamento.",
+    },
+    {
+      type: "route",
+      to: "/admin/conteudos",
+      label: "Conteúdos",
+      description: "Base de apoio, materiais revisáveis e publicações em preparo.",
+    },
+    {
+      type: "route",
+      to: "/admin/configuracoes",
+      label: "Configurações",
+      description: "Parâmetros locais, modo demonstrativo e regras de exibição.",
+    },
+    {
+      type: "route",
+      to: "/admin/auditoria",
+      label: "Auditoria",
+      description: "Registro demonstrativo de revisões, aprovações e mudanças locais.",
+    },
+  ],
+};
+
 export const pageMeta = {
   "/": {
     title: "Início",
@@ -236,6 +290,34 @@ export const pageMeta = {
   "/professor": {
     title: "Painel do Professor",
     description: "Planejamento da semana, revisão de conteúdo e publicação consciente.",
+  },
+  "/admin": {
+    title: "Área Administrativa",
+    description: "Resumo administrativo da aplicação em ambiente local ou demonstrativo.",
+  },
+  "/admin/dashboard": {
+    title: "Painel Administrativo",
+    description: "Resumo administrativo com visão geral das pendências e do ambiente.",
+  },
+  "/admin/usuarios": {
+    title: "Usuários",
+    description: "Perfis demonstrativos, papéis e situação dos acessos cadastrados.",
+  },
+  "/admin/grupos": {
+    title: "Grupos",
+    description: "Acompanhamento simples dos grupos, agenda e vagas demonstrativas.",
+  },
+  "/admin/conteudos": {
+    title: "Conteúdos",
+    description: "Revisão demonstrativa de materiais, resumos e publicações.",
+  },
+  "/admin/configuracoes": {
+    title: "Configurações",
+    description: "Parâmetros de execução local, modo demo e regras da interface.",
+  },
+  "/admin/auditoria": {
+    title: "Auditoria",
+    description: "Histórico demonstrativo de aprovações, revisão e mudanças recentes.",
   },
 } satisfies Record<string, { title: string; description: string }>;
 
@@ -433,6 +515,56 @@ export const pageSections: Record<string, PageSectionContext[]> = {
     {
       targetId: "professor-configuracoes",
       label: "Aprovação",
+    },
+  ],
+  "/admin": [
+    {
+      targetId: "admin-dashboard",
+      label: "Resumo",
+    },
+    {
+      targetId: "admin-destaques",
+      label: "Destaques",
+    },
+  ],
+  "/admin/dashboard": [
+    {
+      targetId: "admin-dashboard",
+      label: "Início",
+    },
+    {
+      targetId: "admin-destaques",
+      label: "Destaques",
+    },
+  ],
+  "/admin/usuarios": [
+    {
+      targetId: "admin-usuarios",
+      label: "Usuários",
+    },
+  ],
+  "/admin/grupos": [
+    {
+      targetId: "admin-grupos",
+      label: "Grupos",
+    },
+  ],
+  "/admin/conteudos": [
+    {
+      targetId: "admin-conteudos",
+      label: "Conteúdos",
+    },
+  ],
+  "/admin/configuracoes": [
+    {
+      targetId: "admin-configuracoes",
+      label: "Configurações",
+    },
+  ],
+  "/admin/auditoria": [
+    {
+      targetId: "admin-auditoria",
+      label: "Auditoria",
     },
   ],
 };

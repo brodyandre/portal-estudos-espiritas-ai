@@ -42,6 +42,7 @@ import {
   type StudentAccessStatus,
 } from "../services/studentAccessService";
 import { listSummaries } from "../services/summariesService";
+import { PUBLIC_MEET_NOTICE, appConfig } from "../config/appMode";
 
 type AssistantFeedback = "helpful" | "not-helpful" | null;
 
@@ -130,7 +131,9 @@ const BellIcon = () => {
 
 export const AlunoPage = () => {
   const [searchParams] = useSearchParams();
-  const initialAccessStatus = getStudentAccessStatusFromSearch(searchParams) ?? readStudentAccessStatus();
+  const initialAccessStatus = appConfig.canUseStudentPrivateArea
+    ? (getStudentAccessStatusFromSearch(searchParams) ?? readStudentAccessStatus())
+    : "visitor";
   const [studentAccessStatus, setStudentAccessStatus] = useState<StudentAccessStatus>(initialAccessStatus);
   const [groups, setGroups] = useState<DemoGroup[]>([]);
   const [materials, setMaterials] = useState<Awaited<ReturnType<typeof listMaterials>>["data"]>([]);
@@ -151,6 +154,10 @@ export const AlunoPage = () => {
   const [isSendingTeacherQuestion, setIsSendingTeacherQuestion] = useState(false);
 
   useEffect(() => {
+    if (!appConfig.canUseStudentPrivateArea) {
+      return;
+    }
+
     const nextStatus = getStudentAccessStatusFromSearch(searchParams);
 
     if (!nextStatus) {
@@ -479,9 +486,13 @@ export const AlunoPage = () => {
                   </dl>
 
                   <div className="button-row">
-                    <Button href={group.meetUrl} rel="noreferrer" target="_blank">
-                      Entrar no Google Meet
-                    </Button>
+                    {appConfig.canShowRealMeetLink ? (
+                      <Button href={group.meetUrl} rel="noreferrer" target="_blank">
+                        Entrar no Google Meet
+                      </Button>
+                    ) : (
+                      <p className="student-panel__note">{PUBLIC_MEET_NOTICE}</p>
+                    )}
                     <Button
                       onClick={() => setActiveGroupSlug(group.slug)}
                       variant={isActive ? "primary" : "secondary"}
@@ -522,9 +533,13 @@ export const AlunoPage = () => {
                 </p>
                 <p className="student-panel__note">Leitura recomendada: {recommendedReading}</p>
                 <div className="button-row">
-                  <Button href={activeGroup.meetUrl} rel="noreferrer" target="_blank">
-                    Entrar no Google Meet
-                  </Button>
+                  {appConfig.canShowRealMeetLink ? (
+                    <Button href={activeGroup.meetUrl} rel="noreferrer" target="_blank">
+                      Entrar no Google Meet
+                    </Button>
+                  ) : (
+                    <p className="student-panel__note">{PUBLIC_MEET_NOTICE}</p>
+                  )}
                   <Button to={`/materiais/${activeGroup.slug}`} variant="secondary">
                     Ver materiais do livro
                   </Button>

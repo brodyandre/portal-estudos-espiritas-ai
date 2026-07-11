@@ -50,6 +50,20 @@ Pastas principais:
 
 No frontend publicado no GitHub Pages, a experiencia continua funcional com fallback local resumido em `apps/web/src/mocks/knowledge.ts`. Esse fallback nao expoe o Markdown completo.
 
+## Uso administrativo da base
+
+A rota `/admin/conteudos` organiza a base para acompanhamento editorial.
+
+Ela permite:
+
+- listar arquivos resumidos por livro
+- filtrar por tipo
+- ver tags e caminho do arquivo
+- destacar temas sensiveis
+- marcar localmente se um item foi revisado ou ainda precisa revisao
+
+Nesta fase, a tela nao edita Markdown. Ela existe para leitura, organizacao e governanca simples.
+
 ## Metadados do indice
 
 Cada item em `data/knowledge/index.json` deve conter:

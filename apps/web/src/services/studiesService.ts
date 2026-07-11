@@ -10,6 +10,7 @@ import {
   getLessonStatus,
 } from "./formatters";
 import { loadWithFallback } from "./api";
+import { getMeetLinkForMode } from "../config/appMode";
 
 interface ApiStudyGroup {
   id: GroupSlug;
@@ -38,7 +39,7 @@ const mapStudyGroup = (study: ApiStudyGroup): DemoGroup => {
     meetingDay: formatMeetingDay(study.meetingDay),
     meetingTime: study.meetingTime,
     participantCount: study.participantCount,
-    meetUrl: study.meetUrl,
+    meetUrl: getMeetLinkForMode(study.meetUrl) ?? "",
     bookTitle: study.bookTitle,
     description: study.description,
     nextLesson: {
@@ -53,10 +54,17 @@ const mapStudyGroup = (study: ApiStudyGroup): DemoGroup => {
   };
 };
 
+const sanitizeDemoGroup = (group: DemoGroup): DemoGroup => {
+  return {
+    ...group,
+    meetUrl: getMeetLinkForMode(group.meetUrl) ?? "",
+  };
+};
+
 export const listStudies = () => {
   return loadWithFallback<ApiStudyGroup[], DemoGroup[]>({
     path: "/api/studies",
-    fallback: () => listMockStudies(),
+    fallback: () => listMockStudies().map(sanitizeDemoGroup),
     mapData: (items) => items.map(mapStudyGroup),
     friendlyMessage:
       "Nao foi possivel carregar os grupos pelo servidor agora. Estamos mostrando os grupos demonstrativos para voce seguir.",
@@ -66,7 +74,10 @@ export const listStudies = () => {
 export const getStudyBySlug = (slug: GroupSlug) => {
   return loadWithFallback<ApiStudyGroup, DemoGroup | null>({
     path: `/api/studies/${slug}`,
-    fallback: () => getMockStudyBySlug(slug) ?? null,
+    fallback: () => {
+      const item = getMockStudyBySlug(slug);
+      return item ? sanitizeDemoGroup(item) : null;
+    },
     mapData: mapStudyGroup,
     friendlyMessage:
       "Nao foi possivel atualizar este grupo pelo servidor agora. O conteudo demonstrativo continua disponivel.",

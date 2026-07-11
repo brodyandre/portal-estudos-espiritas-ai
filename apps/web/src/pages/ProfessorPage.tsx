@@ -43,6 +43,7 @@ import {
   getEnrollmentMessageStatus,
 } from "../utils/enrollmentMessages";
 import { buildWhatsAppUrl, getWhatsAppPhoneLabel } from "../utils/whatsapp";
+import { DEMO_MODE_NOTICE, PUBLIC_MEET_NOTICE, appConfig } from "../config/appMode";
 
 type ReviewState = "draft" | "approved" | "published";
 type PreviewKind = "outline" | "questions" | "summary" | "message" | "review";
@@ -786,6 +787,12 @@ export const ProfessorPage = () => {
       {notice ? (
         <AlertBox title="Modo demonstrativo ativo" tone="info">
           {notice}
+        </AlertBox>
+      ) : null}
+
+      {appConfig.appMode === "demo" ? (
+        <AlertBox title="Versão pública" tone="warning">
+          {DEMO_MODE_NOTICE} {PUBLIC_MEET_NOTICE}
         </AlertBox>
       ) : null}
 

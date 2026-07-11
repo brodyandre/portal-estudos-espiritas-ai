@@ -122,6 +122,7 @@ Quando esses temas aparecem:
 - usa fallback local quando a API nao responde
 - e adequado para portfolio e navegacao demonstrativa
 - usa um controle local simples para o acesso do aluno no MVP
+- pode exibir base de conhecimento autoral resumida e mocks nao sensiveis
 
 Nota importante:
 
@@ -129,6 +130,21 @@ Nota importante:
 - ele existe apenas para demonstrar que o link da aula deve ficar restrito a alunos aprovados
 - em producao, o projeto deve evoluir para autenticacao e autorizacao reais
 - o mesmo vale para aprovacoes feitas em modo demonstrativo no painel do professor
+
+## Limites do GitHub Pages
+
+O ambiente publicado nao deve expor:
+
+- dados reais de alunos
+- WhatsApps reais
+- e-mails reais
+- tokens
+- senhas
+- PDFs das obras
+- links reais do Meet em paginas publicas
+- segredos de operacao
+
+O papel do GitHub Pages e demonstrar a experiencia, nao armazenar ou distribuir informacoes privadas.
 
 ### Backend local
 
@@ -164,3 +180,16 @@ Nota importante:
 ## Resumo
 
 Este projeto usa assistencia como apoio de estudo e organizacao. A prioridade nao e parecer definitivo, e sim ser util, claro, prudente e honesto sobre o que consegue ou nao consegue fazer.
+
+## Evolução para produção real
+
+Para uma operacao real e responsavel, o projeto deve evoluir para:
+
+- backend autenticado
+- autorizacao por perfil
+- protecao real do link do Meet
+- configuracoes sensiveis fora do frontend
+- auditoria persistente
+- dados reais armazenados e acessados apenas em ambiente controlado
+
+Essa evolucao e necessaria para que o uso do sistema deixe de ser apenas demonstrativo e passe a ser operacional com seguranca adequada.

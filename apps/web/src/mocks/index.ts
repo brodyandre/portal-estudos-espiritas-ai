@@ -1,5 +1,8 @@
 export type GroupSlug = "emmanuel" | "a-caminho-da-luz";
 
+const DEMO_MEET_LINK_EMMANUEL = "https://example.com/demo-meet/emmanuel";
+const DEMO_MEET_LINK_A_CAMINHO_DA_LUZ = "https://example.com/demo-meet/a-caminho-da-luz";
+
 export interface DemoGroup {
   slug: GroupSlug;
   name: string;
@@ -134,7 +137,7 @@ export const groups: DemoGroup[] = [
     meetingDay: "Segunda-feira",
     meetingTime: "20h",
     participantCount: 88,
-    meetUrl: "https://meet.google.com/emm-demo-aula",
+    meetUrl: DEMO_MEET_LINK_EMMANUEL,
     bookTitle: "Estudo demonstrativo do grupo Emmanuel",
     description:
       "Grupo com encontro sereno, leitura orientada e espaco para duvidas simples e honestas.",
@@ -155,7 +158,7 @@ export const groups: DemoGroup[] = [
     meetingDay: "Quarta-feira",
     meetingTime: "20h",
     participantCount: 62,
-    meetUrl: "https://meet.google.com/acl-demo-aula",
+    meetUrl: DEMO_MEET_LINK_A_CAMINHO_DA_LUZ,
     bookTitle: "Estudo demonstrativo do grupo A Caminho da Luz",
     description:
       "Grupo acolhedor com revisao breve, conversa fraterna e preparacao tranquila para cada aula.",

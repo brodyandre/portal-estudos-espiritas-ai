@@ -5,7 +5,7 @@ export const enrollments: Enrollment[] = [
     id: "enrollment-001",
     fullName: "Mariana Souza",
     email: "mariana.souza.demo@example.com",
-    whatsapp: "+55 11 99876-1101",
+    whatsapp: "+55 00 90000-0001",
     groupInterest: "Emmanuel",
     alreadyParticipates: "Não",
     message:
@@ -20,7 +20,7 @@ export const enrollments: Enrollment[] = [
     id: "enrollment-002",
     fullName: "Carlos Eduardo Lima",
     email: "carlos.lima.demo@example.com",
-    whatsapp: "+55 21 99771-2202",
+    whatsapp: "+55 00 90000-0002",
     groupInterest: "A Caminho da Luz",
     alreadyParticipates: "Já participei antes",
     message:
@@ -35,7 +35,7 @@ export const enrollments: Enrollment[] = [
     id: "enrollment-003",
     fullName: "Fernanda Rocha",
     email: "fernanda.rocha.demo@example.com",
-    whatsapp: "+55 31 99654-3303",
+    whatsapp: "+55 00 90000-0003",
     groupInterest: "Ainda não sei",
     alreadyParticipates: "Não",
     message:
@@ -50,7 +50,7 @@ export const enrollments: Enrollment[] = [
     id: "enrollment-004",
     fullName: "Joao Victor Mendes",
     email: "joaovictor.mendes.demo@example.com",
-    whatsapp: "+55 41 99543-4404",
+    whatsapp: "+55 00 90000-0004",
     groupInterest: "Emmanuel",
     alreadyParticipates: "Sim",
     message:
@@ -65,7 +65,7 @@ export const enrollments: Enrollment[] = [
     id: "enrollment-005",
     fullName: "Patricia Almeida",
     email: "patricia.almeida.demo@example.com",
-    whatsapp: "+55 51 99432-5505",
+    whatsapp: "+55 00 90000-0005",
     groupInterest: "A Caminho da Luz",
     alreadyParticipates: "Não",
     message:
