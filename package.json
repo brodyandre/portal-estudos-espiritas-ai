@@ -17,11 +17,17 @@
     "start:api": "npm --workspace @portal-estudos-espiritas-ai/api run start",
     "preview": "npm --workspace @portal-estudos-espiritas-ai/web run preview",
     "rag:validate": "npm --workspace @portal-estudos-espiritas-ai/api run rag:validate",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose stop postgres",
+    "db:migrate": "npm --workspace @portal-estudos-espiritas-ai/api run prisma:migrate",
+    "db:seed": "npm --workspace @portal-estudos-espiritas-ai/api run prisma:seed",
+    "db:studio": "npm --workspace @portal-estudos-espiritas-ai/api run prisma:studio",
     "lint": "npm run typecheck",
     "test": "npm run test:api && npm run test:web",
     "test:api": "npm --workspace @portal-estudos-espiritas-ai/api run test",
     "test:web": "npm --workspace @portal-estudos-espiritas-ai/web run test",
-    "typecheck": "npm --workspace @portal-estudos-espiritas-ai/api run typecheck && npm --workspace @portal-estudos-espiritas-ai/web run typecheck"
+    "typecheck": "npm --workspace @portal-estudos-espiritas-ai/api run typecheck && npm --workspace @portal-estudos-espiritas-ai/web run typecheck",
+    "postinstall": "npm --workspace @portal-estudos-espiritas-ai/api run prisma:generate"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

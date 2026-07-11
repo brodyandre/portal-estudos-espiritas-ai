@@ -1,0 +1,90 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  VISITOR
+  STUDENT
+  TEACHER
+  ADMIN
+}
+
+enum UserStatus {
+  PENDING
+  ACTIVE
+  INACTIVE
+  REJECTED
+}
+
+enum EnrollmentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  NEEDS_CONTACT
+}
+
+enum GroupStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model User {
+  id         String     @id @default(cuid())
+  fullName   String
+  email      String     @unique
+  whatsapp   String?
+  role       UserRole
+  status     UserStatus
+  groupName  String?
+  groupSlug  String?
+  adminNote  String     @default("")
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+}
+
+model Enrollment {
+  id                  String           @id @default(cuid())
+  fullName            String
+  email               String
+  whatsapp            String
+  groupInterest       String
+  alreadyParticipates String
+  message             String           @default("")
+  status              EnrollmentStatus @default(PENDING)
+  createdAt           DateTime         @default(now())
+  reviewedAt          DateTime?
+  reviewedBy          String?
+  teacherNote         String           @default("")
+
+  @@index([status])
+  @@index([groupInterest])
+}
+
+model StudyGroup {
+  id               String      @id
+  name             String
+  meetingDay       String
+  meetingTime      String
+  participantCount Int
+  bookTitle        String
+  meetUrl          String
+  description      String
+  status           GroupStatus @default(ACTIVE)
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  occurredAt DateTime @default(now())
+  actorName  String
+  actorRole  UserRole
+  action     String
+  entity     String
+  note       String
+}

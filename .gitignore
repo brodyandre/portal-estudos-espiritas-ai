@@ -1,6 +1,9 @@
 node_modules/
 dist/
 coverage/
+.env
+.env.local
+.env.*.local
 
 # Fontes originais e materiais privados
 data/sources/

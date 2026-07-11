@@ -16,8 +16,8 @@ import {
   isEnrollmentStatus,
   listEnrollments,
   updateEnrollmentStatus,
-  type UpdateEnrollmentStatusInput,
 } from "./enrollments.service";
+import type { UpdateEnrollmentStatusInput } from "./enrollments.repository";
 
 const isObjectRecord = (value: unknown): value is Record<string, unknown> => {
   return Boolean(value) && typeof value === "object";
@@ -126,9 +126,9 @@ export const enrollmentsRouter = Router();
 
 enrollmentsRouter.post(
   "/",
-  asyncHandler((request, response) => {
+  asyncHandler(async (request, response) => {
     const input = parseCreateEnrollmentBody(request.body);
-    const createdEnrollment = createEnrollment(input);
+    const createdEnrollment = await createEnrollment(input);
 
     return sendSuccess(response, {
       status: 201,
@@ -140,7 +140,7 @@ enrollmentsRouter.post(
 
 enrollmentsRouter.get(
   "/",
-  asyncHandler((request, response) => {
+  asyncHandler(async (request, response) => {
     const rawStatus =
       typeof request.query.status === "string" ? request.query.status : undefined;
     const rawGroupInterest =
@@ -168,7 +168,7 @@ enrollmentsRouter.get(
         ? rawGroupInterest
         : undefined;
 
-    const items = listEnrollments({
+    const items = await listEnrollments({
       status,
       groupInterest,
     });
@@ -187,8 +187,8 @@ enrollmentsRouter.get(
 
 enrollmentsRouter.get(
   "/:id",
-  asyncHandler((request, response) => {
-    const enrollment = getEnrollmentById(getRouteParam(request.params.id));
+  asyncHandler(async (request, response) => {
+    const enrollment = await getEnrollmentById(getRouteParam(request.params.id));
 
     if (!enrollment) {
       throw new AppError({
@@ -207,9 +207,9 @@ enrollmentsRouter.get(
 
 enrollmentsRouter.patch(
   "/:id/status",
-  asyncHandler((request, response) => {
+  asyncHandler(async (request, response) => {
     const input = parseUpdateEnrollmentStatusBody(request.body);
-    const updatedEnrollment = updateEnrollmentStatus(getRouteParam(request.params.id), input);
+    const updatedEnrollment = await updateEnrollmentStatus(getRouteParam(request.params.id), input);
 
     if (!updatedEnrollment) {
       throw new AppError({

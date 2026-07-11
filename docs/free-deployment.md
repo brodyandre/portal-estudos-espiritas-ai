@@ -70,6 +70,7 @@ Mesmo quando a interface exibe areas de aluno, professor e admin, isso continua 
 Continuam fora do GitHub Pages:
 
 - backend em Express
+- banco PostgreSQL local via Docker Compose
 - acesso operacional real das experiencias `Aluno`, `Professor` e `Admin`
 - endpoints da base de conhecimento
 - assistente completo
@@ -132,6 +133,8 @@ VITE_ENABLE_TEACHER_FEATURES=true
 ```
 
 Mesmo no modo local, o frontend nao deve armazenar segredos, tokens ou senhas. Esses dados devem ficar no backend quando a aplicacao evoluir para producao.
+
+Nesta etapa, a persistencia local de inscricoes pode usar PostgreSQL com Prisma, mas isso continua restrito ao ambiente privado do owner.
 
 Para subir so a API:
 

@@ -143,6 +143,11 @@ npm run preview
 npm run test
 npm run typecheck
 npm run rag:validate
+npm run db:up
+npm run db:down
+npm run db:migrate
+npm run db:seed
+npm run db:studio
 ```
 
 Atalhos com Makefile:
@@ -156,6 +161,11 @@ make dev-api
 make build
 make test
 make lint
+make db-up
+make db-down
+make db-migrate
+make db-seed
+make db-studio
 make pages-check
 make docker-up
 make docker-down
@@ -174,11 +184,18 @@ Servicos locais:
 
 - frontend em `http://localhost:5173`
 - API em `http://localhost:3333`
+- PostgreSQL em `localhost:5435`
 
 Para subir apenas a API:
 
 ```bash
 npm run dev:api
+```
+
+Para subir apenas o banco local:
+
+```bash
+npm run db:up
 ```
 
 ## Como testar perguntas
@@ -220,6 +237,7 @@ O que fica publicado:
 O que continua local nesta fase:
 
 - backend em Express
+- PostgreSQL local via Docker Compose
 - revisao administrativa real em `/admin` e `/professor`
 - endpoints da base de conhecimento
 - assistente completo
@@ -233,6 +251,21 @@ Na pratica:
 - o site publicado continua navegavel e util sem backend
 - a experiencia completa de respostas e busca na base roda melhor com a API local
 - a versao publica nao mostra link real do Meet nem dados reais sensiveis
+
+## PostgreSQL local
+
+O backend passa a oferecer persistencia local para inscricoes usando PostgreSQL e Prisma.
+
+Nesta fase:
+
+- o banco roda apenas na maquina local
+- a porta usada no host e `5435`
+- o GitHub Pages continua sem acesso ao banco
+- a seed usa apenas dados demonstrativos e seguros
+
+Documentacao complementar:
+
+- [docs/local-postgres.md](docs/local-postgres.md)
 
 ## Limites do GitHub Pages
 
