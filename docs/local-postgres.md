@@ -11,6 +11,7 @@ Nesta fase:
 - o PostgreSQL roda apenas localmente
 - o banco sobe via Docker Compose
 - o backend usa Prisma
+- o backend autentica perfis locais com JWT
 - o frontend publicado no GitHub Pages continua sem acesso ao banco
 - o frontend continua com fallback demonstrativo quando a API nao estiver disponivel
 
@@ -92,6 +93,7 @@ A seed atual usa apenas dados demonstrativos e seguros:
 - e-mails `example.com`
 - WhatsApps ficticios com `+55 00`
 - links de Meet demonstrativos
+- senhas demonstrativas para login local controlado
 - nenhum dado real de aluno
 - nenhum token, senha real ou segredo
 
@@ -124,6 +126,7 @@ Mesmo com PostgreSQL local:
 - persistencia de inscricoes no backend
 - trilha simples de auditoria para criacao e mudanca de status
 - seed demonstrativo persistido em PostgreSQL
+- autenticacao local de `Admin`, `Professor` e `Aluno`
 
 ## Proximo passo natural
 

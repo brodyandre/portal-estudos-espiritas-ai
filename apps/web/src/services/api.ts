@@ -1,4 +1,5 @@
 import { DEMO_MODE_NOTICE, appConfig } from "../config/appMode";
+import { readStoredAuthToken } from "../auth/storage";
 
 const REQUEST_TIMEOUT_MS = 2500;
 
@@ -93,11 +94,14 @@ const requestJson = async <T>({ path, query, init }: RequestOptions): Promise<Ap
   const timeout = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
   try {
+    const authToken = readStoredAuthToken();
+
     const response = await fetch(buildUrl(path, query), {
       ...init,
       headers: {
         Accept: "application/json",
         "Content-Type": "application/json",
+        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
         ...init?.headers,
       },
       signal: controller.signal,

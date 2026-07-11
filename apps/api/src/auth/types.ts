@@ -34,6 +34,7 @@ export type RouteType = (typeof ROUTE_TYPES)[number];
 export interface AppUser {
   id: string;
   fullName: string;
+  email: string;
   role: UserRole;
   status: UserStatus;
   permissions: AppPermission[];

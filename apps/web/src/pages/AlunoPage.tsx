@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
+import { useAuth } from "../auth/useAuth";
 import { StudentAccessGate } from "../components/access/StudentAccessGate";
 import { FlowStepCard } from "../components/display/FlowStepCard";
 import { AlertBox } from "../components/ui/AlertBox";
@@ -130,6 +131,7 @@ const BellIcon = () => {
 };
 
 export const AlunoPage = () => {
+  const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const initialAccessStatus = appConfig.canUseStudentPrivateArea
     ? (getStudentAccessStatusFromSearch(searchParams) ?? readStudentAccessStatus())
@@ -154,6 +156,11 @@ export const AlunoPage = () => {
   const [isSendingTeacherQuestion, setIsSendingTeacherQuestion] = useState(false);
 
   useEffect(() => {
+    if (user?.role === "student" || user?.role === "teacher" || user?.role === "admin") {
+      setStudentAccessStatus("approved");
+      return;
+    }
+
     if (!appConfig.canUseStudentPrivateArea) {
       return;
     }
@@ -166,7 +173,7 @@ export const AlunoPage = () => {
 
     writeStudentAccessStatus(nextStatus);
     setStudentAccessStatus(nextStatus);
-  }, [searchParams]);
+  }, [searchParams, user?.role]);
 
   useEffect(() => {
     if (studentAccessStatus !== "approved") {

@@ -2,7 +2,7 @@ import type { AppUser } from "../../auth/types";
 import { Badge } from "../ui/Badge";
 
 interface RoleBadgeProps {
-  user: AppUser;
+  user: AppUser | null;
 }
 
 const roleLabels: Record<AppUser["role"], string> = {
@@ -20,6 +20,15 @@ const statusLabels: Record<AppUser["status"], string> = {
 };
 
 export const RoleBadge = ({ user }: RoleBadgeProps) => {
+  if (!user) {
+    return (
+      <div className="role-badge" aria-label="Sem login">
+        <Badge tone="sand">Sem login</Badge>
+        <span className="role-badge__status">Modo local</span>
+      </div>
+    );
+  }
+
   return (
     <div className="role-badge" aria-label={`Perfil atual: ${roleLabels[user.role]}`}>
       <Badge tone={user.role === "admin" ? "brand" : "sand"}>{roleLabels[user.role]}</Badge>

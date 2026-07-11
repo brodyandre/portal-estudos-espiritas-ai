@@ -2,11 +2,12 @@ import { Navigate, Outlet, useLocation } from "react-router-dom";
 
 import { canAccessRoute } from "../../auth/roles";
 import type { RouteType } from "../../auth/types";
-import { useCurrentUserMock } from "../../mocks/currentUser";
+import { useAuth } from "../../auth/useAuth";
 import { ProfileHeader } from "../display/ProfileHeader";
 import { AreaSwitcher } from "../auth/AreaSwitcher";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
+import { LoadingState } from "../ui/LoadingState";
 
 interface ProtectedRouteProps {
   routeType: Exclude<RouteType, "public">;
@@ -21,13 +22,21 @@ const routeLabels: Record<Exclude<RouteType, "public">, string> = {
 
 export const ProtectedRoute = ({ routeType, redirectTo }: ProtectedRouteProps) => {
   const location = useLocation();
-  const user = useCurrentUserMock();
+  const { isAuthenticated, isDemoMode, isLoading, user } = useAuth();
+
+  if (isLoading) {
+    return <LoadingState description="Estamos verificando seu acesso local." title="Conferindo login" />;
+  }
 
   if (canAccessRoute(user, routeType)) {
     return <Outlet />;
   }
 
-  if (redirectTo) {
+  if (!isDemoMode && !isAuthenticated) {
+    return <Navigate replace state={{ from: location }} to={redirectTo ?? "/login"} />;
+  }
+
+  if (redirectTo && isDemoMode) {
     return <Navigate replace state={{ from: location }} to={redirectTo} />;
   }
 
@@ -43,17 +52,17 @@ export const ProtectedRoute = ({ routeType, redirectTo }: ProtectedRouteProps) =
       <Card className="access-denied-card" tone="soft">
         <h2>{routeLabels[routeType]}</h2>
         <p>
-          O perfil atual não tem permissão para abrir esta área. No ambiente demonstrativo, você
-          pode trocar de perfil para revisar a navegação. Em uma versão futura, isso será protegido
-          por autenticação real.
+          {isDemoMode
+            ? "O perfil atual não tem permissão para abrir esta área. No ambiente demonstrativo, você pode trocar de perfil para revisar a navegação."
+            : "Seu perfil autenticado não tem permissão para abrir esta área no ambiente local."}
         </p>
         <div className="access-denied-card__actions">
           <Button to="/portal">Voltar ao portal</Button>
-          <Button to="/educacao-continuada" variant="secondary">
-            Ver página pública
+          <Button to={isDemoMode ? "/educacao-continuada" : "/login"} variant="secondary">
+            {isDemoMode ? "Ver página pública" : "Ir para o login"}
           </Button>
         </div>
-        <AreaSwitcher />
+        {isDemoMode ? <AreaSwitcher /> : null}
       </Card>
     </div>
   );

@@ -28,6 +28,7 @@ Grupos de estudo online costumam espalhar informacoes entre links, mensagens, re
 - Estrutura conceitual separada para experiencias `Publico`, `Aluno`, `Professor` e `Admin`
 - Paginas de materiais com navegacao para os livros `Emmanuel` e `A Caminho da Luz`
 - API local em Express com dados mockados, base de conhecimento em Markdown e respostas JSON padronizadas
+- autenticação local simples com JWT para Admin, Professor e Aluno no ambiente privado
 - Integracao opcional com Ollama, com fallback claro quando o modelo nao estiver disponivel
 - Funcionamento da interface mesmo com backend desligado, usando mocks e respostas demonstrativas no frontend
 
@@ -150,6 +151,16 @@ npm run db:seed
 npm run db:studio
 ```
 
+Para autenticação local, use também:
+
+```bash
+# acesse /login no frontend local
+# credenciais demonstrativas:
+# admin.demo@example.com / AdminDemo@123
+# professor.demo@example.com / ProfessorDemo@123
+# aluno.demo@example.com / AlunoDemo@123
+```
+
 Atalhos com Makefile:
 
 ```bash
@@ -238,6 +249,7 @@ O que continua local nesta fase:
 
 - backend em Express
 - PostgreSQL local via Docker Compose
+- autenticação local por JWT
 - revisao administrativa real em `/admin` e `/professor`
 - endpoints da base de conhecimento
 - assistente completo
@@ -266,6 +278,28 @@ Nesta fase:
 Documentacao complementar:
 
 - [docs/local-postgres.md](docs/local-postgres.md)
+- [docs/local-auth.md](docs/local-auth.md)
+
+## Login local por perfil
+
+O modo local agora permite login simples por perfil para:
+
+- `Admin`
+- `Professor`
+- `Aluno`
+
+Fluxo:
+
+- abra `/login` no frontend local
+- entre com um dos usuários demonstrativos da seed
+- o backend devolve um token JWT local
+- `/aluno`, `/professor` e `/admin` passam a respeitar esse login
+
+No GitHub Pages:
+
+- a mesma rota continua apenas como demonstração segura
+- o login real não acontece sem backend
+- a navegação pública continua disponível com fallback
 
 ## Limites do GitHub Pages
 

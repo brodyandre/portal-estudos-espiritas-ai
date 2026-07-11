@@ -2,10 +2,21 @@ import request from "supertest";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { app } from "../src/app";
+import { resetAuthStore } from "../src/modules/auth/auth.service";
 import { resetEnrollmentStore } from "../src/modules/enrollments/enrollments.service";
+
+const loginAsTeacher = async () => {
+  const response = await request(app).post("/api/auth/login").send({
+    email: "professor.demo@example.com",
+    password: "ProfessorDemo@123",
+  });
+
+  return response.body.data.token as string;
+};
 
 describe("enrollments endpoints", () => {
   beforeEach(() => {
+    resetAuthStore();
     resetEnrollmentStore();
   });
 
@@ -67,8 +78,10 @@ describe("enrollments endpoints", () => {
 
   describe("GET /api/enrollments", () => {
     it("lista os interessados e permite filtrar por status", async () => {
+      const token = await loginAsTeacher();
       const response = await request(app)
         .get("/api/enrollments")
+        .set("Authorization", `Bearer ${token}`)
         .query({ status: "approved" });
 
       expect(response.status).toBe(200);
@@ -84,8 +97,10 @@ describe("enrollments endpoints", () => {
     });
 
     it("permite filtrar por groupInterest", async () => {
+      const token = await loginAsTeacher();
       const response = await request(app)
         .get("/api/enrollments")
+        .set("Authorization", `Bearer ${token}`)
         .query({ groupInterest: "A Caminho da Luz" });
 
       expect(response.status).toBe(200);
@@ -99,19 +114,31 @@ describe("enrollments endpoints", () => {
     });
 
     it("retorna erro amigavel para filtro invalido", async () => {
+      const token = await loginAsTeacher();
       const response = await request(app)
         .get("/api/enrollments")
+        .set("Authorization", `Bearer ${token}`)
         .query({ status: "waiting" });
 
       expect(response.status).toBe(400);
       expect(response.body.success).toBe(false);
       expect(response.body.error.code).toBe("INVALID_ENROLLMENT_STATUS");
     });
+
+    it("exige login local para listar interessados", async () => {
+      const response = await request(app).get("/api/enrollments");
+
+      expect(response.status).toBe(401);
+      expect(response.body.error.code).toBe("AUTH_REQUIRED");
+    });
   });
 
   describe("GET /api/enrollments/:id", () => {
     it("retorna um cadastro especifico", async () => {
-      const response = await request(app).get("/api/enrollments/enrollment-001");
+      const token = await loginAsTeacher();
+      const response = await request(app)
+        .get("/api/enrollments/enrollment-001")
+        .set("Authorization", `Bearer ${token}`);
 
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
@@ -124,7 +151,10 @@ describe("enrollments endpoints", () => {
     });
 
     it("retorna 404 amigavel quando o cadastro nao existe", async () => {
-      const response = await request(app).get("/api/enrollments/enrollment-inexistente");
+      const token = await loginAsTeacher();
+      const response = await request(app)
+        .get("/api/enrollments/enrollment-inexistente")
+        .set("Authorization", `Bearer ${token}`);
 
       expect(response.status).toBe(404);
       expect(response.body.success).toBe(false);
@@ -134,8 +164,10 @@ describe("enrollments endpoints", () => {
 
   describe("PATCH /api/enrollments/:id/status", () => {
     it("atualiza o status e preenche reviewedAt e reviewedBy", async () => {
+      const token = await loginAsTeacher();
       const response = await request(app)
         .patch("/api/enrollments/enrollment-001/status")
+        .set("Authorization", `Bearer ${token}`)
         .send({
           status: "approved",
           teacherNote: "Aprovado para acompanhar o proximo encontro.",
@@ -148,15 +180,17 @@ describe("enrollments endpoints", () => {
           id: "enrollment-001",
           status: "approved",
           teacherNote: "Aprovado para acompanhar o proximo encontro.",
-          reviewedBy: "Professor",
+          reviewedBy: "Professor Demonstrativo",
         }),
       );
       expect(typeof response.body.data.reviewedAt).toBe("string");
     });
 
     it("retorna erro amigavel para status invalido", async () => {
+      const token = await loginAsTeacher();
       const response = await request(app)
         .patch("/api/enrollments/enrollment-001/status")
+        .set("Authorization", `Bearer ${token}`)
         .send({
           status: "pending",
         });
@@ -167,8 +201,10 @@ describe("enrollments endpoints", () => {
     });
 
     it("retorna 404 quando o cadastro nao existe", async () => {
+      const token = await loginAsTeacher();
       const response = await request(app)
         .patch("/api/enrollments/enrollment-inexistente/status")
+        .set("Authorization", `Bearer ${token}`)
         .send({
           status: "rejected",
         });
@@ -176,6 +212,23 @@ describe("enrollments endpoints", () => {
       expect(response.status).toBe(404);
       expect(response.body.success).toBe(false);
       expect(response.body.error.code).toBe("ENROLLMENT_NOT_FOUND");
+    });
+
+    it("bloqueia visitante autenticado sem papel permitido", async () => {
+      const visitorLogin = await request(app).post("/api/auth/login").send({
+        email: "aluno.demo@example.com",
+        password: "AlunoDemo@123",
+      });
+
+      const response = await request(app)
+        .patch("/api/enrollments/enrollment-001/status")
+        .set("Authorization", `Bearer ${visitorLogin.body.data.token}`)
+        .send({
+          status: "approved",
+        });
+
+      expect(response.status).toBe(403);
+      expect(response.body.error.code).toBe("FORBIDDEN");
     });
   });
 });

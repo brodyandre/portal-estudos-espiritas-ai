@@ -9,7 +9,7 @@ Documentar como a aplicacao se organiza em quatro experiencias:
 - Professor
 - Admin
 
-Nesta fase, o projeto ainda nao usa autenticacao real. O controle atual e apenas um MVP demonstrativo para organizar a navegacao, limitar a exposicao do Google Meet e deixar claro o que pode ou nao aparecer no frontend publicado.
+Nesta fase, o projeto passa a usar autenticacao local simples no ambiente privado. Ainda assim, o GitHub Pages continua sem backend autenticado e deve ser tratado apenas como ambiente demonstrativo.
 
 ## Principio central
 
@@ -20,7 +20,7 @@ O GitHub Pages publica somente o frontend estatico. Isso significa:
 - nao devem existir dados sensiveis expostos nesse ambiente
 - o link real do Meet nao deve aparecer na versao publica
 
-A seguranca real depende de uma futura camada de backend autenticado, ainda nao implementada.
+A seguranca real de producao ainda depende de uma futura camada hospedada e mais robusta. O que existe agora e suficiente para uso local controlado, nao para publicacao com dados reais.
 
 ## Experiencias da aplicacao
 
@@ -66,6 +66,7 @@ Comportamento esperado:
 - aluno aprovado pode ver materiais e link do Meet
 - no GitHub Pages, a experiencia pode existir apenas como demonstracao visual
 - no modo local, a experiencia pode usar backend e aprovacao do professor
+- no modo local, a rota `/aluno` exige login ou perfil demo quando o backend nao existir
 
 ### 3. Professor
 
@@ -88,6 +89,7 @@ Comportamento esperado:
 - professor aprova ou marca para conversar
 - professor revisa conteudos antes de publicar
 - sem backend local, a experiencia continua apenas em modo demonstrativo
+- com backend local, a rota `/professor` passa a respeitar login de `Professor` ou `Admin`
 
 ### 4. Admin
 
@@ -111,6 +113,7 @@ Comportamento esperado:
 - admin acompanha trilha de auditoria
 - no MVP atual, essa area ainda e conceitual e demonstrativa
 - a operacao real dessa area depende de backend autenticado
+- no ambiente local, a rota `/admin` passa a exigir login de `Admin`
 
 ## Regras de visibilidade
 
@@ -120,12 +123,14 @@ Comportamento esperado:
 - nao ve link do Meet
 - nao ve dados privados
 - pode preencher inscricao
+- nao autentica nas areas privadas locais
 
 ### Aluno aprovado
 
 - pode acessar a area do aluno
 - pode consultar materiais e progresso
 - pode ver o link do Meet apenas no ambiente local autorizado
+- no ambiente local, autentica pela rota `/login`
 
 ### Professor
 
@@ -133,12 +138,13 @@ Comportamento esperado:
 - pode revisar e preparar conteudos
 - pode aprovar alunos
 - nao deve depender apenas do frontend publicado para operacao real
+- no ambiente local, autentica pela rota `/login`
 
 ### Admin
 
 - pode gerenciar usuarios, grupos e configuracoes
 - pode acompanhar auditoria
-- exige backend autenticado em uma versao futura
+- no ambiente local, autentica pela rota `/login`
 - no MVP atual, a tela `/admin/usuarios` usa acoes simuladas e log mockado local
 - no MVP atual, a tela `/admin/grupos` usa configuracao simulada e nunca expõe o Meet real no frontend publico
 
@@ -152,6 +158,7 @@ No GitHub Pages:
 - essas areas devem indicar modo demonstrativo quando nao houver API
 - nenhuma dessas areas deve depender de dados reais sensiveis
 - links reais do Google Meet continuam ocultos; apenas links demonstrativos ou avisos seguros podem aparecer
+- `/login` continua apenas como apoio visual e troca segura de perfis demo
 
 ## Ambiente local
 
@@ -159,6 +166,7 @@ No ambiente local/private do owner:
 
 - frontend roda localmente
 - backend roda em `http://localhost:3333`
+- login local usa JWT assinado por `JWT_SECRET`
 - professor pode revisar interessados
 - aluno aprovado pode acessar a area do aluno
 - link real do Meet pode aparecer apenas para perfil autorizado
@@ -167,10 +175,10 @@ No ambiente local/private do owner:
 
 ## Limites do MVP atual
 
-- sem autenticacao real
-- sem sessao segura por perfil
-- sem banco de dados
-- sem autorizacao forte por rota
+- com autenticacao local simples, mas ainda sem hardening de producao
+- sem refresh token
+- sem backend hospedado
+- sem autorizacao fina por recurso
 - sem auditoria real persistente
 
 Esses limites sao aceitaveis nesta fase porque o foco ainda e demonstrar produto, UX e separacao basica de experiencias.
