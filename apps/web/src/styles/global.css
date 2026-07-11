@@ -978,6 +978,35 @@ img {
   gap: var(--space-3);
 }
 
+.teacher-enrollment-filters,
+.teacher-enrollment-list,
+.teacher-enrollment-item,
+.teacher-enrollment-meta {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.teacher-enrollment-item {
+  padding: var(--space-4);
+  border: 1px solid rgba(82, 96, 109, 0.14);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.teacher-enrollment-meta {
+  margin: 0;
+}
+
+.teacher-enrollment-meta dt {
+  color: var(--color-text-700);
+  font-size: 0.875rem;
+}
+
+.teacher-enrollment-meta dd {
+  margin: var(--space-1) 0 0;
+  font-weight: 700;
+}
+
 .enrollment-layout,
 .enrollment-form-card,
 .enrollment-success-card {

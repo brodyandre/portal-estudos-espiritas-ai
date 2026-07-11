@@ -1,10 +1,14 @@
-import {
-  ENROLLMENT_PARTICIPATION_OPTIONS,
-  type Enrollment,
-  type EnrollmentAlreadyParticipates,
-  type EnrollmentGroupInterest,
-  type EnrollmentInput,
+import type {
+  Enrollment,
+  EnrollmentAlreadyParticipates,
+  EnrollmentGroupInterest,
+  EnrollmentInput,
 } from "../types/enrollment";
+import {
+  createMockEnrollment,
+  listMockEnrollments,
+  updateMockEnrollmentStatus,
+} from "../mocks/enrollments";
 import { loadWithFallback } from "./api";
 
 interface ApiEnrollment {
@@ -26,6 +30,14 @@ export interface CreateEnrollmentInput extends EnrollmentInput {
   consentAccepted: boolean;
 }
 
+export interface UpdateEnrollmentStatusInput {
+  status: Extract<Enrollment["status"], "approved" | "rejected" | "needs_contact">;
+  teacherNote?: string;
+}
+
+const FALLBACK_NOTICE =
+  "Modo demonstrativo: para aprovação real de alunos, rode o backend local.";
+
 const mapEnrollment = (item: ApiEnrollment): Enrollment => {
   return {
     id: item.id,
@@ -43,27 +55,6 @@ const mapEnrollment = (item: ApiEnrollment): Enrollment => {
   };
 };
 
-const createMockEnrollment = (input: CreateEnrollmentInput): Enrollment => {
-  const now = new Date().toISOString();
-
-  return {
-    id: `enrollment-demo-${Date.now()}`,
-    fullName: input.fullName.trim(),
-    email: input.email.trim(),
-    whatsapp: input.whatsapp.trim(),
-    groupInterest: input.groupInterest,
-    alreadyParticipates: ENROLLMENT_PARTICIPATION_OPTIONS.includes(input.alreadyParticipates)
-      ? input.alreadyParticipates
-      : "Não",
-    message: input.message?.trim() ?? "",
-    status: "pending",
-    createdAt: now,
-    reviewedAt: null,
-    reviewedBy: null,
-    teacherNote: "",
-  };
-};
-
 export const createEnrollment = (input: CreateEnrollmentInput) => {
   const { consentAccepted: _consentAccepted, ...payload } = input;
 
@@ -73,9 +64,37 @@ export const createEnrollment = (input: CreateEnrollmentInput) => {
       method: "POST",
       body: JSON.stringify(payload),
     },
-    fallback: () => createMockEnrollment(input),
+    fallback: () => createMockEnrollment(payload),
     mapData: mapEnrollment,
-    friendlyMessage:
-      "Seu cadastro foi registrado em modo demonstrativo. Quando a API estiver disponivel, ele podera ser enviado ao servidor.",
+    friendlyMessage: FALLBACK_NOTICE,
+  });
+};
+
+export const listEnrollments = (filters?: {
+  status?: Enrollment["status"];
+  groupInterest?: EnrollmentGroupInterest;
+}) => {
+  return loadWithFallback<ApiEnrollment[], Enrollment[]>({
+    path: "/api/enrollments",
+    query: {
+      status: filters?.status,
+      groupInterest: filters?.groupInterest,
+    },
+    fallback: () => listMockEnrollments(filters),
+    mapData: (items) => items.map(mapEnrollment),
+    friendlyMessage: FALLBACK_NOTICE,
+  });
+};
+
+export const updateEnrollmentStatus = (id: string, input: UpdateEnrollmentStatusInput) => {
+  return loadWithFallback<ApiEnrollment, Enrollment | null>({
+    path: `/api/enrollments/${id}/status`,
+    init: {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    },
+    fallback: () => updateMockEnrollmentStatus(id, input),
+    mapData: mapEnrollment,
+    friendlyMessage: FALLBACK_NOTICE,
   });
 };

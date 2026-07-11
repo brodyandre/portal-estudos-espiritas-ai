@@ -14,6 +14,7 @@ import { StatusTag } from "../components/ui/StatusTag";
 import { TextArea } from "../components/ui/TextArea";
 import { TextInput } from "../components/ui/TextInput";
 import type { DemoFlowStep, DemoGroup, DemoQuestion } from "../mocks";
+import type { Enrollment, EnrollmentGroupInterest, EnrollmentStatus } from "../types/enrollment";
 import { collectServiceNotice } from "../services/api";
 import {
   generateGroupMessageDraft,
@@ -27,8 +28,13 @@ import {
   listKnowledgeFilesByGroup,
   type KnowledgeSupportFile,
 } from "../services/knowledgeService";
+import {
+  listEnrollments,
+  updateEnrollmentStatus,
+} from "../services/enrollmentsService";
 import { listMaterials } from "../services/materialsService";
 import { listQuestions } from "../services/questionsService";
+import { syncStudentAccessFromEnrollmentStatus } from "../services/studentAccessService";
 import { listStudies } from "../services/studiesService";
 import { listSummaries } from "../services/summariesService";
 
@@ -94,10 +100,29 @@ const groupCardIds: Record<DemoGroup["slug"], string> = {
 
 const teacherSupportSectionIds = {
   support: "professor-base-apoio",
+  enrollments: "professor-interessados",
   questions: "professor-duvidas",
   preview: "professor-resumos",
   approval: "professor-configuracoes",
 } as const;
+
+const enrollmentStatusOptions: Array<{ label: string; value: EnrollmentStatus | "all" }> = [
+  { label: "Todos", value: "all" },
+  { label: "Pendentes", value: "pending" },
+  { label: "Aprovados", value: "approved" },
+  { label: "Marcar para conversar", value: "needs_contact" },
+  { label: "Recusados", value: "rejected" },
+];
+
+const enrollmentGroupOptions: Array<{
+  label: string;
+  value: EnrollmentGroupInterest | "all";
+}> = [
+  { label: "Todos os grupos", value: "all" },
+  { label: "Emmanuel", value: "Emmanuel" },
+  { label: "A Caminho da Luz", value: "A Caminho da Luz" },
+  { label: "Ainda não sei", value: "Ainda não sei" },
+];
 
 const sensitiveTopicRules = [
   {
@@ -209,6 +234,22 @@ const getQuestionStatus = (status: DemoQuestion["status"]) => {
   return { tone: "upcoming" as const, label: "Nova" };
 };
 
+const getEnrollmentStatusLabel = (status: EnrollmentStatus) => {
+  if (status === "approved") {
+    return { label: "Aprovado", tone: "published" as const };
+  }
+
+  if (status === "needs_contact") {
+    return { label: "Conversar", tone: "attention" as const };
+  }
+
+  if (status === "rejected") {
+    return { label: "Recusado", tone: "draft" as const };
+  }
+
+  return { label: "Pendente", tone: "upcoming" as const };
+};
+
 const mergeWorkspace = (
   defaultWorkspace: TeacherWorkspace,
   storedWorkspace: Partial<TeacherWorkspace> | null,
@@ -285,6 +326,7 @@ export const ProfessorPage = () => {
   const [searchParams] = useSearchParams();
   const [groups, setGroups] = useState<DemoGroup[]>([]);
   const [questions, setQuestions] = useState<DemoQuestion[]>([]);
+  const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [materials, setMaterials] = useState<Awaited<ReturnType<typeof listMaterials>>["data"]>([]);
   const [summaries, setSummaries] = useState<Awaited<ReturnType<typeof listSummaries>>["data"]>([]);
   const [supportFiles, setSupportFiles] = useState<KnowledgeSupportFile[]>([]);
@@ -307,6 +349,11 @@ export const ProfessorPage = () => {
   const [activeAction, setActiveAction] = useState<GenerationAction>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);
+  const [enrollmentStatusFilter, setEnrollmentStatusFilter] = useState<EnrollmentStatus | "all">("all");
+  const [enrollmentGroupFilter, setEnrollmentGroupFilter] = useState<EnrollmentGroupInterest | "all">("all");
+  const [teacherNotes, setTeacherNotes] = useState<Record<string, string>>({});
+  const [activeEnrollmentId, setActiveEnrollmentId] = useState<string | null>(null);
+  const [enrollmentNotice, setEnrollmentNotice] = useState<string | null>(null);
 
   useEffect(() => {
     let isActive = true;
@@ -315,6 +362,7 @@ export const ProfessorPage = () => {
       setIsLoading(true);
 
       const [
+        enrollmentsResult,
         studiesResult,
         questionsResult,
         materialsResult,
@@ -322,6 +370,7 @@ export const ProfessorPage = () => {
         emmanuelKnowledgeResult,
         caminhoKnowledgeResult,
       ] = await Promise.all([
+        listEnrollments(),
         listStudies(),
         listQuestions(),
         listMaterials(),
@@ -334,6 +383,7 @@ export const ProfessorPage = () => {
         return;
       }
 
+      setEnrollments(enrollmentsResult.data);
       setGroups(studiesResult.data);
       setQuestions(questionsResult.data);
       setMaterials(materialsResult.data);
@@ -344,6 +394,7 @@ export const ProfessorPage = () => {
       ]);
       setNotice(
         collectServiceNotice([
+          enrollmentsResult,
           studiesResult,
           questionsResult,
           materialsResult,
@@ -403,6 +454,19 @@ export const ProfessorPage = () => {
   const sensitiveTopics = useMemo(() => {
     return detectSensitiveTopics(themeChapter, selectedSupportFiles);
   }, [selectedSupportFiles, themeChapter]);
+  const filteredEnrollments = useMemo(() => {
+    return enrollments.filter((enrollment) => {
+      if (enrollmentStatusFilter !== "all" && enrollment.status !== enrollmentStatusFilter) {
+        return false;
+      }
+
+      if (enrollmentGroupFilter !== "all" && enrollment.groupInterest !== enrollmentGroupFilter) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [enrollments, enrollmentGroupFilter, enrollmentStatusFilter]);
   const requestedGroupSlug = searchParams.get("grupo");
 
   useEffect(() => {
@@ -566,6 +630,32 @@ export const ProfessorPage = () => {
       reviewState: "approved",
       actionMessage: "Conteudo aprovado localmente. O professor deve revisar antes de publicar.",
     });
+  };
+
+  const handleEnrollmentStatusUpdate = async (
+    enrollmentId: string,
+    status: Extract<EnrollmentStatus, "approved" | "rejected" | "needs_contact">,
+  ) => {
+    if (activeEnrollmentId) {
+      return;
+    }
+
+    setActiveEnrollmentId(enrollmentId);
+
+    const result = await updateEnrollmentStatus(enrollmentId, {
+      status,
+      teacherNote: teacherNotes[enrollmentId] ?? "",
+    });
+
+    if (result.data) {
+      setEnrollments((current) =>
+        current.map((item) => (item.id === enrollmentId ? result.data! : item)),
+      );
+      syncStudentAccessFromEnrollmentStatus(result.data.status);
+    }
+
+    setEnrollmentNotice(result.notice);
+    setActiveEnrollmentId(null);
   };
 
   return (
@@ -903,6 +993,168 @@ export const ProfessorPage = () => {
                     ))}
                   </div>
                 ) : null}
+              </Card>
+            </div>
+          </section>
+
+          <section className="page-section">
+            <div className="two-column-grid">
+              <Card className="teacher-panel" id={teacherSupportSectionIds.enrollments} tone="default">
+                <div className="teacher-panel__header">
+                  <div>
+                    <p className="card-eyebrow">Novos interessados</p>
+                    <h2>Cadastros para revisar</h2>
+                  </div>
+                  <Badge tone="sand">{filteredEnrollments.length}</Badge>
+                </div>
+
+                <AlertBox title="Revisao do acesso" tone="warning">
+                  A aprovacao libera o acesso a area do aluno e ao link da aula.
+                </AlertBox>
+
+                {enrollmentNotice ? (
+                  <AlertBox title="Modo demonstrativo ativo" tone="info">
+                    {enrollmentNotice}
+                  </AlertBox>
+                ) : null}
+
+                <div className="teacher-enrollment-filters">
+                  <Select
+                    id="teacher-enrollment-status-filter"
+                    label="Filtrar por status"
+                    onChange={(event) =>
+                      setEnrollmentStatusFilter(event.target.value as EnrollmentStatus | "all")
+                    }
+                    options={enrollmentStatusOptions.map((option) => ({
+                      label: option.label,
+                      value: option.value,
+                    }))}
+                    value={enrollmentStatusFilter}
+                  />
+
+                  <Select
+                    id="teacher-enrollment-group-filter"
+                    label="Filtrar por grupo"
+                    onChange={(event) =>
+                      setEnrollmentGroupFilter(
+                        event.target.value as EnrollmentGroupInterest | "all",
+                      )
+                    }
+                    options={enrollmentGroupOptions.map((option) => ({
+                      label: option.label,
+                      value: option.value,
+                    }))}
+                    value={enrollmentGroupFilter}
+                  />
+                </div>
+
+                {filteredEnrollments.length > 0 ? (
+                  <div className="teacher-enrollment-list">
+                    {filteredEnrollments.map((enrollment) => {
+                      const enrollmentStatus = getEnrollmentStatusLabel(enrollment.status);
+                      const teacherNote = teacherNotes[enrollment.id] ?? enrollment.teacherNote;
+                      const isUpdating = activeEnrollmentId === enrollment.id;
+
+                      return (
+                        <article className="teacher-enrollment-item" key={enrollment.id}>
+                          <div className="teacher-panel__header">
+                            <div>
+                              <strong>{enrollment.fullName}</strong>
+                              <p className="teacher-panel__note">{enrollment.groupInterest}</p>
+                            </div>
+                            <StatusTag label={enrollmentStatus.label} tone={enrollmentStatus.tone} />
+                          </div>
+
+                          <dl className="teacher-enrollment-meta">
+                            <div>
+                              <dt>E-mail</dt>
+                              <dd>{enrollment.email}</dd>
+                            </div>
+                            <div>
+                              <dt>WhatsApp</dt>
+                              <dd>{enrollment.whatsapp}</dd>
+                            </div>
+                            <div>
+                              <dt>Ja participa</dt>
+                              <dd>{enrollment.alreadyParticipates}</dd>
+                            </div>
+                            <div>
+                              <dt>Data do cadastro</dt>
+                              <dd>{new Date(enrollment.createdAt).toLocaleDateString("pt-BR")}</dd>
+                            </div>
+                          </dl>
+
+                          <p className="teacher-panel__note">
+                            {enrollment.message || "Sem mensagem adicional."}
+                          </p>
+
+                          <TextArea
+                            id={`teacher-note-${enrollment.id}`}
+                            label="Observacao do professor"
+                            onChange={(event) =>
+                              setTeacherNotes((current) => ({
+                                ...current,
+                                [enrollment.id]: event.target.value,
+                              }))
+                            }
+                            rows={4}
+                            value={teacherNote}
+                          />
+
+                          <div className="button-row">
+                            <Button
+                              onClick={() => void handleEnrollmentStatusUpdate(enrollment.id, "approved")}
+                              size="compact"
+                              variant="secondary"
+                            >
+                              {isUpdating ? "Atualizando..." : "Aprovar"}
+                            </Button>
+                            <Button
+                              onClick={() =>
+                                void handleEnrollmentStatusUpdate(enrollment.id, "needs_contact")
+                              }
+                              size="compact"
+                              variant="ghost"
+                            >
+                              Marcar para conversar
+                            </Button>
+                            <Button
+                              onClick={() => void handleEnrollmentStatusUpdate(enrollment.id, "rejected")}
+                              size="compact"
+                              variant="ghost"
+                            >
+                              Recusar
+                            </Button>
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <EmptyState
+                    description="Nenhum interessado corresponde aos filtros selecionados."
+                    title="Sem cadastros nesta visualizacao"
+                  />
+                )}
+              </Card>
+
+              <Card className="teacher-panel" tone="soft">
+                <div className="teacher-panel__header">
+                  <div>
+                    <p className="card-eyebrow">Fluxo demonstrativo</p>
+                    <h2>Como o fallback se comporta</h2>
+                  </div>
+                  <Badge tone="sand">GitHub Pages</Badge>
+                </div>
+
+                <p className="teacher-panel__note">
+                  Sem backend, a inscricao publica continua funcionando em modo demonstrativo. A
+                  revisao feita aqui atualiza o estado local e ajuda a simular o acesso do aluno.
+                </p>
+                <p className="teacher-panel__note">
+                  Nao use este modo como aprovacao real. Para aprovar alunos de verdade, rode o
+                  backend local.
+                </p>
               </Card>
             </div>
           </section>

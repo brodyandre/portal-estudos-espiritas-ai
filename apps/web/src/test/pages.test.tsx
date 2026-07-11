@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AlunoPage } from "../pages/AlunoPage";
+import { resetMockEnrollments } from "../mocks/enrollments";
 import { PortalPage } from "../pages/PortalPage";
 import { ProfessorPage } from "../pages/ProfessorPage";
 
@@ -36,6 +37,8 @@ describe("paginas principais com fallback local", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     window.localStorage.clear();
+    window.sessionStorage.clear();
+    resetMockEnrollments();
   });
 
   it("/portal renderiza com os grupos em modo demonstrativo", async () => {
@@ -87,6 +90,10 @@ describe("paginas principais com fallback local", () => {
     ).toBeInTheDocument();
     expect(await screen.findByText("Modo demonstrativo ativo")).toBeInTheDocument();
     expect(await screen.findByText("Base de apoio da aula")).toBeInTheDocument();
+    expect(await screen.findByText("Novos interessados")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Modo demonstrativo: para aprovação real de alunos, rode o backend local."),
+    ).toBeInTheDocument();
     expect(await screen.findByText("Emmanuel - visao geral")).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Grupo ou livro", { selector: "#teacher-group-select" }), {

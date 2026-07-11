@@ -37,3 +37,14 @@ export const writeStudentAccessStatus = (status: StudentAccessStatus) => {
 
   window.localStorage.setItem(STUDENT_ACCESS_STORAGE_KEY, status);
 };
+
+export const syncStudentAccessFromEnrollmentStatus = (
+  status: "pending" | "approved" | "rejected" | "needs_contact",
+) => {
+  const nextStatus: StudentAccessStatus =
+    status === "approved" ? "approved" : status === "rejected" ? "visitor" : "pending";
+
+  writeStudentAccessStatus(nextStatus);
+
+  return nextStatus;
+};
