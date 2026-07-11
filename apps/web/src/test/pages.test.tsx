@@ -130,6 +130,9 @@ describe("paginas principais com fallback local", () => {
     expect(within(summaryCard as HTMLElement).getByText("Emmanuel")).toBeInTheDocument();
     expect(within(summaryCard as HTMLElement).getByText("A Caminho da Luz")).toBeInTheDocument();
     expect(within(summaryCard as HTMLElement).getByText("Ainda nao sei")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /Copiar mensagem pronta para/i }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: /Abrir WhatsApp para/i }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: /Copiar e-mail de/i }).length).toBeGreaterThan(0);
     expect(
       await screen.findByText("Modo demonstrativo: para aprovação real de alunos, rode o backend local."),
     ).toBeInTheDocument();

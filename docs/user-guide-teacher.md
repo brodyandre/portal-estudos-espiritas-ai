@@ -122,6 +122,26 @@ Os interessados aparecem com esta prioridade visual:
 
 Quando houver novas solicitacoes, o painel mostra um aviso discreto para facilitar a revisao logo na chegada.
 
+Cada cadastro tambem oferece apoio para comunicacao manual:
+
+- `Copiar mensagem`: copia um texto pronto com base no status atual
+- `Abrir WhatsApp`: abre o `wa.me` com a mensagem pronta para revisao e envio manual
+- `Copiar e-mail`: facilita contato por outro canal quando necessario
+
+Antes de usar essas acoes, o professor pode revisar e ajustar o texto no campo `Mensagem pronta para revisar`.
+
+No MVP, o envio continua manual por tres motivos:
+
+- manter o professor no controle final da mensagem
+- evitar disparos automáticos indevidos
+- manter o frontend funcional mesmo no GitHub Pages, sem integrações externas
+
+Importante:
+
+- para alunos aprovados, a mensagem envia o link do portal
+- o link direto do Google Meet nao entra na mensagem pronta
+- para pendentes, o tom da mensagem prioriza conversa e confirmacao
+
 Regras importantes:
 
 - o cadastro coleta apenas dados minimos

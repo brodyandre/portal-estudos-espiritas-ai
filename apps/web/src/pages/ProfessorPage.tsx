@@ -37,6 +37,12 @@ import { listQuestions } from "../services/questionsService";
 import { syncStudentAccessFromEnrollmentStatus } from "../services/studentAccessService";
 import { listStudies } from "../services/studiesService";
 import { listSummaries } from "../services/summariesService";
+import {
+  buildEnrollmentMessage,
+  buildPortalUrl,
+  getEnrollmentMessageStatus,
+} from "../utils/enrollmentMessages";
+import { buildWhatsAppUrl, getWhatsAppPhoneLabel } from "../utils/whatsapp";
 
 type ReviewState = "draft" | "approved" | "published";
 type PreviewKind = "outline" | "questions" | "summary" | "message" | "review";
@@ -359,8 +365,10 @@ export const ProfessorPage = () => {
   const [enrollmentStatusFilter, setEnrollmentStatusFilter] = useState<EnrollmentStatus | "all">("all");
   const [enrollmentGroupFilter, setEnrollmentGroupFilter] = useState<EnrollmentGroupInterest | "all">("all");
   const [teacherNotes, setTeacherNotes] = useState<Record<string, string>>({});
+  const [messageOverrides, setMessageOverrides] = useState<Record<string, string>>({});
   const [activeEnrollmentId, setActiveEnrollmentId] = useState<string | null>(null);
   const [enrollmentNotice, setEnrollmentNotice] = useState<string | null>(null);
+  const [communicationNotice, setCommunicationNotice] = useState<string | null>(null);
 
   useEffect(() => {
     let isActive = true;
@@ -502,6 +510,63 @@ export const ProfessorPage = () => {
     };
   }, [pendingEnrollments]);
   const requestedGroupSlug = searchParams.get("grupo");
+  const portalUrl = buildPortalUrl(
+    typeof window === "undefined"
+      ? undefined
+      : {
+          origin: window.location.origin,
+          pathname: window.location.pathname,
+        },
+  );
+
+  const copyText = async (value: string) => {
+    if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(value);
+      return;
+    }
+
+    if (typeof document === "undefined") {
+      throw new Error("clipboard-unavailable");
+    }
+
+    const textArea = document.createElement("textarea");
+    textArea.value = value;
+    textArea.setAttribute("readonly", "true");
+    textArea.style.position = "absolute";
+    textArea.style.left = "-9999px";
+    document.body.appendChild(textArea);
+    textArea.select();
+    document.execCommand("copy");
+    document.body.removeChild(textArea);
+  };
+
+  const handleCopyEnrollmentMessage = async (fullName: string, message: string) => {
+    try {
+      await copyText(message);
+      setCommunicationNotice(`Mensagem pronta copiada para ${fullName}.`);
+    } catch (_error) {
+      setCommunicationNotice("Nao foi possivel copiar a mensagem agora.");
+    }
+  };
+
+  const handleCopyEnrollmentEmail = async (fullName: string, email: string) => {
+    try {
+      await copyText(email);
+      setCommunicationNotice(`E-mail copiado para contato com ${fullName}.`);
+    } catch (_error) {
+      setCommunicationNotice("Nao foi possivel copiar o e-mail agora.");
+    }
+  };
+
+  const handleOpenWhatsApp = (phone: string, message: string) => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const whatsappUrl = buildWhatsAppUrl(phone, message);
+    window.open(whatsappUrl, "_blank", "noopener,noreferrer");
+    setCommunicationNotice("WhatsApp aberto com a mensagem pronta para revisao e envio manual.");
+  };
 
   useEffect(() => {
     if (!requestedGroupSlug) {
@@ -1085,6 +1150,12 @@ export const ProfessorPage = () => {
                   </AlertBox>
                 ) : null}
 
+                {communicationNotice ? (
+                  <AlertBox title="Comunicacao manual" tone="info">
+                    {communicationNotice}
+                  </AlertBox>
+                ) : null}
+
                 <div className="teacher-enrollment-filters">
                   <Select
                     id="teacher-enrollment-status-filter"
@@ -1120,6 +1191,13 @@ export const ProfessorPage = () => {
                     {filteredEnrollments.map((enrollment) => {
                       const enrollmentStatus = getEnrollmentStatusLabel(enrollment.status);
                       const teacherNote = teacherNotes[enrollment.id] ?? enrollment.teacherNote;
+                      const messageStatus = getEnrollmentMessageStatus(enrollment.status);
+                      const defaultMessage = buildEnrollmentMessage({
+                        enrollment,
+                        portalUrl,
+                        status: messageStatus,
+                      });
+                      const messageDraft = messageOverrides[enrollment.id] ?? defaultMessage;
                       const isUpdating = activeEnrollmentId === enrollment.id;
                       const cardClassName = [
                         "teacher-enrollment-item",
@@ -1166,6 +1244,20 @@ export const ProfessorPage = () => {
                           </p>
 
                           <TextArea
+                            helperText="Revise o texto com calma. No MVP, o envio pelo WhatsApp e manual."
+                            id={`teacher-message-${enrollment.id}`}
+                            label="Mensagem pronta para revisar"
+                            onChange={(event) =>
+                              setMessageOverrides((current) => ({
+                                ...current,
+                                [enrollment.id]: event.target.value,
+                              }))
+                            }
+                            rows={5}
+                            value={messageDraft}
+                          />
+
+                          <TextArea
                             id={`teacher-note-${enrollment.id}`}
                             label="Observacao do professor"
                             onChange={(event) =>
@@ -1177,6 +1269,41 @@ export const ProfessorPage = () => {
                             rows={4}
                             value={teacherNote}
                           />
+
+                          <div className="button-row">
+                            <Button
+                              aria-label={`Copiar mensagem pronta para ${enrollment.fullName}`}
+                              onClick={() =>
+                                void handleCopyEnrollmentMessage(enrollment.fullName, messageDraft)
+                              }
+                              size="compact"
+                              variant="ghost"
+                            >
+                              Copiar mensagem
+                            </Button>
+                            <Button
+                              aria-label={`Abrir WhatsApp para ${enrollment.fullName}`}
+                              onClick={() => handleOpenWhatsApp(enrollment.whatsapp, messageDraft)}
+                              size="compact"
+                              variant="secondary"
+                            >
+                              Abrir WhatsApp
+                            </Button>
+                            <Button
+                              aria-label={`Copiar e-mail de ${enrollment.fullName}`}
+                              onClick={() =>
+                                void handleCopyEnrollmentEmail(enrollment.fullName, enrollment.email)
+                              }
+                              size="compact"
+                              variant="ghost"
+                            >
+                              Copiar e-mail
+                            </Button>
+                          </div>
+
+                          <p className="teacher-panel__note">
+                            WhatsApp pronto para envio manual em {getWhatsAppPhoneLabel(enrollment.whatsapp)}.
+                          </p>
 
                           <div className="button-row">
                             <Button
