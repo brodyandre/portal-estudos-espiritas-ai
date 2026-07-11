@@ -155,8 +155,10 @@ img {
   align-items: center;
   justify-content: center;
   width: min(100%, 196px);
-  padding: var(--space-3);
-  border-radius: calc(var(--radius-lg) + 2px);
+  aspect-ratio: 1 / 1;
+  padding: var(--space-4);
+  border-radius: 50%;
+  overflow: hidden;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(246, 241, 232, 0.92));
   box-shadow:
     0 16px 34px rgba(22, 58, 95, 0.14),
@@ -165,8 +167,9 @@ img {
 
 .brand-logo--compact {
   width: 92px;
+  aspect-ratio: 1 / 1;
   padding: var(--space-2);
-  border-radius: var(--radius-md);
+  border-radius: 50%;
   box-shadow:
     0 10px 24px rgba(22, 58, 95, 0.12),
     inset 0 0 0 1px rgba(216, 180, 88, 0.2);
@@ -175,7 +178,7 @@ img {
 .brand-logo__image {
   display: block;
   width: 100%;
-  height: auto;
+  height: 100%;
   object-fit: contain;
 }
 
@@ -714,12 +717,20 @@ img {
 .profile-header__eyebrow,
 .card-eyebrow,
 .action-tile__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
   margin: 0;
+  padding: 7px 12px;
+  border: 1px solid var(--context-status-border);
+  border-radius: 999px;
+  background: var(--context-status-bg);
   color: var(--color-brand-800);
-  font-size: 0.82rem;
-  font-weight: 700;
+  font-size: 0.78rem;
+  font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.09em;
+  line-height: 1;
 }
 
 .profile-header h1 {
@@ -1545,16 +1556,16 @@ img {
   display: grid;
   gap: var(--space-3);
   padding: var(--space-4);
-  border: 1px solid rgba(22, 58, 95, 0.1);
+  border: 1px solid var(--teacher-support-border);
   border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.78);
+  background: var(--teacher-support-bg);
   cursor: pointer;
 }
 
 .teacher-support-item--selected {
-  border-color: rgba(22, 58, 95, 0.22);
-  box-shadow: inset 0 0 0 1px rgba(22, 58, 95, 0.05);
-  background: rgba(255, 255, 255, 0.95);
+  border-color: var(--teacher-support-border-active);
+  box-shadow: inset 0 0 0 1px var(--support-item-shadow-active);
+  background: var(--teacher-support-bg-active);
 }
 
 .teacher-support-item__select {
@@ -1586,6 +1597,9 @@ img {
 
 .teacher-support-item__header strong {
   display: block;
+  color: var(--teacher-support-title);
+  font-size: 1.08rem;
+  line-height: 1.3;
 }
 
 .teacher-support-item__tags,
@@ -1604,6 +1618,10 @@ img {
   color: var(--color-text-500);
   font-size: 0.9375rem;
   font-weight: 700;
+}
+
+.teacher-support-item .teacher-panel__note {
+  color: var(--teacher-support-summary);
 }
 
 .action-tile {

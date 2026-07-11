@@ -74,6 +74,12 @@
   --support-item-border: rgba(15, 79, 58, 0.1);
   --support-item-border-active: rgba(15, 79, 58, 0.22);
   --support-item-shadow-active: rgba(15, 79, 58, 0.06);
+  --teacher-support-bg: rgba(255, 255, 255, 0.82);
+  --teacher-support-bg-active: rgba(255, 253, 247, 0.98);
+  --teacher-support-border: rgba(15, 79, 58, 0.12);
+  --teacher-support-border-active: rgba(15, 79, 58, 0.26);
+  --teacher-support-title: #213129;
+  --teacher-support-summary: #55665e;
   --assistant-chip-border: rgba(15, 79, 58, 0.14);
   --assistant-chip-bg: rgba(255, 255, 255, 0.9);
   --assistant-response-bg: rgba(255, 255, 255, 0.76);
@@ -157,6 +163,12 @@
   --support-item-border: rgba(70, 88, 76, 0.1);
   --support-item-border-active: rgba(70, 88, 76, 0.22);
   --support-item-shadow-active: rgba(70, 88, 76, 0.06);
+  --teacher-support-bg: rgba(255, 251, 244, 0.84);
+  --teacher-support-bg-active: rgba(255, 251, 244, 0.98);
+  --teacher-support-border: rgba(70, 88, 76, 0.12);
+  --teacher-support-border-active: rgba(70, 88, 76, 0.26);
+  --teacher-support-title: #2d352f;
+  --teacher-support-summary: #626d66;
   --assistant-chip-border: rgba(70, 88, 76, 0.14);
   --assistant-chip-bg: rgba(255, 251, 244, 0.88);
   --assistant-response-bg: rgba(255, 251, 244, 0.78);
@@ -240,6 +252,12 @@
   --support-item-border: rgba(233, 211, 156, 0.1);
   --support-item-border-active: rgba(233, 211, 156, 0.22);
   --support-item-shadow-active: rgba(233, 211, 156, 0.08);
+  --teacher-support-bg: rgba(30, 46, 39, 0.92);
+  --teacher-support-bg-active: rgba(35, 54, 45, 0.98);
+  --teacher-support-border: rgba(233, 211, 156, 0.14);
+  --teacher-support-border-active: rgba(233, 211, 156, 0.28);
+  --teacher-support-title: #eef4ee;
+  --teacher-support-summary: #d5dfd7;
   --assistant-chip-border: rgba(233, 211, 156, 0.16);
   --assistant-chip-bg: rgba(24, 36, 31, 0.9);
   --assistant-response-bg: rgba(24, 36, 31, 0.86);
