@@ -39,6 +39,7 @@ describe("enrollments endpoints", () => {
           teacherNote: "",
         }),
       );
+      expect(response.body.data.meetUrl).toBeUndefined();
     });
 
     it("retorna erro amigavel quando os campos obrigatorios estao invalidos", async () => {
@@ -76,6 +77,9 @@ describe("enrollments endpoints", () => {
       expect(response.body.data.length).toBeGreaterThan(0);
       expect(
         response.body.data.every((item: { status: string }) => item.status === "approved"),
+      ).toBe(true);
+      expect(
+        response.body.data.every((item: Record<string, unknown>) => !("meetUrl" in item)),
       ).toBe(true);
     });
 

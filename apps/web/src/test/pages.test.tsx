@@ -1,9 +1,11 @@
 import type { ReactNode } from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AlunoPage } from "../pages/AlunoPage";
+import { EducationContinuedPage } from "../pages/EducationContinuedPage";
+import { EnrollmentPage } from "../pages/EnrollmentPage";
 import { resetMockEnrollments } from "../mocks/enrollments";
 import { PortalPage } from "../pages/PortalPage";
 import { ProfessorPage } from "../pages/ProfessorPage";
@@ -55,6 +57,35 @@ describe("paginas principais com fallback local", () => {
     ).toBeInTheDocument();
   });
 
+  it("/educacao-continuada renderiza a entrada publica do QR Code", async () => {
+    renderRoute("/educacao-continuada", <EducationContinuedPage />);
+
+    expect(screen.getByRole("heading", { name: "Educacao Continuada Online" })).toBeInTheDocument();
+    expect(await screen.findByText("Modo demonstrativo ativo")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 3, name: "Emmanuel" })).toBeInTheDocument();
+  });
+
+  it("/inscricao envia cadastro em modo demonstrativo", async () => {
+    renderRoute("/inscricao", <EnrollmentPage />);
+
+    fireEvent.change(screen.getByLabelText("Nome completo"), {
+      target: { value: "Aluno Demo" },
+    });
+    fireEvent.change(screen.getByLabelText("E-mail"), {
+      target: { value: "aluno.demo@example.com" },
+    });
+    fireEvent.change(screen.getByLabelText("WhatsApp"), {
+      target: { value: "(11) 99999-9999" },
+    });
+    fireEvent.click(screen.getByLabelText(/Autorizo o uso dos meus dados/i));
+    fireEvent.click(screen.getByRole("button", { name: "Enviar inscricao" }));
+
+    expect(await screen.findByRole("heading", { name: "Solicitacao recebida" })).toBeInTheDocument();
+    expect(
+      await screen.findByText("Modo demonstrativo: para aprovação real de alunos, rode o backend local."),
+    ).toBeInTheDocument();
+  });
+
   it("/aluno renderiza materiais dos dois grupos e continua util sem backend", async () => {
     window.localStorage.setItem("portal-estudos-espiritas-ai:student-access", "approved");
     renderRoute("/aluno?grupo=emmanuel", <AlunoPage />);
@@ -63,6 +94,7 @@ describe("paginas principais com fallback local", () => {
       screen.getByRole("heading", { name: "Portal dos Estudos Espiritas Online" }),
     ).toBeInTheDocument();
     expect(await screen.findByText("Modo demonstrativo ativo")).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: "Entrar no Google Meet" }).length).toBeGreaterThan(0);
     expect(await screen.findByRole("heading", { name: "Materiais de apoio" })).toBeInTheDocument();
     expect(await screen.findByText("Emmanuel - visao geral")).toBeInTheDocument();
 
@@ -103,5 +135,29 @@ describe("paginas principais com fallback local", () => {
     await waitFor(() => {
       expect(screen.getByText("A Caminho da Luz - visao geral")).toBeInTheDocument();
     });
+  });
+
+  it("professor aprova interessado e o acesso demonstrativo do aluno e liberado", async () => {
+    const professorView = renderRoute("/professor", <ProfessorPage />);
+
+    expect(await screen.findByText("Novos interessados")).toBeInTheDocument();
+
+    const enrollmentCard = screen
+      .getByText("Mariana Souza")
+      .closest(".teacher-enrollment-item") as HTMLElement | null;
+
+    expect(enrollmentCard).not.toBeNull();
+    fireEvent.click(within(enrollmentCard as HTMLElement).getByRole("button", { name: "Aprovar" }));
+
+    await waitFor(() => {
+      expect(window.localStorage.getItem("portal-estudos-espiritas-ai:student-access")).toBe("approved");
+    });
+
+    professorView.unmount();
+    cleanup();
+    renderRoute("/aluno", <AlunoPage />);
+
+    expect(await screen.findByText("Painel do Aluno")).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: "Entrar no Google Meet" }).length).toBeGreaterThan(0);
   });
 });
