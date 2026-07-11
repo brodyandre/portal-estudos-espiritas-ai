@@ -71,20 +71,20 @@ export const EducationContinuedPage = () => {
               </Button>
             </div>
           }
-          badge="Pagina publica"
-        description="Um caminho simples para quem chegou pelo QR Code conhecer a proposta dos encontros online antes de pedir participacao."
+          badge="Página pública"
+        description="Um caminho simples para quem chegou pelo QR Code conhecer a proposta dos encontros online antes de pedir participação."
         eyebrow="Entrada pelo QR Code"
           meta={[
             { label: "Formato", value: "Online e gratuito" },
             { label: "Professores", value: teacherList },
-            { label: "Acesso ao encontro", value: "Liberado apos revisao" },
+            { label: "Acesso ao encontro", value: "Liberado após revisão" },
         ]}
-        title="Educacao Continuada Online"
+        title="Educação Continuada Online"
         visual={
           <div className="profile-brand-showcase profile-brand-showcase--public">
             <BrandLogo className="profile-brand-showcase__logo" />
             <p className="profile-brand-showcase__caption">
-              Identidade visual do programa que acolhe novos participantes antes da liberacao do
+              Identidade visual do programa que acolhe novos participantes antes da liberação do
               encontro.
             </p>
           </div>
@@ -97,12 +97,12 @@ export const EducationContinuedPage = () => {
         tone={notice ? "info" : "success"}
       >
         {notice ??
-          "Apos o cadastro, os professores revisarao sua solicitacao e enviarao a confirmacao de acesso."}
+          "Após o cadastro, os professores revisarão sua solicitação e enviarão a confirmação de acesso."}
       </AlertBox>
 
       <section className="page-section" id="educacao-continuada-proposta">
         <SectionTitle
-          description="A proposta desta pagina e acolher novos participantes sem expor o link do encontro antes da revisao pelos professores."
+          description="A proposta desta página é acolher novos participantes sem expor o link do encontro antes da revisão pelos professores."
           title="Como funciona"
         />
 

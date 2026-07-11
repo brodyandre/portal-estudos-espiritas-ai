@@ -10,18 +10,18 @@ interface StudentAccessGateProps {
 
 const buildTitle = (status: StudentAccessStatus) => {
   if (status === "pending") {
-    return "Aguardando aprovacao";
+    return "Aguardando aprovação";
   }
 
-  return "Acesso nao liberado";
+  return "Acesso não liberado";
 };
 
 const buildDescription = (status: StudentAccessStatus) => {
   if (status === "pending") {
-    return "Seu cadastro foi recebido e esta em revisao. Assim que os professores aprovarem, esta area passara a mostrar os materiais e o link da aula.";
+    return "Seu cadastro foi recebido e está em revisão. Assim que os professores aprovarem, esta área passará a mostrar os materiais e o link da aula.";
   }
 
-  return "Seu acesso ainda nao foi liberado. A area do aluno e o link da aula aparecem apenas depois da aprovacao dos professores.";
+  return "Seu acesso ainda não foi liberado. A área do aluno e o link da aula aparecem apenas depois da aprovação dos professores.";
 };
 
 export const StudentAccessGate = ({ status }: StudentAccessGateProps) => {
@@ -36,24 +36,24 @@ export const StudentAccessGate = ({ status }: StudentAccessGateProps) => {
             </Button>
           </div>
         }
-        badge="Protecao demonstrativa"
-        description="Nesta fase do projeto, o acesso do aluno usa um controle simples no navegador. A liberacao real podera evoluir depois para autenticacao completa."
-        eyebrow="Area do aluno"
+        badge="Proteção demonstrativa"
+        description="Nesta fase do projeto, o acesso do aluno usa um controle simples no navegador. A liberação real poderá evoluir depois para autenticação completa."
+        eyebrow="Área do aluno"
         meta={[
-          { label: "Status atual", value: status === "pending" ? "Aguardando revisao" : "Visitante" },
-          { label: "Link da aula", value: "Liberado somente apos aprovacao" },
+          { label: "Status atual", value: status === "pending" ? "Aguardando revisão" : "Visitante" },
+          { label: "Link da aula", value: "Liberado somente após aprovação" },
         ]}
         title={buildTitle(status)}
       />
 
-      <AlertBox title="Revisao antes do acesso" tone="warning">
-        A aprovacao dos professores libera o acesso a area do aluno e ao link da aula.
+      <AlertBox title="Revisão antes do acesso" tone="warning">
+        A aprovação dos professores libera o acesso à área do aluno e ao link da aula.
       </AlertBox>
 
       <Card className="student-access-gate__card" tone="soft">
-        <h2>Acesso ainda nao liberado</h2>
+        <h2>Acesso ainda não liberado</h2>
         <p className="student-panel__note">
-          Seu acesso ainda nao foi liberado. Apos a aprovacao dos professores, voce podera ver os
+          Seu acesso ainda não foi liberado. Após a aprovação dos professores, você poderá ver os
           materiais e o link da aula.
         </p>
         <p className="student-panel__note">{buildDescription(status)}</p>

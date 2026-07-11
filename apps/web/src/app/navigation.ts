@@ -30,18 +30,18 @@ export interface PageSectionContext {
 
 export const appSidebarConfig: SidebarConfig = {
   badge: "Projeto demonstrativo",
-  title: "Educacao Continuada",
+  title: "Educação Continuada",
   description: "Programa acolhedor para encontros online via Google Meet.",
-  footerTitle: "Apoio com revisao humana",
+  footerTitle: "Apoio com revisão humana",
   footerDescription:
-    "A plataforma ajuda a estudar, organizar materiais e preparar encontros, mas nao substitui professores.",
-  navLabel: "Navegacao principal",
+    "A plataforma ajuda a estudar, organizar materiais e preparar encontros, mas não substitui professores.",
+  navLabel: "Navegação principal",
   items: [
     {
       type: "route",
       to: "/",
-      label: "Inicio",
-      description: "Visao geral do projeto e grupos em destaque.",
+      label: "Início",
+      description: "Visão geral do projeto e grupos em destaque.",
     },
     {
       type: "route",
@@ -52,26 +52,26 @@ export const appSidebarConfig: SidebarConfig = {
     {
       type: "route",
       to: "/educacao-continuada",
-      label: "Educacao continuada",
-      description: "Entrada publica para visitantes que chegam pelo QR Code do cartaz.",
+      label: "Educação continuada",
+      description: "Entrada pública para visitantes que chegam pelo QR Code do cartaz.",
     },
     {
       type: "route",
       to: "/inscricao",
-      label: "Inscricao",
-      description: "Formulario simples de interesse para novos participantes.",
+      label: "Inscrição",
+      description: "Formulário simples de interesse para novos participantes.",
     },
     {
       type: "route",
       to: "/divulgacao",
-      label: "Divulgacao",
-      description: "Orientacao para o professor usar a pagina certa no QR Code do cartaz.",
+      label: "Divulgação",
+      description: "Orientação para o professor usar a página certa no QR Code do cartaz.",
     },
     {
       type: "route",
       to: "/aluno",
       label: "Aluno",
-      description: "Aulas, materiais, resumos, duvidas e progresso.",
+      description: "Aulas, materiais, resumos, dúvidas e progresso.",
     },
     {
       type: "route",
@@ -83,24 +83,24 @@ export const appSidebarConfig: SidebarConfig = {
       type: "route",
       to: "/professor",
       label: "Professor",
-      description: "Planejamento, revisao e publicacao do encontro.",
+      description: "Planejamento, revisão e publicação do encontro.",
     },
   ],
 };
 
 export const studentSidebarConfig: SidebarConfig = {
   badge: "Painel do Aluno",
-  title: "Educacao Continuada",
-  description: "Acesso simples a encontros, materiais, duvidas e progresso.",
+  title: "Educação Continuada",
+  description: "Acesso simples a encontros, materiais, dúvidas e progresso.",
   footerTitle: "Estudo com apoio humano",
   footerDescription:
-    "O assistente ajuda na revisao do estudo, mas a orientacao do professor continua essencial.",
-  navLabel: "Navegacao do painel do aluno",
+    "O assistente ajuda na revisão do estudo, mas a orientação do professor continua essencial.",
+  navLabel: "Navegação do painel do aluno",
   items: [
     {
       type: "section",
       targetId: "aluno-inicio",
-      label: "Inicio",
+      label: "Início",
       description: "Voltar ao topo do painel do aluno.",
     },
     {
@@ -124,7 +124,7 @@ export const studentSidebarConfig: SidebarConfig = {
     {
       type: "section",
       targetId: "duvidas-enviadas",
-      label: "Duvidas",
+      label: "Dúvidas",
       description: "Revisar perguntas enviadas e resposta do assistente.",
     },
     {
@@ -144,17 +144,17 @@ export const studentSidebarConfig: SidebarConfig = {
 
 export const teacherSidebarConfig: SidebarConfig = {
   badge: "Painel do Professor",
-  title: "Educacao Continuada",
-  description: "Planejamento da aula, revisao do conteudo e publicacao com cuidado humano.",
-  footerTitle: "Revisao antes de publicar",
+  title: "Educação Continuada",
+  description: "Planejamento da aula, revisão do conteúdo e publicação com cuidado humano.",
+  footerTitle: "Revisão antes de publicar",
   footerDescription:
     "O professor sempre revisa roteiro, perguntas e resumo antes de compartilhar com o grupo.",
-  navLabel: "Navegacao do painel do professor",
+  navLabel: "Navegação do painel do professor",
   items: [
     {
       type: "section",
       targetId: "professor-inicio",
-      label: "Inicio",
+      label: "Início",
       description: "Voltar ao topo do painel do professor.",
     },
     {
@@ -172,20 +172,20 @@ export const teacherSidebarConfig: SidebarConfig = {
     {
       type: "section",
       targetId: "professor-duvidas",
-      label: "Duvidas",
-      description: "Revisar as duvidas recebidas da turma.",
+      label: "Dúvidas",
+      description: "Revisar as dúvidas recebidas da turma.",
     },
     {
       type: "section",
       targetId: "professor-resumos",
       label: "Resumos",
-      description: "Ver a previa do conteudo e do resumo da aula.",
+      description: "Ver a prévia do conteúdo e do resumo da aula.",
     },
     {
       type: "section",
       targetId: "professor-configuracoes",
-      label: "Configuracoes",
-      description: "Conferir aprovacao, rascunho e publicacao final.",
+      label: "Configurações",
+      description: "Conferir aprovação, rascunho e publicação final.",
     },
     {
       type: "route",
@@ -198,28 +198,28 @@ export const teacherSidebarConfig: SidebarConfig = {
 
 export const pageMeta = {
   "/": {
-    title: "Inicio",
+    title: "Início",
     description: "Projeto demonstrativo para apoiar grupos de estudos online.",
   },
   "/portal": {
     title: "Portal",
-    description: "Panorama acolhedor dos grupos, encontros e proximos passos.",
+    description: "Panorama acolhedor dos grupos, encontros e próximos passos.",
   },
   "/educacao-continuada": {
-    title: "Educacao Continuada Online",
-    description: "Entrada publica para novos participantes conhecerem os grupos e o proximo passo.",
+    title: "Educação Continuada Online",
+    description: "Entrada pública para novos participantes conhecerem os grupos e o próximo passo.",
   },
   "/inscricao": {
-    title: "Inscricao",
+    title: "Inscrição",
     description: "Cadastro simples de interesse para os estudos online.",
   },
   "/divulgacao": {
-    title: "Divulgacao do QR Code",
-    description: "Orientacao simples para divulgar o QR Code sem expor o encontro.",
+    title: "Divulgação do QR Code",
+    description: "Orientação simples para divulgar o QR Code sem expor o encontro.",
   },
   "/aluno": {
     title: "Painel do Aluno",
-    description: "Encontros, materiais, assistente e progresso em um so lugar.",
+    description: "Encontros, materiais, assistente e progresso em um só lugar.",
   },
   "/materiais": {
     title: "Materiais dos Livros",
@@ -227,15 +227,15 @@ export const pageMeta = {
   },
   "/materiais/emmanuel": {
     title: "Materiais de Emmanuel",
-    description: "Arquivos curtos, tags e duvidas frequentes do grupo Emmanuel.",
+    description: "Arquivos curtos, tags e dúvidas frequentes do grupo Emmanuel.",
   },
   "/materiais/a-caminho-da-luz": {
     title: "Materiais de A Caminho da Luz",
-    description: "Arquivos curtos, tags e duvidas frequentes do grupo A Caminho da Luz.",
+    description: "Arquivos curtos, tags e dúvidas frequentes do grupo A Caminho da Luz.",
   },
   "/professor": {
     title: "Painel do Professor",
-    description: "Planejamento da semana, revisao de conteudo e publicacao consciente.",
+    description: "Planejamento da semana, revisão de conteúdo e publicação consciente.",
   },
 } satisfies Record<string, { title: string; description: string }>;
 
@@ -260,17 +260,17 @@ export const pageSections: Record<string, PageSectionContext[]> = {
     },
     {
       targetId: "portal-duvidas",
-      label: "Enviar duvida",
+      label: "Enviar dúvida",
     },
     {
       targetId: "portal-orientacoes",
-      label: "Orientacoes",
+      label: "Orientações",
     },
   ],
   "/educacao-continuada": [
     {
       targetId: "educacao-continuada-inicio",
-      label: "Inicio",
+      label: "Início",
     },
     {
       targetId: "educacao-continuada-proposta",
@@ -282,23 +282,23 @@ export const pageSections: Record<string, PageSectionContext[]> = {
     },
     {
       targetId: "educacao-continuada-acoes",
-      label: "Proximo passo",
+      label: "Próximo passo",
     },
   ],
   "/inscricao": [
     {
       targetId: "inscricao-inicio",
-      label: "Inicio",
+      label: "Início",
     },
     {
       targetId: "inscricao-formulario",
-      label: "Formulario",
+      label: "Formulário",
     },
   ],
   "/divulgacao": [
     {
       targetId: "divulgacao-inicio",
-      label: "Inicio",
+      label: "Início",
     },
     {
       targetId: "divulgacao-orientacao",
@@ -314,13 +314,13 @@ export const pageSections: Record<string, PageSectionContext[]> = {
     },
     {
       targetId: "divulgacao-acoes",
-      label: "Acessos rapidos",
+      label: "Acessos rápidos",
     },
   ],
   "/aluno": [
     {
       targetId: "aluno-inicio",
-      label: "Inicio",
+      label: "Início",
     },
     {
       targetId: "grupo-emmanuel",
@@ -332,12 +332,12 @@ export const pageSections: Record<string, PageSectionContext[]> = {
     },
     {
       targetId: "aluno-proxima-aula",
-      label: "Proxima aula",
+      label: "Próxima aula",
       navTargetId: "aluno-inicio",
     },
     {
       targetId: "aluno-duvidas",
-      label: "Duvidas",
+      label: "Dúvidas",
       navTargetId: "duvidas-enviadas",
     },
     {
@@ -379,17 +379,17 @@ export const pageSections: Record<string, PageSectionContext[]> = {
     },
     {
       targetId: "materiais-duvidas",
-      label: "Duvidas frequentes",
+      label: "Dúvidas frequentes",
     },
     {
       targetId: "materiais-aviso",
-      label: "Revisao humana",
+      label: "Revisão humana",
     },
   ],
   "/materiais/a-caminho-da-luz": [
     {
       targetId: "materiais-inicio",
-      label: "Inicio",
+      label: "Início",
     },
     {
       targetId: "materiais-arquivos",
@@ -397,17 +397,17 @@ export const pageSections: Record<string, PageSectionContext[]> = {
     },
     {
       targetId: "materiais-duvidas",
-      label: "Duvidas frequentes",
+      label: "Dúvidas frequentes",
     },
     {
       targetId: "materiais-aviso",
-      label: "Revisao humana",
+      label: "Revisão humana",
     },
   ],
   "/professor": [
     {
       targetId: "professor-inicio",
-      label: "Inicio",
+      label: "Início",
     },
     {
       targetId: "professor-grupo-emmanuel",
@@ -424,15 +424,15 @@ export const pageSections: Record<string, PageSectionContext[]> = {
     },
     {
       targetId: "professor-duvidas",
-      label: "Duvidas",
+      label: "Dúvidas",
     },
     {
       targetId: "professor-resumos",
-      label: "Previa",
+      label: "Prévia",
     },
     {
       targetId: "professor-configuracoes",
-      label: "Aprovacao",
+      label: "Aprovação",
     },
   ],
 };

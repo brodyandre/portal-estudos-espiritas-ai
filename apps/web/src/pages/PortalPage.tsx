@@ -142,12 +142,12 @@ export const PortalPage = () => {
                 Entrada pelo QR Code
               </Button>
               <Button to="/professor" variant="ghost">
-                Abrir area do professor
+                Abrir área do professor
               </Button>
             </div>
           }
-          badge="Pagina compartilhavel"
-          description="Boas-vindas ao portal dos encontros online. Aqui voce encontra os grupos, o tema da semana, materiais de apoio e um caminho simples para enviar duvidas sem login."
+          badge="Página compartilhável"
+          description="Boas-vindas ao portal dos encontros online. Aqui você encontra os grupos, o tema da semana, materiais de apoio e um caminho simples para enviar dúvidas sem login."
           eyebrow="Portal"
           meta={[
             { label: "Grupos ativos", value: String(groups.length || 2) },
@@ -157,7 +157,7 @@ export const PortalPage = () => {
             },
             { label: "Acesso", value: "Sem login" },
           ]}
-          title="Boas-vindas a Educacao Continuada"
+          title="Boas-vindas à Educação Continuada"
         />
       </div>
 
@@ -166,7 +166,7 @@ export const PortalPage = () => {
         tone={notice ? "info" : "success"}
       >
         {notice ??
-          "Esta pagina pode ser compartilhada com novos participantes. Os encontros, materiais e orientacoes aparecem de forma simples, sem exigir cadastro."}
+          "Esta página pode ser compartilhada com novos participantes. Os encontros, materiais e orientações aparecem de forma simples, sem exigir cadastro."}
       </AlertBox>
 
       <Card className="portal-invite-card" tone="soft">

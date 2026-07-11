@@ -761,11 +761,11 @@ export const ProfessorPage = () => {
     <div className="teacher-page page-stack">
       <section className="teacher-hero" id="professor-inicio">
         <div>
-          <Badge tone="sand">Area do professor</Badge>
-          <h1>Educacao Continuada</h1>
+          <Badge tone="sand">Área do professor</Badge>
+          <h1>Educação Continuada</h1>
           <p className="teacher-hero__subtitle">Painel do Professor</p>
           <p className="teacher-hero__description">
-            Organize a proxima aula, escolha materiais de apoio e revise cada texto antes de
+            Organize a próxima aula, escolha materiais de apoio e revise cada texto antes de
             compartilhar com a turma.
           </p>
         </div>
@@ -803,19 +803,19 @@ export const ProfessorPage = () => {
               value={groupSlug}
             />
           }
-          description="Escolha o grupo para trocar rapidamente a base de apoio, o tema da semana e a previa da aula."
+          description="Escolha o grupo para trocar rapidamente a base de apoio, o tema da semana e a prévia da aula."
           title="Escolha o grupo ou livro"
         />
 
         {isLoading ? (
           <LoadingState
-            description="Estamos reunindo grupos, duvidas e materiais para montar o painel."
+            description="Estamos reunindo grupos, dúvidas e materiais para montar o painel."
             title="Carregando painel do professor"
           />
         ) : groups.length === 0 ? (
           <EmptyState
             description="Nenhum grupo foi encontrado para exibir agora."
-            title="Sem grupos disponiveis"
+            title="Sem grupos disponíveis"
           />
         ) : (
           <div className="group-grid">
@@ -879,7 +879,7 @@ export const ProfessorPage = () => {
       </section>
 
       <AlertBox title="Revise antes de publicar." tone="warning">
-        O conteudo abaixo e apenas um ponto de partida demonstrativo. O professor sempre revisa,
+        O conteúdo abaixo é apenas um ponto de partida demonstrativo. O professor sempre revisa,
         ajusta e aprova antes de compartilhar com a turma.
       </AlertBox>
 
@@ -895,7 +895,7 @@ export const ProfessorPage = () => {
               >
                 <div className="teacher-panel__header">
                   <div>
-                    <p className="card-eyebrow">Preparar proxima aula</p>
+                    <p className="card-eyebrow">Preparar próxima aula</p>
                     <h2>Grupo, tema e Meet</h2>
                   </div>
                   <StatusTag
@@ -1056,14 +1056,14 @@ export const ProfessorPage = () => {
                     {activeAction === "message" ? "Gerando..." : "Gerar mensagem para o grupo"}
                   </Button>
                   <Button onClick={() => void handleGenerate("review")} variant="ghost">
-                    {activeAction === "review" ? "Gerando..." : "Listar pontos que exigem revisao"}
+                    {activeAction === "review" ? "Gerando..." : "Listar pontos que exigem revisão"}
                   </Button>
                 </div>
 
                 <div className="teacher-action-note">
                   <p>
-                    Os textos podem ser simulados localmente quando o servidor nao estiver
-                    disponivel.
+                    Os textos podem ser simulados localmente quando o servidor não estiver
+                    disponível.
                   </p>
                 </div>
               </Card>
@@ -1115,7 +1115,7 @@ export const ProfessorPage = () => {
                   <div className="teacher-enrollment-summary__lead">
                     <p className="teacher-enrollment-summary__eyebrow">Resumo rapido</p>
                     <strong>{pendingEnrollmentCounts.total}</strong>
-                    <span>solicitacoes aguardando revisao</span>
+                    <span>solicitações aguardando revisão</span>
                   </div>
 
                   <div className="teacher-enrollment-summary__grid">
@@ -1128,7 +1128,7 @@ export const ProfessorPage = () => {
                       <strong>{pendingEnrollmentCounts.caminho}</strong>
                     </div>
                     <div className="teacher-enrollment-summary__item">
-                      <span className="teacher-enrollment-summary__label">Ainda nao sei</span>
+                      <span className="teacher-enrollment-summary__label">Ainda não sei</span>
                       <strong>{pendingEnrollmentCounts.undecided}</strong>
                     </div>
                   </div>
@@ -1136,12 +1136,12 @@ export const ProfessorPage = () => {
 
                 {pendingEnrollmentCounts.total > 0 ? (
                   <AlertBox title="Novas solicitacoes" tone="info">
-                    Ha novas solicitacoes aguardando revisao.
+                    Há novas solicitações aguardando revisão.
                   </AlertBox>
                 ) : null}
 
                 <AlertBox title="Revisao do acesso" tone="warning">
-                  A aprovacao libera o acesso a area do aluno e ao link da aula.
+                  A aprovação libera o acesso à área do aluno e ao link da aula.
                 </AlertBox>
 
                 {enrollmentNotice ? (
@@ -1353,10 +1353,10 @@ export const ProfessorPage = () => {
 
                 <p className="teacher-panel__note">
                   Sem backend, a inscricao publica continua funcionando em modo demonstrativo. A
-                  revisao feita aqui atualiza o estado local e ajuda a simular o acesso do aluno.
+                  A revisão feita aqui atualiza o estado local e ajuda a simular o acesso do aluno.
                 </p>
                 <p className="teacher-panel__note">
-                  Nao use este modo como aprovacao real. Para aprovar alunos de verdade, rode o
+                  Não use este modo como aprovação real. Para aprovar alunos de verdade, rode o
                   backend local.
                 </p>
               </Card>
@@ -1428,7 +1428,7 @@ export const ProfessorPage = () => {
 
                 <TextArea
                   id="preview-review"
-                  label="Pontos que exigem revisao"
+                  label="Pontos que exigem revisão"
                   onChange={(event) =>
                     setPreview((current) => ({
                       ...current,
@@ -1443,7 +1443,7 @@ export const ProfessorPage = () => {
               <div className="teacher-side-stack">
                 <Card className="teacher-panel" id={teacherSupportSectionIds.approval} tone="soft">
                   <div className="teacher-panel__header">
-                    <h2>Aprovacao do professor</h2>
+                    <h2>Aprovação do professor</h2>
                     <StatusTag
                       tone={
                         reviewState === "published"
@@ -1476,7 +1476,7 @@ export const ProfessorPage = () => {
 
                 <Card className="teacher-panel" id={teacherSupportSectionIds.questions} tone="soft">
                   <div className="teacher-panel__header">
-                    <h2>Duvidas recebidas</h2>
+                    <h2>Dúvidas recebidas</h2>
                     <Badge tone="sand">{activeQuestions.length}</Badge>
                   </div>
                   <div className="stack-list">

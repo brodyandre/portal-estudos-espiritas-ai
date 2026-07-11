@@ -149,7 +149,7 @@ export const AppLayout = () => {
   return (
     <div className="app-shell">
       <a className="skip-link" href="#main-content">
-        Pular para o conteudo
+        Pular para o conteúdo
       </a>
 
       <div className="app-shell__sidebar">
@@ -185,7 +185,7 @@ export const AppLayout = () => {
 
         <main className="app-main" id="main-content">
           <div className="app-main__inner">
-            <div className="page-context-bar" aria-label="Contexto da pagina">
+            <div className="page-context-bar" aria-label="Contexto da página">
               <div className="page-context-bar__body">
                 <span className="page-context-bar__eyebrow">Tela atual</span>
                 <strong>{currentPage.title}</strong>
@@ -193,7 +193,7 @@ export const AppLayout = () => {
               <div className="page-context-bar__controls">
                 {currentSection ? (
                   <div className="page-context-bar__status">
-                    <span className="page-context-bar__label">Secao</span>
+                    <span className="page-context-bar__label">Seção atual</span>
                     <span className="page-context-bar__value">{currentSection.label}</span>
                   </div>
                 ) : null}

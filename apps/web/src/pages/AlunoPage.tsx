@@ -53,7 +53,7 @@ const studentSteps: DemoFlowStep[] = [
   },
   {
     step: 2,
-    title: "Acessam a proxima aula pelo Meet.",
+    title: "Acessam a próxima aula pelo Meet.",
     description: "Entram rapidamente no encontro certo no horario combinado.",
   },
   {
@@ -63,13 +63,13 @@ const studentSteps: DemoFlowStep[] = [
   },
   {
     step: 4,
-    title: "Perguntam ao assistente suas duvidas.",
+    title: "Perguntam ao assistente suas dúvidas.",
     description: "Recebem um apoio simples para revisar o estudo com calma.",
   },
   {
     step: 5,
     title: "Acompanham seu progresso.",
-    description: "Percebem sua constancia, presenca e proximos passos do estudo.",
+    description: "Percebem sua constância, presença e próximos passos do estudo.",
   },
 ];
 
@@ -370,11 +370,11 @@ export const AlunoPage = () => {
     <div className="student-page page-stack">
       <section className="student-hero" id="aluno-inicio">
         <div className="student-hero__intro">
-          <Badge tone="sand">Area do aluno</Badge>
-          <h1>Educacao Continuada</h1>
+          <Badge tone="sand">Área do aluno</Badge>
+          <h1>Educação Continuada</h1>
           <p className="student-hero__subtitle">Painel do Aluno</p>
           <p className="student-hero__description">
-            Acompanhe a proxima aula, revise materiais, registre duvidas e veja seu progresso em um
+            Acompanhe a próxima aula, revise materiais, registre dúvidas e veja seu progresso em um
             fluxo simples e acolhedor.
           </p>
         </div>
@@ -512,7 +512,7 @@ export const AlunoPage = () => {
               <Card className="student-panel student-panel--upcoming" id="aluno-proxima-aula" tone="brand">
                 <div className="student-panel__header">
                   <div>
-                    <p className="card-eyebrow">Proxima aula</p>
+                    <p className="card-eyebrow">Próxima aula</p>
                     <h2>{activeGroup.nextLesson.title}</h2>
                   </div>
                   <StatusTag tone="upcoming" />
@@ -579,7 +579,7 @@ export const AlunoPage = () => {
                   </strong>
                   <p>{assistantResponse.answer}</p>
                   <AlertBox className="assistant-card__alert" title="Uso responsavel" tone="warning">
-                    Resposta baseada nos materiais cadastrados. Em temas sensiveis, converse com o professor.
+                    Resposta baseada nos materiais cadastrados. Em temas sensíveis, converse com o professor.
                   </AlertBox>
                   {assistantResponse.teacherFollowUp ? (
                     <p className="assistant-card__helper">{assistantResponse.teacherFollowUp}</p>
@@ -614,16 +614,16 @@ export const AlunoPage = () => {
                       Foi util
                     </Button>
                     <Button onClick={() => setAssistantFeedback("not-helpful")} variant="ghost">
-                      Nao foi util
+                      Não foi útil
                     </Button>
                     <Button onClick={() => void handleSendQuestionToTeacher()} variant="secondary">
-                      {isSendingTeacherQuestion ? "Enviando..." : "Enviar duvida ao professor"}
+                      {isSendingTeacherQuestion ? "Enviando..." : "Enviar dúvida ao professor"}
                     </Button>
                   </div>
 
                   {assistantFeedback ? (
                     <p className="student-panel__note">
-                      Feedback registrado: {assistantFeedback === "helpful" ? "foi util" : "nao foi util"}.
+                      Feedback registrado: {assistantFeedback === "helpful" ? "foi útil" : "não foi útil"}.
                     </p>
                   ) : null}
                   {assistantMessage ? (
@@ -712,7 +712,7 @@ export const AlunoPage = () => {
                   </div>
                 ) : (
                   <EmptyState
-                    description="Os materiais do livro selecionado ainda nao foram carregados."
+                    description="Os materiais do livro selecionado ainda não foram carregados."
                     title="Sem materiais de apoio"
                   />
                 )}
@@ -721,7 +721,7 @@ export const AlunoPage = () => {
               <div className="student-resources-stack">
                 <Card className="student-panel" id="duvidas-enviadas" tone="soft">
                   <div className="student-panel__header">
-                    <h2>Minhas duvidas enviadas</h2>
+                    <h2>Minhas dúvidas enviadas</h2>
                     <Badge tone="sand">{filteredQuestions.length}</Badge>
                   </div>
                   <div className="stack-list">
@@ -747,7 +747,7 @@ export const AlunoPage = () => {
                     <Badge tone="sand">{activeSummary?.readingTimeLabel ?? "Leitura breve"}</Badge>
                   </div>
                   <p className="student-panel__note">
-                    {activeSummary?.content ?? "Resumo demonstrativo disponivel para revisao."}
+                    {activeSummary?.content ?? "Resumo demonstrativo disponível para revisão."}
                   </p>
                   {activeSummary?.takeaways.length ? (
                     <ul className="bullet-list">

@@ -108,20 +108,20 @@ export const EnrollmentPage = () => {
                 </Button>
               </div>
             }
-            badge="Solicitacao enviada"
-            description="Recebemos seu interesse com os dados basicos para organizacao do acolhimento."
-            eyebrow="Inscricao"
+            badge="Solicitação enviada"
+            description="Recebemos seu interesse com os dados básicos para organização do acolhimento."
+            eyebrow="Inscrição"
             meta={[
-              { label: "Etapa atual", value: "Aguardando revisao" },
-              { label: "Acesso ao encontro", value: "Somente apos confirmacao" },
+              { label: "Etapa atual", value: "Aguardando revisão" },
+              { label: "Acesso ao encontro", value: "Somente após confirmação" },
             ]}
-            title="Solicitacao recebida"
+            title="Solicitação recebida"
           />
         </div>
 
         <AlertBox title="Tudo certo" tone="success">
-          Sua solicitacao foi recebida. Os professores revisarao seu cadastro e enviarao a
-          confirmacao de acesso.
+          Sua solicitação foi recebida. Os professores revisarão seu cadastro e enviarão a
+          confirmação de acesso.
         </AlertBox>
 
         {submittedNotice ? (
@@ -131,11 +131,11 @@ export const EnrollmentPage = () => {
         ) : null}
 
         <Card className="enrollment-success-card" tone="soft">
-          <p className="card-eyebrow">Proximo passo</p>
-          <h3>Os professores farão a revisao antes de liberar o encontro.</h3>
+          <p className="card-eyebrow">Próximo passo</p>
+          <h3>Os professores farão a revisão antes de liberar o encontro.</h3>
           <p className="student-panel__note">
-            Enquanto isso, voce pode conhecer melhor o portal, os grupos e os materiais curtos de
-            apoio. O link do Google Meet nao aparece nesta etapa publica.
+            Enquanto isso, você pode conhecer melhor o portal, os grupos e os materiais curtos de
+            apoio. O link do Google Meet não aparece nesta etapa pública.
           </p>
           <div className="button-row">
             <Button to="/portal">Ir para o portal</Button>

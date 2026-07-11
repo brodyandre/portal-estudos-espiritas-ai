@@ -47,7 +47,7 @@ describe("paginas principais com fallback local", () => {
     renderRoute("/portal", <PortalPage />);
 
     expect(
-      screen.getByRole("heading", { name: "Boas-vindas a Educacao Continuada" }),
+      screen.getByRole("heading", { name: "Boas-vindas à Educação Continuada" }),
     ).toBeInTheDocument();
 
     expect(await screen.findByText("Modo demonstrativo ativo")).toBeInTheDocument();
@@ -60,7 +60,7 @@ describe("paginas principais com fallback local", () => {
   it("/educacao-continuada renderiza a entrada publica do QR Code", async () => {
     renderRoute("/educacao-continuada", <EducationContinuedPage />);
 
-    expect(screen.getByRole("heading", { name: "Educacao Continuada Online" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Educação Continuada Online" })).toBeInTheDocument();
     expect(await screen.findByText("Modo demonstrativo ativo")).toBeInTheDocument();
     expect(await screen.findByRole("heading", { level: 3, name: "Emmanuel" })).toBeInTheDocument();
   });
@@ -80,7 +80,7 @@ describe("paginas principais com fallback local", () => {
     fireEvent.click(screen.getByLabelText(/Autorizo o uso dos meus dados/i));
     fireEvent.click(screen.getByRole("button", { name: "Enviar inscricao" }));
 
-    expect(await screen.findByRole("heading", { name: "Solicitacao recebida" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Solicitação recebida" })).toBeInTheDocument();
     expect(
       await screen.findByText("Modo demonstrativo: para aprovação real de alunos, rode o backend local."),
     ).toBeInTheDocument();
@@ -91,7 +91,7 @@ describe("paginas principais com fallback local", () => {
     renderRoute("/aluno?grupo=emmanuel", <AlunoPage />);
 
     expect(
-      screen.getByRole("heading", { name: "Educacao Continuada" }),
+      screen.getByRole("heading", { name: "Educação Continuada" }),
     ).toBeInTheDocument();
     expect(await screen.findByText("Modo demonstrativo ativo")).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "Entrar no Google Meet" }).length).toBeGreaterThan(0);
@@ -108,8 +108,8 @@ describe("paginas principais com fallback local", () => {
   it("/aluno bloqueia visitantes e oculta a area quando o acesso nao foi aprovado", async () => {
     renderRoute("/aluno", <AlunoPage />);
 
-    expect(screen.getByRole("heading", { name: "Acesso nao liberado" })).toBeInTheDocument();
-    expect(await screen.findByText("Revisao antes do acesso")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Acesso não liberado" })).toBeInTheDocument();
+    expect(await screen.findByText("Revisão antes do acesso")).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "Fazer inscricao" }).length).toBeGreaterThan(0);
     expect(screen.queryByRole("link", { name: "Entrar no Google Meet" })).not.toBeInTheDocument();
   });
@@ -118,18 +118,18 @@ describe("paginas principais com fallback local", () => {
     renderRoute("/professor?grupo=emmanuel", <ProfessorPage />);
 
     expect(
-      screen.getByRole("heading", { name: "Educacao Continuada" }),
+      screen.getByRole("heading", { name: "Educação Continuada" }),
     ).toBeInTheDocument();
     expect(await screen.findByText("Modo demonstrativo ativo")).toBeInTheDocument();
     expect(await screen.findByText("Base de apoio da aula")).toBeInTheDocument();
     expect(await screen.findByText("Novos interessados")).toBeInTheDocument();
-    expect(await screen.findByText("solicitacoes aguardando revisao")).toBeInTheDocument();
-    expect(await screen.findByText("Ha novas solicitacoes aguardando revisao.")).toBeInTheDocument();
+    expect(await screen.findByText("solicitações aguardando revisão")).toBeInTheDocument();
+    expect(await screen.findByText("Há novas solicitações aguardando revisão.")).toBeInTheDocument();
     const summaryCard = document.querySelector(".teacher-enrollment-summary") as HTMLElement | null;
     expect(summaryCard).not.toBeNull();
     expect(within(summaryCard as HTMLElement).getByText("Emmanuel")).toBeInTheDocument();
     expect(within(summaryCard as HTMLElement).getByText("A Caminho da Luz")).toBeInTheDocument();
-    expect(within(summaryCard as HTMLElement).getByText("Ainda nao sei")).toBeInTheDocument();
+    expect(within(summaryCard as HTMLElement).getByText("Ainda não sei")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /Copiar mensagem pronta para/i }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: /Abrir WhatsApp para/i }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: /Copiar e-mail de/i }).length).toBeGreaterThan(0);

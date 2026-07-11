@@ -11,7 +11,7 @@ export const BrandLogo = ({ className, compact = false }: BrandLogoProps) => {
   return (
     <div className={cn("brand-logo", compact && "brand-logo--compact", className)}>
       <img
-        alt="Logotipo Educacao Continuada Online do Centro Espirita Ana Vieira"
+        alt="Logotipo Educação Continuada Online do Centro Espírita Ana Vieira"
         className="brand-logo__image"
         src={logoSrc}
       />

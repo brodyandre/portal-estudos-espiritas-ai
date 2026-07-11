@@ -362,9 +362,8 @@ img {
   position: sticky;
   top: var(--mobile-header-height);
   z-index: 15;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-3);
   min-height: var(--page-context-height);
   padding: var(--space-3) var(--space-4);
@@ -401,7 +400,9 @@ img {
 }
 
 .page-context-bar__status {
-  min-width: fit-content;
+  display: grid;
+  gap: 2px;
+  min-width: 0;
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-md);
   background: var(--context-status-bg);
@@ -409,16 +410,17 @@ img {
 }
 
 .page-context-bar__controls {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, auto);
   gap: var(--space-3);
-  align-items: center;
+  align-items: end;
+  justify-content: start;
 }
 
 .theme-switcher {
   display: grid;
   gap: var(--space-2);
+  min-width: 0;
 }
 
 .theme-switcher__label {
@@ -432,6 +434,7 @@ img {
 .theme-switcher__options {
   display: inline-flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
   padding: 6px;
   border: 1px solid var(--theme-switch-border);
@@ -462,6 +465,10 @@ img {
 .theme-switcher__button--active {
   background: var(--theme-switch-button-active);
   color: var(--color-brand-900);
+}
+
+.page-context-bar__controls > * {
+  min-width: 0;
 }
 
 .sidebar__footer h2 {
@@ -731,6 +738,12 @@ img {
   text-transform: uppercase;
   letter-spacing: 0.09em;
   line-height: 1;
+}
+
+.page-context-bar__eyebrow,
+.page-context-bar__label,
+.theme-switcher__label {
+  word-break: keep-all;
 }
 
 .profile-header h1 {
@@ -2082,17 +2095,16 @@ img {
   }
 
   .page-context-bar {
-    flex-direction: column;
-    align-items: flex-start;
+    padding-inline: var(--space-3);
   }
 
   .page-context-bar__controls {
     width: 100%;
-    justify-content: flex-start;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .page-context-bar__status {
-    min-width: 100%;
+    width: 100%;
   }
 
   .theme-switcher__options {
@@ -2112,6 +2124,16 @@ img {
 
   .app-main {
     padding: var(--space-6);
+  }
+
+  .page-context-bar {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+
+  .page-context-bar__controls {
+    grid-template-columns: minmax(180px, auto) auto;
+    justify-content: end;
   }
 
   .profile-header {
