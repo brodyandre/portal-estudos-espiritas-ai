@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { ProfileHeader } from "../components/display/ProfileHeader";
+import { BrandLogo } from "../components/layout/BrandLogo";
 import { AlertBox } from "../components/ui/AlertBox";
 import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
@@ -71,15 +72,24 @@ export const EducationContinuedPage = () => {
             </div>
           }
           badge="Pagina publica"
-          description="Um caminho simples para quem chegou pelo QR Code conhecer a proposta dos encontros online antes de pedir participacao."
-          eyebrow="Entrada pelo QR Code"
+        description="Um caminho simples para quem chegou pelo QR Code conhecer a proposta dos encontros online antes de pedir participacao."
+        eyebrow="Entrada pelo QR Code"
           meta={[
             { label: "Formato", value: "Online e gratuito" },
             { label: "Professores", value: teacherList },
             { label: "Acesso ao encontro", value: "Liberado apos revisao" },
-          ]}
-          title="Educacao Continuada Online"
-        />
+        ]}
+        title="Educacao Continuada Online"
+        visual={
+          <div className="profile-brand-showcase profile-brand-showcase--public">
+            <BrandLogo className="profile-brand-showcase__logo" />
+            <p className="profile-brand-showcase__caption">
+              Identidade visual do programa que acolhe novos participantes antes da liberacao do
+              encontro.
+            </p>
+          </div>
+        }
+      />
       </div>
 
       <AlertBox

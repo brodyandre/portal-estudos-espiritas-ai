@@ -762,7 +762,7 @@ export const ProfessorPage = () => {
       <section className="teacher-hero" id="professor-inicio">
         <div>
           <Badge tone="sand">Area do professor</Badge>
-          <h1>Portal dos Estudos Espiritas Online</h1>
+          <h1>Educacao Continuada</h1>
           <p className="teacher-hero__subtitle">Painel do Professor</p>
           <p className="teacher-hero__description">
             Organize a proxima aula, escolha materiais de apoio e revise cada texto antes de

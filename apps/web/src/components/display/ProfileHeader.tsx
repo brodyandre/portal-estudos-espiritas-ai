@@ -14,6 +14,7 @@ interface ProfileHeaderProps {
   badge?: string;
   meta?: MetaItem[];
   actions?: ReactNode;
+  visual?: ReactNode;
 }
 
 export const ProfileHeader = ({
@@ -23,6 +24,7 @@ export const ProfileHeader = ({
   badge,
   meta,
   actions,
+  visual,
 }: ProfileHeaderProps) => {
   return (
     <section className="profile-header">
@@ -44,7 +46,10 @@ export const ProfileHeader = ({
         ) : null}
       </div>
 
-      {actions ? <div className="profile-header__actions">{actions}</div> : null}
+      <div className="profile-header__side">
+        {visual ? <div className="profile-header__visual">{visual}</div> : null}
+        {actions ? <div className="profile-header__actions">{actions}</div> : null}
+      </div>
     </section>
   );
 };

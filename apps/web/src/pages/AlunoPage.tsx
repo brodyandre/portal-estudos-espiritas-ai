@@ -371,7 +371,7 @@ export const AlunoPage = () => {
       <section className="student-hero" id="aluno-inicio">
         <div className="student-hero__intro">
           <Badge tone="sand">Area do aluno</Badge>
-          <h1>Portal dos Estudos Espiritas Online</h1>
+          <h1>Educacao Continuada</h1>
           <p className="student-hero__subtitle">Painel do Aluno</p>
           <p className="student-hero__description">
             Acompanhe a proxima aula, revise materiais, registre duvidas e veja seu progresso em um

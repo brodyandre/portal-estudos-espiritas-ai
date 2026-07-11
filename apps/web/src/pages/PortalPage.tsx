@@ -157,7 +157,7 @@ export const PortalPage = () => {
             },
             { label: "Acesso", value: "Sem login" },
           ]}
-          title="Boas-vindas aos estudos espiritas online"
+          title="Boas-vindas a Educacao Continuada"
         />
       </div>
 

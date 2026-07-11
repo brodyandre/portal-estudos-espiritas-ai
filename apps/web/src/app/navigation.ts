@@ -30,8 +30,8 @@ export interface PageSectionContext {
 
 export const appSidebarConfig: SidebarConfig = {
   badge: "Projeto demonstrativo",
-  title: "Portal de Estudos Espiritas AI",
-  description: "Organizacao acolhedora para encontros online via Google Meet.",
+  title: "Educacao Continuada",
+  description: "Programa acolhedor para encontros online via Google Meet.",
   footerTitle: "Apoio com revisao humana",
   footerDescription:
     "A plataforma ajuda a estudar, organizar materiais e preparar encontros, mas nao substitui professores.",
@@ -90,7 +90,7 @@ export const appSidebarConfig: SidebarConfig = {
 
 export const studentSidebarConfig: SidebarConfig = {
   badge: "Painel do Aluno",
-  title: "Portal dos Estudos Espiritas Online",
+  title: "Educacao Continuada",
   description: "Acesso simples a encontros, materiais, duvidas e progresso.",
   footerTitle: "Estudo com apoio humano",
   footerDescription:
@@ -144,7 +144,7 @@ export const studentSidebarConfig: SidebarConfig = {
 
 export const teacherSidebarConfig: SidebarConfig = {
   badge: "Painel do Professor",
-  title: "Portal dos Estudos Espiritas Online",
+  title: "Educacao Continuada",
   description: "Planejamento da aula, revisao do conteudo e publicacao com cuidado humano.",
   footerTitle: "Revisao antes de publicar",
   footerDescription:

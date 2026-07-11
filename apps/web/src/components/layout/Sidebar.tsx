@@ -3,6 +3,7 @@ import { NavLink } from "react-router-dom";
 import type { NavigationItem, SidebarConfig } from "../../app/navigation";
 import { cn } from "../../app/cn";
 import { Badge } from "../ui/Badge";
+import { BrandLogo } from "./BrandLogo";
 
 interface SidebarProps {
   mode?: "desktop" | "mobile";
@@ -48,6 +49,7 @@ export const Sidebar = ({
   return (
     <aside className={cn("sidebar", mode === "mobile" && "sidebar--mobile")}>
       <div className="sidebar__brand">
+        <BrandLogo className="sidebar__logo" compact={mode === "mobile"} />
         <Badge tone="sand">{config.badge}</Badge>
         <h1>{config.title}</h1>
         <p>{config.description}</p>

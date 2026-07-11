@@ -47,7 +47,7 @@ describe("paginas principais com fallback local", () => {
     renderRoute("/portal", <PortalPage />);
 
     expect(
-      screen.getByRole("heading", { name: "Boas-vindas aos estudos espiritas online" }),
+      screen.getByRole("heading", { name: "Boas-vindas a Educacao Continuada" }),
     ).toBeInTheDocument();
 
     expect(await screen.findByText("Modo demonstrativo ativo")).toBeInTheDocument();
@@ -91,7 +91,7 @@ describe("paginas principais com fallback local", () => {
     renderRoute("/aluno?grupo=emmanuel", <AlunoPage />);
 
     expect(
-      screen.getByRole("heading", { name: "Portal dos Estudos Espiritas Online" }),
+      screen.getByRole("heading", { name: "Educacao Continuada" }),
     ).toBeInTheDocument();
     expect(await screen.findByText("Modo demonstrativo ativo")).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "Entrar no Google Meet" }).length).toBeGreaterThan(0);
@@ -118,7 +118,7 @@ describe("paginas principais com fallback local", () => {
     renderRoute("/professor?grupo=emmanuel", <ProfessorPage />);
 
     expect(
-      screen.getByRole("heading", { name: "Portal dos Estudos Espiritas Online" }),
+      screen.getByRole("heading", { name: "Educacao Continuada" }),
     ).toBeInTheDocument();
     expect(await screen.findByText("Modo demonstrativo ativo")).toBeInTheDocument();
     expect(await screen.findByText("Base de apoio da aula")).toBeInTheDocument();
