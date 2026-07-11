@@ -123,6 +123,13 @@ describe("paginas principais com fallback local", () => {
     expect(await screen.findByText("Modo demonstrativo ativo")).toBeInTheDocument();
     expect(await screen.findByText("Base de apoio da aula")).toBeInTheDocument();
     expect(await screen.findByText("Novos interessados")).toBeInTheDocument();
+    expect(await screen.findByText("solicitacoes aguardando revisao")).toBeInTheDocument();
+    expect(await screen.findByText("Ha novas solicitacoes aguardando revisao.")).toBeInTheDocument();
+    const summaryCard = document.querySelector(".teacher-enrollment-summary") as HTMLElement | null;
+    expect(summaryCard).not.toBeNull();
+    expect(within(summaryCard as HTMLElement).getByText("Emmanuel")).toBeInTheDocument();
+    expect(within(summaryCard as HTMLElement).getByText("A Caminho da Luz")).toBeInTheDocument();
+    expect(within(summaryCard as HTMLElement).getByText("Ainda nao sei")).toBeInTheDocument();
     expect(
       await screen.findByText("Modo demonstrativo: para aprovação real de alunos, rode o backend local."),
     ).toBeInTheDocument();

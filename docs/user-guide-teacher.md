@@ -104,11 +104,23 @@ Se quiser revisar essa orientacao no proprio projeto, abra:
 
 No painel do professor, a secao `Novos interessados` ajuda a:
 
+- perceber rapidamente quando ha novas solicitacoes aguardando revisao
+- ver um contador de pendencias no topo da area
+- acompanhar quantos pendentes existem em `Emmanuel`, `A Caminho da Luz` e `Ainda nao sei`
 - ver quem preencheu o cadastro
 - filtrar por status
 - filtrar por grupo
 - adicionar observacao curta
 - aprovar, recusar ou marcar para conversar
+
+Os interessados aparecem com esta prioridade visual:
+
+- pendentes primeiro
+- depois quem foi marcado para conversar
+- depois aprovados
+- por fim recusados
+
+Quando houver novas solicitacoes, o painel mostra um aviso discreto para facilitar a revisao logo na chegada.
 
 Regras importantes:
 

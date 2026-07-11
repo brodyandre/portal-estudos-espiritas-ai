@@ -124,6 +124,13 @@ const enrollmentGroupOptions: Array<{
   { label: "Ainda não sei", value: "Ainda não sei" },
 ];
 
+const enrollmentStatusPriority: Record<EnrollmentStatus, number> = {
+  pending: 0,
+  needs_contact: 1,
+  approved: 2,
+  rejected: 3,
+};
+
 const sensitiveTopicRules = [
   {
     label: "sofrimento",
@@ -455,18 +462,45 @@ export const ProfessorPage = () => {
     return detectSensitiveTopics(themeChapter, selectedSupportFiles);
   }, [selectedSupportFiles, themeChapter]);
   const filteredEnrollments = useMemo(() => {
-    return enrollments.filter((enrollment) => {
-      if (enrollmentStatusFilter !== "all" && enrollment.status !== enrollmentStatusFilter) {
-        return false;
-      }
+    return [...enrollments]
+      .filter((enrollment) => {
+        if (enrollmentStatusFilter !== "all" && enrollment.status !== enrollmentStatusFilter) {
+          return false;
+        }
 
-      if (enrollmentGroupFilter !== "all" && enrollment.groupInterest !== enrollmentGroupFilter) {
-        return false;
-      }
+        if (enrollmentGroupFilter !== "all" && enrollment.groupInterest !== enrollmentGroupFilter) {
+          return false;
+        }
 
-      return true;
-    });
+        return true;
+      })
+      .sort((left, right) => {
+        const statusDifference =
+          enrollmentStatusPriority[left.status] - enrollmentStatusPriority[right.status];
+
+        if (statusDifference !== 0) {
+          return statusDifference;
+        }
+
+        return new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime();
+      });
   }, [enrollments, enrollmentGroupFilter, enrollmentStatusFilter]);
+  const pendingEnrollments = useMemo(() => {
+    return enrollments.filter((enrollment) => enrollment.status === "pending");
+  }, [enrollments]);
+  const pendingEnrollmentCounts = useMemo(() => {
+    return {
+      total: pendingEnrollments.length,
+      emmanuel: pendingEnrollments.filter((enrollment) => enrollment.groupInterest === "Emmanuel")
+        .length,
+      caminho: pendingEnrollments.filter(
+        (enrollment) => enrollment.groupInterest === "A Caminho da Luz",
+      ).length,
+      undecided: pendingEnrollments.filter(
+        (enrollment) => enrollment.groupInterest === "Ainda não sei",
+      ).length,
+    };
+  }, [pendingEnrollments]);
   const requestedGroupSlug = searchParams.get("grupo");
 
   useEffect(() => {
@@ -1005,8 +1039,41 @@ export const ProfessorPage = () => {
                     <p className="card-eyebrow">Novos interessados</p>
                     <h2>Cadastros para revisar</h2>
                   </div>
-                  <Badge tone="sand">{filteredEnrollments.length}</Badge>
+                  <Badge tone={pendingEnrollmentCounts.total > 0 ? "success" : "sand"}>
+                    {pendingEnrollmentCounts.total > 0
+                      ? `${pendingEnrollmentCounts.total} pendentes`
+                      : `${filteredEnrollments.length} registros`}
+                  </Badge>
                 </div>
+
+                <div className="teacher-enrollment-summary" role="status">
+                  <div className="teacher-enrollment-summary__lead">
+                    <p className="teacher-enrollment-summary__eyebrow">Resumo rapido</p>
+                    <strong>{pendingEnrollmentCounts.total}</strong>
+                    <span>solicitacoes aguardando revisao</span>
+                  </div>
+
+                  <div className="teacher-enrollment-summary__grid">
+                    <div className="teacher-enrollment-summary__item">
+                      <span className="teacher-enrollment-summary__label">Emmanuel</span>
+                      <strong>{pendingEnrollmentCounts.emmanuel}</strong>
+                    </div>
+                    <div className="teacher-enrollment-summary__item">
+                      <span className="teacher-enrollment-summary__label">A Caminho da Luz</span>
+                      <strong>{pendingEnrollmentCounts.caminho}</strong>
+                    </div>
+                    <div className="teacher-enrollment-summary__item">
+                      <span className="teacher-enrollment-summary__label">Ainda nao sei</span>
+                      <strong>{pendingEnrollmentCounts.undecided}</strong>
+                    </div>
+                  </div>
+                </div>
+
+                {pendingEnrollmentCounts.total > 0 ? (
+                  <AlertBox title="Novas solicitacoes" tone="info">
+                    Ha novas solicitacoes aguardando revisao.
+                  </AlertBox>
+                ) : null}
 
                 <AlertBox title="Revisao do acesso" tone="warning">
                   A aprovacao libera o acesso a area do aluno e ao link da aula.
@@ -1054,9 +1121,19 @@ export const ProfessorPage = () => {
                       const enrollmentStatus = getEnrollmentStatusLabel(enrollment.status);
                       const teacherNote = teacherNotes[enrollment.id] ?? enrollment.teacherNote;
                       const isUpdating = activeEnrollmentId === enrollment.id;
+                      const cardClassName = [
+                        "teacher-enrollment-item",
+                        enrollment.status === "pending"
+                          ? "teacher-enrollment-item--pending"
+                          : enrollment.status === "needs_contact"
+                            ? "teacher-enrollment-item--needs-contact"
+                            : "",
+                      ]
+                        .filter(Boolean)
+                        .join(" ");
 
                       return (
-                        <article className="teacher-enrollment-item" key={enrollment.id}>
+                        <article className={cardClassName} key={enrollment.id}>
                           <div className="teacher-panel__header">
                             <div>
                               <strong>{enrollment.fullName}</strong>

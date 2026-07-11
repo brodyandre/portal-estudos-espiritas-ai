@@ -986,6 +986,61 @@ img {
   gap: var(--space-4);
 }
 
+.teacher-enrollment-summary {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid rgba(22, 58, 95, 0.1);
+  border-radius: var(--radius-md);
+  background: linear-gradient(180deg, rgba(246, 241, 232, 0.68), rgba(255, 255, 255, 0.96));
+}
+
+.teacher-enrollment-summary__lead {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.teacher-enrollment-summary__lead strong {
+  color: var(--color-brand-900);
+  font-size: 1.9rem;
+  line-height: 1;
+}
+
+.teacher-enrollment-summary__lead span,
+.teacher-enrollment-summary__label {
+  color: var(--color-text-700);
+  font-size: 0.95rem;
+}
+
+.teacher-enrollment-summary__eyebrow {
+  margin: 0;
+  color: var(--color-text-500);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.teacher-enrollment-summary__grid {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.teacher-enrollment-summary__item {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(82, 96, 109, 0.12);
+}
+
+.teacher-enrollment-summary__item strong {
+  color: var(--color-brand-900);
+  font-size: 1.3rem;
+}
+
 .teacher-enrollment-item {
   padding: var(--space-4);
   border: 1px solid rgba(82, 96, 109, 0.14);
@@ -993,8 +1048,20 @@ img {
   background: rgba(255, 255, 255, 0.92);
 }
 
+.teacher-enrollment-item--pending {
+  border-color: rgba(15, 111, 189, 0.26);
+  box-shadow: inset 4px 0 0 rgba(15, 111, 189, 0.75);
+  background: linear-gradient(180deg, rgba(252, 250, 246, 0.98), rgba(255, 255, 255, 0.92));
+}
+
+.teacher-enrollment-item--needs-contact {
+  border-color: rgba(154, 103, 0, 0.24);
+  box-shadow: inset 4px 0 0 rgba(154, 103, 0, 0.7);
+}
+
 .teacher-enrollment-meta {
   margin: 0;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
 }
 
 .teacher-enrollment-meta dt {
@@ -1005,6 +1072,13 @@ img {
 .teacher-enrollment-meta dd {
   margin: var(--space-1) 0 0;
   font-weight: 700;
+}
+
+@media (max-width: 430px) {
+  .teacher-enrollment-summary__grid,
+  .teacher-enrollment-meta {
+    grid-template-columns: 1fr;
+  }
 }
 
 .enrollment-layout,
