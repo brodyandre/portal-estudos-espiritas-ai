@@ -22,6 +22,7 @@ export const MobileHeader = ({
           <div className="mobile-header__brand-copy">
             <span className="mobile-header__eyebrow">Programa online</span>
             <strong>{title}</strong>
+            <span className="mobile-header__house">Centro Espírita Ana Vieira</span>
           </div>
         </div>
         <p>{description}</p>

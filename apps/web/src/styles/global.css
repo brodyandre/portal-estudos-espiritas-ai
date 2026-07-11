@@ -209,6 +209,15 @@ img {
   line-height: 1.2;
 }
 
+.mobile-header__house {
+  display: block;
+  margin-top: 2px;
+  color: var(--color-brand-800);
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
 .mobile-header__brand p {
   margin: 4px 0 0;
   color: var(--color-text-700);
@@ -273,6 +282,15 @@ img {
 
 .sidebar__logo {
   margin-bottom: var(--space-5);
+}
+
+.sidebar__brand-house {
+  margin: calc(var(--space-4) * -1) 0 var(--space-4);
+  color: rgba(244, 228, 179, 0.92);
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.5;
 }
 
 .sidebar__brand p,
@@ -2098,6 +2116,10 @@ img {
 
   .mobile-header__brand p {
     display: none;
+  }
+
+  .mobile-header__house {
+    font-size: 0.72rem;
   }
 
   .page-context-bar {

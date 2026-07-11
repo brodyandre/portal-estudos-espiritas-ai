@@ -50,6 +50,7 @@ export const Sidebar = ({
     <aside className={cn("sidebar", mode === "mobile" && "sidebar--mobile")}>
       <div className="sidebar__brand">
         <BrandLogo className="sidebar__logo" compact={mode === "mobile"} />
+        <p className="sidebar__brand-house">Centro Espírita Ana Vieira</p>
         <Badge tone="sand">{config.badge}</Badge>
         <h1>{config.title}</h1>
         <p>{config.description}</p>
