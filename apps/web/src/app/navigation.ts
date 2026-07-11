@@ -63,6 +63,12 @@ export const appSidebarConfig: SidebarConfig = {
     },
     {
       type: "route",
+      to: "/divulgacao",
+      label: "Divulgacao",
+      description: "Orientacao para o professor usar a pagina certa no QR Code do cartaz.",
+    },
+    {
+      type: "route",
       to: "/aluno",
       label: "Aluno",
       description: "Aulas, materiais, resumos, duvidas e progresso.",
@@ -207,6 +213,10 @@ export const pageMeta = {
     title: "Inscricao",
     description: "Cadastro simples de interesse para os estudos online.",
   },
+  "/divulgacao": {
+    title: "Divulgacao do QR Code",
+    description: "Orientacao simples para divulgar o QR Code sem expor o encontro.",
+  },
   "/aluno": {
     title: "Painel do Aluno",
     description: "Encontros, materiais, assistente e progresso em um so lugar.",
@@ -283,6 +293,28 @@ export const pageSections: Record<string, PageSectionContext[]> = {
     {
       targetId: "inscricao-formulario",
       label: "Formulario",
+    },
+  ],
+  "/divulgacao": [
+    {
+      targetId: "divulgacao-inicio",
+      label: "Inicio",
+    },
+    {
+      targetId: "divulgacao-orientacao",
+      label: "URL recomendada",
+    },
+    {
+      targetId: "divulgacao-cartaz",
+      label: "Texto do cartaz",
+    },
+    {
+      targetId: "divulgacao-motivos",
+      label: "Motivos",
+    },
+    {
+      targetId: "divulgacao-acoes",
+      label: "Acessos rapidos",
     },
   ],
   "/aluno": [

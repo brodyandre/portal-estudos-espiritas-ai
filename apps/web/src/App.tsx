@@ -8,6 +8,7 @@ import { HomePage } from "./pages/HomePage";
 import { MaterialsPage } from "./pages/MaterialsPage";
 import { PortalPage } from "./pages/PortalPage";
 import { ProfessorPage } from "./pages/ProfessorPage";
+import { PromotionPage } from "./pages/PromotionPage";
 
 export const App = () => {
   return (
@@ -18,6 +19,7 @@ export const App = () => {
           <Route element={<PortalPage />} path="/portal" />
           <Route element={<EducationContinuedPage />} path="/educacao-continuada" />
           <Route element={<EnrollmentPage />} path="/inscricao" />
+          <Route element={<PromotionPage />} path="/divulgacao" />
           <Route element={<MaterialsPage />} path="/materiais" />
           <Route element={<MaterialsPage />} path="/materiais/:groupSlug" />
           <Route element={<AlunoPage />} path="/aluno" />

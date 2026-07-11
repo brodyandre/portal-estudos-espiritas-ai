@@ -860,6 +860,10 @@ img {
   gap: var(--space-6);
 }
 
+.promotion-page {
+  gap: var(--space-6);
+}
+
 .materials-page {
   gap: var(--space-6);
 }
@@ -954,6 +958,24 @@ img {
 
 .student-access-gate__card {
   min-width: 0;
+}
+
+.promotion-card {
+  min-width: 0;
+}
+
+.promotion-quote {
+  margin: 0;
+  color: var(--color-text-900);
+  font-size: 1.05rem;
+  line-height: 1.8;
+  font-weight: 600;
+}
+
+.promotion-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
 }
 
 .enrollment-layout,

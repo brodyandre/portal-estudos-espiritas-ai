@@ -8,6 +8,7 @@ Explicar como usar o painel do professor para preparar a aula, revisar rascunhos
 
 - `/#/professor`: painel do professor
 - `/#/materiais`: pagina publica de apoio com os materiais organizados por livro
+- `/#/divulgacao`: orientacao curta para saber qual URL deve virar QR Code no cartaz
 
 ## Livros e grupos disponiveis
 
@@ -63,6 +64,28 @@ O objetivo e simples:
 - ganhar tempo na preparacao
 - manter o professor no controle
 - facilitar ajuste de tom, foco e clareza
+
+## Como divulgar o QR Code
+
+Para materiais impressos, cartazes e convites, use a rota:
+
+- `/#/educacao-continuada`
+
+Ela foi pensada para:
+
+- apresentar os grupos antes da inscricao
+- orientar novos participantes com linguagem acolhedora
+- levar o visitante ao formulario sem expor o encontro
+
+Evite colocar o link do Google Meet diretamente no cartaz.
+
+Texto sugerido para o cartaz:
+
+`Escaneie o QR Code para conhecer os grupos, fazer sua inscricao e receber o acesso as aulas online.`
+
+Se quiser revisar essa orientacao no proprio projeto, abra:
+
+- `/#/divulgacao`
 
 ## Pontos sensiveis
 
