@@ -32,20 +32,53 @@ Fica online:
 - portal compartilhavel
 - pagina publica `/#/educacao-continuada`
 - formulario `/#/inscricao`
-- painel do aluno com controle demonstrativo de acesso no navegador
-- painel do professor em modo funcional
+- rotas publicas da experiencia `Publico`
+- experiencia `Aluno` em modo demonstrativo
+- experiencia `Professor` em modo demonstrativo
+- experiencia `Admin` em modo demonstrativo
 - paginas de materiais
+- base de conhecimento autoral em formato resumido
 - fallback local para grupos, materiais, perguntas frequentes e respostas demonstrativas
+- mocks nao sensiveis necessarios para demonstracao
+
+Regras do modo demo:
+
+- nao mostrar link real do Google Meet
+- nao usar dados reais sensiveis
+- nao mostrar aprovacoes reais
+- manter formularios e revisoes apenas em fluxo demonstrativo quando a API nao estiver disponivel
+- nao tratar `/aluno`, `/professor` ou `/admin` como areas realmente seguras
+- manter `/admin/configuracoes` apenas com dados publicos e mensagens demonstrativas
+
+## Limites do GitHub Pages
+
+O GitHub Pages nao deve publicar:
+
+- dados reais de alunos
+- WhatsApps reais
+- e-mails reais
+- tokens
+- senhas
+- PDFs das obras
+- links reais do Meet em paginas publicas
+- qualquer segredo
+
+Mesmo quando a interface exibe areas de aluno, professor e admin, isso continua sendo uma representacao demonstrativa do produto.
 
 ## O que continua local
 
 Continuam fora do GitHub Pages:
 
 - backend em Express
+- acesso operacional real das experiencias `Aluno`, `Professor` e `Admin`
 - endpoints da base de conhecimento
 - assistente completo
 - busca nos arquivos Markdown
 - integracao com Ollama
+- liberacao real da area do aluno
+- exibicao do link real da aula para perfis autorizados
+- seguranca real por autenticacao e autorizacao
+- configuracoes sensiveis e operacionais de producao
 
 Essa separacao evita secrets no frontend e simplifica a publicacao.
 
@@ -62,9 +95,10 @@ Na pratica:
 
 - a navegacao funciona no GitHub Pages
 - o usuario consegue ver grupos, materiais e resumos
-- o assistente e as acoes do professor continuam em modo demonstrativo
+- as experiencias `Aluno`, `Professor` e `Admin` continuam apenas como MVP visual e demonstrativo
 - a area do aluno usa status local `visitor`, `pending` e `approved` apenas como protecao MVP
 - o QR Code pode apontar para `/#/educacao-continuada` sem expor o Google Meet
+- o frontend mostra mensagens claras avisando que dados reais e aprovacoes ficam apenas no ambiente local autorizado
 
 ## Como rodar localmente antes de publicar
 
@@ -84,6 +118,20 @@ Nesse modo:
 
 - frontend em `http://localhost:5173`
 - API em `http://localhost:3333`
+- experiencias `Professor` e `Admin` podem consumir o backend local
+- aluno aprovado pode acessar a area privada do aluno
+
+Variaveis uteis para o modo local/private:
+
+```bash
+VITE_APP_MODE=local
+VITE_API_URL=http://localhost:3333
+VITE_SHOW_REAL_MEET_LINK=true
+VITE_ENABLE_ADMIN_FEATURES=true
+VITE_ENABLE_TEACHER_FEATURES=true
+```
+
+Mesmo no modo local, o frontend nao deve armazenar segredos, tokens ou senhas. Esses dados devem ficar no backend quando a aplicacao evoluir para producao.
 
 Para subir so a API:
 
@@ -146,6 +194,14 @@ O frontend continua util porque:
 - nao depende de segredos nem de servicos externos para navegar
 - usa um bloqueio local simples para evitar mostrar o link da aula a visitantes nao aprovados
 - permite demonstrar inscricao, revisao e aprovacao em fluxo local simples
+- preserva o limite entre a vitrine publica e o ambiente local autorizado
+
+Isso vale especialmente para as rotas:
+
+- publicas: `/#/`, `/#/portal`, `/#/educacao-continuada`, `/#/inscricao`, `/#/divulgacao`, `/#/materiais`
+- aluno: `/#/aluno`
+- professor: `/#/professor`
+- admin: `/#/admin`
 
 ## Com backend local
 
@@ -153,6 +209,9 @@ Quando voce quiser demonstrar a experiencia completa:
 
 - rode a API local
 - mantenha o frontend no navegador
+- use as rotas de professor para revisar interessados, aulas e revisoes
+- use as rotas de admin para gestao interna demonstrativa
+- use as rotas de aluno para testar acesso privado e materiais
 - teste perguntas relacionadas aos dois livros
 - use o Ollama apenas se quiser mostrar o fluxo completo do agente
 
@@ -173,6 +232,20 @@ Mesmo com o frontend publicado:
 - a aprovacao do aluno pode ser apenas demonstrativa sem backend
 - o Google Meet nao deve ser tratado como link publico
 - a melhoria futura prevista e autenticacao real com controle de acesso mais robusto
+- as rotas documentadas de aluno, professor e admin ainda nao representam seguranca forte
+- a area administrativa completa depende de backend autenticado
+
+## Evolução para produção real
+
+Para uma versao de producao, a estrategia recomendada e:
+
+- manter o frontend separado da API
+- hospedar o backend em ambiente autenticado
+- mover configuracoes, auditoria e aprovacoes reais para o backend
+- entregar o link real do Meet apenas para perfis autorizados
+- guardar secrets somente no backend ou no provedor de hospedagem
+- manter a base autoral revisada e controlada editorialmente
+- publicar no frontend apenas o que for seguro e necessario para a experiencia do usuario
 
 ## Resumo
 

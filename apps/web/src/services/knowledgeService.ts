@@ -11,6 +11,7 @@ interface ApiKnowledgeFile {
   id: string;
   title: string;
   filename: string;
+  path?: string;
   group: string;
   book: string;
   type: string;
@@ -88,7 +89,11 @@ const mapApiKnowledgeFile = (file: ApiKnowledgeFile): KnowledgeSupportFile => {
     id: file.id,
     title: file.title,
     filename: file.filename,
-    path: "",
+    path:
+      file.path ??
+      `data/knowledge/${
+        groupSlug === "emmanuel" ? "emmanuel" : "a_caminho_da_luz"
+      }/${file.filename}`,
     groupSlug,
     groupName: file.group,
     bookTitle: file.book,

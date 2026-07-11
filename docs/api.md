@@ -174,7 +174,7 @@ Body esperado:
 {
   "fullName": "Bianca Ferreira",
   "email": "bianca.ferreira.demo@example.com",
-  "whatsapp": "+55 11 99999-8888",
+  "whatsapp": "+55 00 90000-0099",
   "groupInterest": "Emmanuel",
   "alreadyParticipates": "Não",
   "message": "Gostaria de conhecer o grupo com tranquilidade."
@@ -197,6 +197,10 @@ Validacoes basicas:
 - `groupInterest` obrigatorio
 - `message` opcional com limite de tamanho
 - `teacherNote` opcional
+
+Observacao:
+
+- os exemplos de `whatsapp` nesta documentacao sao ficticios e existem apenas para demonstracao
 
 ### `GET /api/enrollments`
 

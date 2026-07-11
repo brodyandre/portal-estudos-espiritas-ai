@@ -1,3 +1,5 @@
+import { appConfig } from "../config/appMode";
+
 export type StudentAccessStatus = "visitor" | "pending" | "approved";
 
 const STUDENT_ACCESS_STORAGE_KEY = "portal-estudos-espiritas-ai:student-access";
@@ -17,6 +19,10 @@ export const getStudentAccessStatusFromSearch = (
 };
 
 export const readStudentAccessStatus = (): StudentAccessStatus => {
+  if (!appConfig.canUseStudentPrivateArea) {
+    return "visitor";
+  }
+
   if (typeof window === "undefined") {
     return "visitor";
   }
@@ -31,6 +37,10 @@ export const readStudentAccessStatus = (): StudentAccessStatus => {
 };
 
 export const writeStudentAccessStatus = (status: StudentAccessStatus) => {
+  if (!appConfig.canUseStudentPrivateArea) {
+    return;
+  }
+
   if (typeof window === "undefined") {
     return;
   }

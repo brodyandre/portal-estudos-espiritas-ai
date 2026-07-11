@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 
 import {
+  adminSidebarConfig,
   appSidebarConfig,
   pageMeta,
   pageSections,
@@ -9,9 +10,18 @@ import {
   teacherSidebarConfig,
 } from "../../app/navigation";
 import { applyThemePreference, readThemePreference, type AppTheme, writeThemePreference } from "../../app/theme";
+import { AreaSwitcher } from "../auth/AreaSwitcher";
+import { RoleBadge } from "../auth/RoleBadge";
+import { useCurrentUserMock } from "../../mocks/currentUser";
 import { MobileHeader } from "./MobileHeader";
 import { Sidebar } from "./Sidebar";
 import { ThemeSwitcher } from "./ThemeSwitcher";
+
+type LayoutArea = "public" | "student" | "teacher" | "admin";
+
+interface AppLayoutProps {
+  area?: LayoutArea;
+}
 
 const resolveActiveSection = (sectionIds: string[]) => {
   if (typeof window === "undefined" || sectionIds.length === 0) {
@@ -60,8 +70,16 @@ const resolveActiveSection = (sectionIds: string[]) => {
   return currentSectionId;
 };
 
-export const AppLayout = () => {
+const areaLabels: Record<LayoutArea, string> = {
+  public: "Área pública",
+  student: "Área do aluno",
+  teacher: "Área do professor",
+  admin: "Área administrativa",
+};
+
+export const AppLayout = ({ area = "public" }: AppLayoutProps) => {
   const location = useLocation();
+  const currentUser = useCurrentUserMock();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
   const [theme, setTheme] = useState<AppTheme>(() => readThemePreference());
@@ -98,11 +116,13 @@ export const AppLayout = () => {
 
   const currentPage = pageMeta[location.pathname as keyof typeof pageMeta] ?? pageMeta["/"];
   const sidebarConfig =
-    location.pathname === "/aluno"
+    area === "student"
       ? studentSidebarConfig
-      : location.pathname === "/professor"
+      : area === "teacher"
         ? teacherSidebarConfig
-        : appSidebarConfig;
+        : area === "admin"
+          ? adminSidebarConfig
+          : appSidebarConfig;
   const trackedSections = useMemo(() => {
     return pageSections[location.pathname as keyof typeof pageSections] ?? [];
   }, [location.pathname]);
@@ -187,8 +207,9 @@ export const AppLayout = () => {
           <div className="app-main__inner">
             <div className="page-context-bar" aria-label="Contexto da página">
               <div className="page-context-bar__body">
-                <span className="page-context-bar__eyebrow">Tela atual</span>
+                <span className="page-context-bar__eyebrow">{areaLabels[area]}</span>
                 <strong>{currentPage.title}</strong>
+                <p className="page-context-bar__description">{currentPage.description}</p>
               </div>
               <div className="page-context-bar__controls">
                 {currentSection ? (
@@ -197,6 +218,8 @@ export const AppLayout = () => {
                     <span className="page-context-bar__value">{currentSection.label}</span>
                   </div>
                 ) : null}
+                <RoleBadge user={currentUser} />
+                <AreaSwitcher />
                 <ThemeSwitcher onChange={setTheme} value={theme} />
               </div>
             </div>

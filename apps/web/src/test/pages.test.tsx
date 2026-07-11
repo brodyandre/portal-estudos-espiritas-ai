@@ -4,8 +4,14 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AlunoPage } from "../pages/AlunoPage";
+import { AdminPage } from "../pages/AdminPage";
+import { resetMockAdminAuditEvents } from "../mocks/adminAudit";
+import { resetMockAdminContents } from "../mocks/adminContents";
+import { resetMockAdminGroups } from "../mocks/adminGroups";
+import { resetMockAdminSettings } from "../mocks/adminSettings";
 import { EducationContinuedPage } from "../pages/EducationContinuedPage";
 import { EnrollmentPage } from "../pages/EnrollmentPage";
+import { resetMockAdminUsers } from "../mocks/adminUsers";
 import { resetMockEnrollments } from "../mocks/enrollments";
 import { PortalPage } from "../pages/PortalPage";
 import { ProfessorPage } from "../pages/ProfessorPage";
@@ -40,6 +46,11 @@ describe("paginas principais com fallback local", () => {
     vi.unstubAllGlobals();
     window.localStorage.clear();
     window.sessionStorage.clear();
+    resetMockAdminAuditEvents();
+    resetMockAdminContents();
+    resetMockAdminGroups();
+    resetMockAdminSettings();
+    resetMockAdminUsers();
     resetMockEnrollments();
   });
 
@@ -75,7 +86,7 @@ describe("paginas principais com fallback local", () => {
       target: { value: "aluno.demo@example.com" },
     });
     fireEvent.change(screen.getByLabelText("WhatsApp"), {
-      target: { value: "(11) 99999-9999" },
+      target: { value: "+55 00 90000-0098" },
     });
     fireEvent.click(screen.getByLabelText(/Autorizo o uso dos meus dados/i));
     fireEvent.click(screen.getByRole("button", { name: "Enviar inscricao" }));
@@ -145,6 +156,154 @@ describe("paginas principais com fallback local", () => {
     await waitFor(() => {
       expect(screen.getByText("A Caminho da Luz - visao geral")).toBeInTheDocument();
     });
+  });
+
+  it("/admin/dashboard renderiza os indicadores com fallback demonstrativo", async () => {
+    renderRoute("/admin/dashboard", <AdminPage section="dashboard" />);
+
+    expect(screen.getByRole("heading", { name: "Educação Continuada" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Dashboard administrativo" })).toBeInTheDocument();
+    expect(await screen.findByText("Inscrições pendentes")).toBeInTheDocument();
+    expect(await screen.findByText("Alunos ativos")).toBeInTheDocument();
+    expect(await screen.findByText("Professores")).toBeInTheDocument();
+    expect(await screen.findByText("Grupos de estudo")).toBeInTheDocument();
+    expect(await screen.findByText("Materiais publicados")).toBeInTheDocument();
+    expect(await screen.findByText("Revisões sensíveis")).toBeInTheDocument();
+    expect((await screen.findAllByText("fallback demonstrativo")).length).toBeGreaterThan(0);
+    expect(await screen.findByRole("link", { name: "Abrir usuários" })).toBeInTheDocument();
+  });
+
+  it("/admin/usuarios filtra perfis e registra ação simulada no log local", async () => {
+    renderRoute("/admin/usuarios", <AdminPage section="usuarios" />);
+
+    expect(await screen.findByRole("heading", { name: "Gestão de usuários" })).toBeInTheDocument();
+    expect(await screen.findByText("Modo demonstrativo de usuários")).toBeInTheDocument();
+    expect(await screen.findByText("Rafael Torres")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Perfil"), {
+      target: { value: "teacher" },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("Celia Nogueira")).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByLabelText("Perfil"), {
+      target: { value: "all" },
+    });
+
+    const userCard = screen.getByText("Rafael Torres").closest(".admin-user-card") as HTMLElement | null;
+    expect(userCard).not.toBeNull();
+
+    fireEvent.click(
+      within(userCard as HTMLElement).getByRole("button", { name: "Ativar usuário Rafael Torres" }),
+    );
+
+    await waitFor(() => {
+      expect(within(userCard as HTMLElement).getByText("Ativo")).toBeInTheDocument();
+    });
+
+    expect((await screen.findAllByText("Ativou o usuário Rafael Torres.")).length).toBeGreaterThan(0);
+  });
+
+  it("/admin/grupos renderiza os grupos e alterna o status em modo demonstrativo", async () => {
+    renderRoute("/admin/grupos", <AdminPage section="grupos" />);
+
+    expect(await screen.findByRole("heading", { name: "Gestão de grupos" })).toBeInTheDocument();
+    expect(await screen.findByText("Modo demonstrativo de grupos")).toBeInTheDocument();
+    expect(await screen.findByText(/mostramos apenas um link demonstrativo/i)).toBeInTheDocument();
+
+    const emmanuelNameInput = document.querySelector("#admin-group-name-emmanuel");
+    const caminhoNameInput = document.querySelector("#admin-group-name-a-caminho-da-luz");
+
+    expect(emmanuelNameInput).toBeInTheDocument();
+    expect(caminhoNameInput).toBeInTheDocument();
+
+    const groupCard = emmanuelNameInput?.closest(".admin-group-card") as HTMLElement | null;
+    expect(groupCard).not.toBeNull();
+
+    fireEvent.click(
+      within(groupCard as HTMLElement).getByRole("button", { name: "Inativar grupo Emmanuel" }),
+    );
+
+    await waitFor(() => {
+      expect(within(groupCard as HTMLElement).getByText("Inativo")).toBeInTheDocument();
+    });
+  });
+
+  it("/admin/conteudos renderiza a base, filtra por livro e marca revisão", async () => {
+    renderRoute("/admin/conteudos", <AdminPage section="conteudos" />);
+
+    expect(await screen.findByRole("heading", { name: "Gestão de conteúdos" })).toBeInTheDocument();
+    expect(await screen.findByText("Modo demonstrativo de conteúdos")).toBeInTheDocument();
+    expect(await screen.findByText("Emmanuel - capitulo 1 - almas enfraquecidas")).toBeInTheDocument();
+    expect((await screen.findAllByText("Exige revisão humana")).length).toBeGreaterThan(0);
+
+    fireEvent.change(screen.getByLabelText("Livro ou grupo"), {
+      target: { value: "a-caminho-da-luz" },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("A Caminho da Luz - civilizacoes antigas")).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByLabelText("Tipo"), {
+      target: { value: "faq" },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("A Caminho da Luz - duvidas frequentes")).toBeInTheDocument();
+    });
+
+    const contentCard = screen
+      .getByText("A Caminho da Luz - duvidas frequentes")
+      .closest(".admin-content-card") as HTMLElement | null;
+    expect(contentCard).not.toBeNull();
+
+    fireEvent.click(
+      within(contentCard as HTMLElement).getByRole("button", {
+        name: "Marcar A Caminho da Luz - duvidas frequentes como revisado",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(within(contentCard as HTMLElement).getByText("Revisado")).toBeInTheDocument();
+    });
+  });
+
+  it("/admin/configuracoes renderiza e salva ajustes em modo demonstrativo", async () => {
+    renderRoute("/admin/configuracoes", <AdminPage section="configuracoes" />);
+
+    expect(await screen.findByRole("heading", { name: "Configurações do sistema" })).toBeInTheDocument();
+    expect(await screen.findByText("Modo demonstrativo de configurações")).toBeInTheDocument();
+    expect(await screen.findByText("Configurações sensíveis devem ficar no backend em produção.")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Nome do portal"), {
+      target: { value: "Educação Continuada Portal" },
+    });
+    fireEvent.change(screen.getByLabelText("Modo de publicação"), {
+      target: { value: "local" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Salvar configurações do sistema" }));
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("Educação Continuada Portal")).toBeInTheDocument();
+    });
+
+    expect(await screen.findByText("Configurações demonstrativas salvas com sucesso.")).toBeInTheDocument();
+    expect(screen.getByText("Uso local autorizado")).toBeInTheDocument();
+  });
+
+  it("/admin/auditoria renderiza eventos importantes do MVP", async () => {
+    renderRoute("/admin/auditoria", <AdminPage section="auditoria" />);
+
+    expect(await screen.findByRole("heading", { name: "Auditoria demonstrativa" })).toBeInTheDocument();
+    expect(await screen.findByText("Modo demonstrativo de auditoria")).toBeInTheDocument();
+    expect(await screen.findByText("Aluno inscrito")).toBeInTheDocument();
+    expect(await screen.findByText("Professor aprovou aluno")).toBeInTheDocument();
+    expect(await screen.findByText("Admin alterou configuração")).toBeInTheDocument();
+    expect(await screen.findByText(/não registra conteúdo de mensagens privadas/i)).toBeInTheDocument();
+    expect((await screen.findAllByText("Admin")).length).toBeGreaterThan(0);
   });
 
   it("professor aprova interessado e o acesso demonstrativo do aluno e liberado", async () => {

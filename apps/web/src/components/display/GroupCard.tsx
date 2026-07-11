@@ -1,4 +1,5 @@
 import type { DemoGroup } from "../../data/demo";
+import { PUBLIC_MEET_NOTICE, appConfig } from "../../config/appMode";
 import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
@@ -12,6 +13,8 @@ interface GroupCardProps {
 }
 
 export const GroupCard = ({ group, actionLabel, actionTo, actionHref }: GroupCardProps) => {
+  const canOpenMeet = Boolean(appConfig.canShowRealMeetLink && actionHref);
+
   return (
     <Card className="group-card" tone="default">
       <div className="group-card__top">
@@ -42,10 +45,12 @@ export const GroupCard = ({ group, actionLabel, actionTo, actionHref }: GroupCar
       </dl>
 
       {actionTo ? <Button to={actionTo}>{actionLabel}</Button> : null}
-      {actionHref ? (
+      {canOpenMeet && actionHref ? (
         <Button href={actionHref} rel="noreferrer" target="_blank">
           {actionLabel}
         </Button>
+      ) : actionHref ? (
+        <p className="student-panel__note">{PUBLIC_MEET_NOTICE}</p>
       ) : null}
     </Card>
   );

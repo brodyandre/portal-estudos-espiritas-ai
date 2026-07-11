@@ -1,4 +1,5 @@
-const DEFAULT_API_URL = "http://localhost:3333";
+import { DEMO_MODE_NOTICE, appConfig } from "../config/appMode";
+
 const REQUEST_TIMEOUT_MS = 2500;
 
 export type ServiceSource = "api" | "mock";
@@ -37,9 +38,13 @@ interface FallbackOptions<TRaw, TData> extends RequestOptions {
   friendlyMessage?: string;
 }
 
-const apiBaseUrl = (import.meta.env.VITE_API_URL?.trim() || DEFAULT_API_URL).replace(/\/$/u, "");
+const apiBaseUrl = appConfig.apiUrl?.replace(/\/$/u, "") ?? null;
 
 const buildUrl = (path: string, query?: Record<string, string | undefined>) => {
+  if (!apiBaseUrl) {
+    throw new Error("API indisponível neste modo.");
+  }
+
   const url = new URL(path, `${apiBaseUrl}/`);
 
   if (query) {
@@ -54,10 +59,15 @@ const buildUrl = (path: string, query?: Record<string, string | undefined>) => {
 };
 
 const toFriendlyNotice = (fallbackMessage?: string) => {
-  return (
-    fallbackMessage ??
-    "Nao foi possivel atualizar os dados pelo servidor agora. O portal segue funcionando com o modo demonstrativo."
-  );
+  if (fallbackMessage) {
+    return fallbackMessage;
+  }
+
+  if (appConfig.appMode === "demo") {
+    return DEMO_MODE_NOTICE;
+  }
+
+  return "Nao foi possivel atualizar os dados pelo servidor local agora. O portal segue funcionando com fallback seguro.";
 };
 
 const parseErrorMessage = (payload: unknown) => {

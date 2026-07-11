@@ -14,7 +14,7 @@ describe("enrollments endpoints", () => {
       const response = await request(app).post("/api/enrollments").send({
         fullName: "Bianca Ferreira",
         email: "bianca.ferreira.demo@example.com",
-        whatsapp: "+55 11 99999-8888",
+        whatsapp: "+55 00 90000-0099",
         groupInterest: "Emmanuel",
         alreadyParticipates: "Não",
         message: "Gostaria de conhecer o grupo com tranquilidade.",
@@ -30,7 +30,7 @@ describe("enrollments endpoints", () => {
           id: expect.any(String),
           fullName: "Bianca Ferreira",
           email: "bianca.ferreira.demo@example.com",
-          whatsapp: "+55 11 99999-8888",
+          whatsapp: "+55 00 90000-0099",
           groupInterest: "Emmanuel",
           alreadyParticipates: "Não",
           status: "pending",

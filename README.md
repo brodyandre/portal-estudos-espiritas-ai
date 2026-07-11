@@ -25,6 +25,7 @@ Grupos de estudo online costumam espalhar informacoes entre links, mensagens, re
 - Paginas `/educacao-continuada`, `/inscricao` e `/divulgacao` para acolhimento e divulgacao de novos alunos
 - Painel `/aluno` com proxima aula, materiais de apoio, assistente, duvidas, resumo e progresso
 - Painel `/professor` com selecao de livro, base de apoio da aula, geracao de rascunhos, revisao e publicacao local
+- Estrutura conceitual separada para experiencias `Publico`, `Aluno`, `Professor` e `Admin`
 - Paginas de materiais com navegacao para os livros `Emmanuel` e `A Caminho da Luz`
 - API local em Express com dados mockados, base de conhecimento em Markdown e respostas JSON padronizadas
 - Integracao opcional com Ollama, com fallback claro quando o modelo nao estiver disponivel
@@ -67,10 +68,12 @@ Documentacao complementar:
 - [docs/knowledge-base.md](docs/knowledge-base.md)
 - [docs/rag.md](docs/rag.md)
 - [docs/agent-flow.md](docs/agent-flow.md)
+- [docs/admin-area.md](docs/admin-area.md)
 - [docs/user-guide-student.md](docs/user-guide-student.md)
 - [docs/user-guide-teacher.md](docs/user-guide-teacher.md)
 - [docs/responsible-ai.md](docs/responsible-ai.md)
 - [docs/free-deployment.md](docs/free-deployment.md)
+- [docs/access-control.md](docs/access-control.md)
 - [docs/api.md](docs/api.md)
 
 ## Base de conhecimento incluida
@@ -207,23 +210,145 @@ O que fica publicado:
 - Home
 - Portal
 - entrada publica para QR Code e inscricao
-- Painel do Aluno
-- Painel do Professor
+- Painel do Aluno em modo demonstrativo
+- Painel do Professor em modo demonstrativo
+- rota `/#/admin` como visao administrativa do MVP
 - paginas de materiais
-- fallback local para grupos, materiais e respostas demonstrativas
+- base de conhecimento autoral em formato resumido
+- mocks nao sensiveis para grupos, materiais e respostas demonstrativas
 
 O que continua local nesta fase:
 
 - backend em Express
+- revisao administrativa real em `/admin` e `/professor`
 - endpoints da base de conhecimento
 - assistente completo
 - Ollama
 - carregamento real dos arquivos Markdown pelo backend
+- acesso privado real do aluno aprovado
+- link real do Google Meet apenas para ambiente local autorizado
 
 Na pratica:
 
 - o site publicado continua navegavel e util sem backend
 - a experiencia completa de respostas e busca na base roda melhor com a API local
+- a versao publica nao mostra link real do Meet nem dados reais sensiveis
+
+## Limites do GitHub Pages
+
+O GitHub Pages desta fase deve ser tratado como vitrine estatica e demonstrativa.
+
+O que pode ser publicado:
+
+- frontend estatico
+- paginas publicas
+- area de aluno em modo demonstrativo
+- area de professor em modo demonstrativo
+- area admin em modo demonstrativo
+- base de conhecimento autoral e resumida
+- mocks nao sensiveis
+
+O que nao pode ser publicado:
+
+- dados reais de alunos
+- WhatsApps reais
+- e-mails reais
+- tokens
+- senhas
+- PDFs das obras
+- links reais do Google Meet em paginas publicas
+- qualquer segredo operacional
+
+Na pratica, o frontend publicado pode mostrar estrutura, navegacao e dados de exemplo, mas nao deve ser tratado como ambiente seguro para operacao real.
+
+## Evolução para produção real
+
+Para sair do modo demonstrativo e chegar a uma operacao real, o projeto deve evoluir para:
+
+- backend autenticado para aluno, professor e admin
+- autorizacao por perfil e por recurso
+- persistencia segura de usuarios, grupos, auditoria e configuracoes
+- entrega do link real do Meet apenas pelo backend autorizado
+- armazenamento de configuracoes sensiveis fora do frontend
+- trilha de auditoria real vinda do backend
+- hospedagem separada para API e servicos privados
+
+Enquanto essa etapa nao chega, o GitHub Pages deve continuar apenas como interface publica e demonstrativa.
+
+## Experiencias e rotas
+
+O projeto passa a ser documentado em quatro experiencias:
+
+### Publico
+
+Rotas:
+
+- `/`
+- `/portal`
+- `/educacao-continuada`
+- `/inscricao`
+- `/divulgacao`
+- `/materiais`
+
+### Aluno
+
+Rotas:
+
+- `/aluno`
+- `/aluno/materiais`
+- `/aluno/assistente`
+- `/aluno/progresso`
+
+### Professor
+
+Rotas:
+
+- `/professor`
+- `/professor/interessados`
+- `/professor/aulas`
+- `/professor/revisao`
+
+### Admin
+
+Rotas:
+
+- `/admin`
+- `/admin/dashboard`
+- `/admin/usuarios`
+- `/admin/grupos`
+- `/admin/conteudos`
+- `/admin/configuracoes`
+- `/admin/auditoria`
+
+Regras principais:
+
+- visitante nao ve link do Meet
+- aluno aprovado ve link do Meet e materiais
+- professor aprova alunos e revisa conteudos
+- admin gerencia usuarios, grupos, configuracoes e auditoria
+- no frontend publicado, essas regras ainda sao apenas demonstrativas
+- seguranca real depende de backend autenticado em evolucao futura
+
+## Modos da aplicacao
+
+O frontend agora trabalha com dois modos centrais:
+
+- `demo`: padrao do GitHub Pages, sem dados reais, sem Meet real e com avisos demonstrativos
+- `local`: usado na maquina autorizada, com API local, revisao de interessados e acesso privado do aluno
+
+Variaveis de ambiente do frontend:
+
+```bash
+VITE_APP_MODE=local
+VITE_API_URL=http://localhost:3333
+VITE_SHOW_REAL_MEET_LINK=true
+VITE_ENABLE_ADMIN_FEATURES=true
+VITE_ENABLE_TEACHER_FEATURES=true
+```
+
+Arquivo central:
+
+- `apps/web/src/config/appMode.ts`
 
 ## Fluxo de entrada de novos alunos
 

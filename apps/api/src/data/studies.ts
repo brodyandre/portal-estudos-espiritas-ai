@@ -1,4 +1,6 @@
 export type StudyGroupId = "emmanuel" | "a-caminho-da-luz";
+const DEMO_MEET_LINK_EMMANUEL = "https://meet.google.com/demo-emmanuel";
+const DEMO_MEET_LINK_A_CAMINHO_DA_LUZ = "https://meet.google.com/demo-a-caminho-luz";
 
 export interface NextLesson {
   id: string;
@@ -31,7 +33,7 @@ export const studyGroups: StudyGroup[] = [
     meetingTime: "20h",
     participantCount: 88,
     bookTitle: "Estudo demonstrativo do grupo Emmanuel",
-    meetUrl: "https://meet.google.com/emm-demo-aula",
+    meetUrl: DEMO_MEET_LINK_EMMANUEL,
     description:
       "Grupo online com foco em estudo sereno, participacao ativa e aplicacao pratica no dia a dia.",
     nextLesson: {
@@ -40,7 +42,7 @@ export const studyGroups: StudyGroup[] = [
       title: "Encontro sobre constancia no estudo",
       theme: "Como manter disciplina, escuta e acolhimento durante a semana.",
       scheduledAt: "2026-07-13T20:00:00-03:00",
-      meetUrl: "https://meet.google.com/emm-demo-aula",
+      meetUrl: DEMO_MEET_LINK_EMMANUEL,
       status: "scheduled",
       teacherNote:
         "Abrir com acolhimento breve e reservar tempo para perguntas dos participantes novos.",
@@ -53,7 +55,7 @@ export const studyGroups: StudyGroup[] = [
     meetingTime: "20h",
     participantCount: 62,
     bookTitle: "Estudo demonstrativo do grupo A Caminho da Luz",
-    meetUrl: "https://meet.google.com/acl-demo-aula",
+    meetUrl: DEMO_MEET_LINK_A_CAMINHO_DA_LUZ,
     description:
       "Grupo online voltado para leitura guiada, conversa fraterna e revisao simples dos pontos da aula.",
     nextLesson: {
@@ -62,7 +64,7 @@ export const studyGroups: StudyGroup[] = [
       title: "Encontro sobre convivio e responsabilidade",
       theme: "Como estudar com paciencia, respeito e compromisso com o grupo.",
       scheduledAt: "2026-07-15T20:00:00-03:00",
-      meetUrl: "https://meet.google.com/acl-demo-aula",
+      meetUrl: DEMO_MEET_LINK_A_CAMINHO_DA_LUZ,
       status: "scheduled",
       teacherNote:
         "Fechar o encontro com uma sintese curta e indicar um material de apoio para a semana.",

@@ -7,6 +7,7 @@ import { AlertBox } from "../components/ui/AlertBox";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { SectionTitle } from "../components/ui/SectionTitle";
+import { DEMO_MODE_NOTICE, PUBLIC_MEET_NOTICE, appConfig } from "../config/appMode";
 
 export const HomePage = () => {
   return (
@@ -46,6 +47,12 @@ export const HomePage = () => {
         A plataforma apoia encontros, materiais, resumos e preparacao de aulas, mas nao substitui a
         orientacao de professores nem o cuidado humano no estudo.
       </AlertBox>
+
+      {appConfig.appMode === "demo" ? (
+        <AlertBox title="Modo demonstrativo ativo" tone="info">
+          {DEMO_MODE_NOTICE} {PUBLIC_MEET_NOTICE}
+        </AlertBox>
+      ) : null}
 
       <section className="page-section">
         <SectionTitle
