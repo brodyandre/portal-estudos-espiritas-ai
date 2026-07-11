@@ -8,12 +8,17 @@
     "start": "node dist/server.js",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "rag:validate": "npm run build && node dist/rag/validateDocuments.js"
+    "rag:validate": "npm run build && node dist/rag/validateDocuments.js",
+    "prisma:generate": "node scripts/run-prisma.mjs generate",
+    "prisma:migrate": "node scripts/run-prisma.mjs migrate deploy",
+    "prisma:seed": "node --import tsx prisma/seed.ts",
+    "prisma:studio": "node scripts/run-prisma.mjs studio"
   },
   "dependencies": {
     "@langchain/core": "^1.2.2",
     "@langchain/langgraph": "^1.4.7",
     "@langchain/ollama": "^1.3.0",
+    "@prisma/client": "^6.11.1",
     "cors": "^2.8.5",
     "dotenv": "^17.4.2",
     "express": "^4.21.2",
@@ -23,6 +28,7 @@
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.3",
     "@types/node": "^24.0.14",
+    "prisma": "^6.11.1",
     "supertest": "^7.1.1",
     "tsx": "^4.20.3",
     "typescript": "^5.8.3",

@@ -4,7 +4,7 @@ SHELL := /bin/bash
 NPM := npm
 PAGES_REPOSITORY := demo/portal-estudos-espiritas-ai
 
-.PHONY: help install dev dev-web dev-api build test lint docker-up docker-down pages-check clean
+.PHONY: help install dev dev-web dev-api build test lint docker-up docker-down db-up db-down db-migrate db-seed db-studio pages-check clean
 
 help: ## Show available commands
 	@awk 'BEGIN {FS = ":.*## "}; /^[a-zA-Z0-9_-]+:.*## / {printf "  %-14s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -35,6 +35,21 @@ docker-up: ## Build and start Docker services
 
 docker-down: ## Stop Docker services
 	docker compose down
+
+db-up: ## Start local PostgreSQL only
+	$(NPM) run db:up
+
+db-down: ## Stop local PostgreSQL only
+	$(NPM) run db:down
+
+db-migrate: ## Apply local Prisma migrations
+	$(NPM) run db:migrate
+
+db-seed: ## Seed local PostgreSQL with safe demo data
+	$(NPM) run db:seed
+
+db-studio: ## Open Prisma Studio for the local database
+	$(NPM) run db:studio
 
 pages-check: ## Build the frontend as GitHub Pages would
 	GITHUB_PAGES=true GITHUB_REPOSITORY=$(PAGES_REPOSITORY) VITE_API_URL= $(NPM) run build:web
