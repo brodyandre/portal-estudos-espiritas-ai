@@ -6,6 +6,7 @@ import { canAccessRoute, getRolePermissions, hasPermission, hasRole } from "../a
 const makeUser = (overrides: Partial<AppUser>): AppUser => ({
   id: "user-001",
   fullName: "Pessoa Demo",
+  email: "pessoa.demo@example.com",
   role: "visitor",
   status: "active",
   permissions: [],

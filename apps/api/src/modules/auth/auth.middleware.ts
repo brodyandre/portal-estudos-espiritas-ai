@@ -1,0 +1,99 @@
+import type { NextFunction, Request, Response } from "express";
+
+import { AppError } from "../../lib/app-error";
+import type { UserRole } from "../../auth/types";
+import { getAuthenticatedUser, userHasAnyRole, verifyAuthToken } from "./auth.service";
+import type { AuthUser } from "./auth.types";
+
+declare module "express-serve-static-core" {
+  interface Request {
+    authUser?: AuthUser;
+  }
+}
+
+const UNAUTHORIZED_MESSAGE = "Faça login no ambiente local para continuar.";
+
+const getBearerToken = (request: Request) => {
+  const authorization = request.headers.authorization;
+
+  if (!authorization) {
+    return null;
+  }
+
+  const [scheme, token] = authorization.split(" ");
+
+  if (scheme !== "Bearer" || !token) {
+    return null;
+  }
+
+  return token.trim();
+};
+
+export const requireAuth = async (request: Request, _response: Response, next: NextFunction) => {
+  const token = getBearerToken(request);
+
+  if (!token) {
+    return next(
+      new AppError({
+        statusCode: 401,
+        code: "AUTH_REQUIRED",
+        message: UNAUTHORIZED_MESSAGE,
+      }),
+    );
+  }
+
+  try {
+    const payload = verifyAuthToken(token);
+    const user = await getAuthenticatedUser(payload.sub);
+
+    if (!user) {
+      return next(
+        new AppError({
+          statusCode: 401,
+          code: "AUTH_REQUIRED",
+          message: UNAUTHORIZED_MESSAGE,
+        }),
+      );
+    }
+
+    request.authUser = user;
+    return next();
+  } catch (_error) {
+    return next(
+      new AppError({
+        statusCode: 401,
+        code: "AUTH_REQUIRED",
+        message: UNAUTHORIZED_MESSAGE,
+      }),
+    );
+  }
+};
+
+export const requireRole = (roles: UserRole[]) => {
+  return [
+    requireAuth,
+    (request: Request, _response: Response, next: NextFunction) => {
+      if (!request.authUser) {
+        return next(
+          new AppError({
+            statusCode: 401,
+            code: "AUTH_REQUIRED",
+            message: UNAUTHORIZED_MESSAGE,
+          }),
+        );
+      }
+
+      if (!userHasAnyRole(request.authUser, roles)) {
+        return next(
+          new AppError({
+            statusCode: 403,
+            code: "FORBIDDEN",
+            message: "Seu perfil não tem acesso a este recurso.",
+          }),
+        );
+      }
+
+      return next();
+    },
+  ];
+};

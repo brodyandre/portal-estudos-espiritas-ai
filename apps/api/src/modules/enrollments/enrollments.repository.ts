@@ -23,6 +23,8 @@ export interface EnrollmentFilters {
 export interface UpdateEnrollmentStatusInput {
   status: Extract<EnrollmentStatus, "approved" | "rejected" | "needs_contact">;
   teacherNote?: string;
+  reviewedByName?: string;
+  actorRole?: PrismaUserRole;
 }
 
 export interface EnrollmentsRepository {
@@ -126,7 +128,7 @@ export const createMemoryEnrollmentsRepository = (
       currentEnrollment.status = input.status;
       currentEnrollment.teacherNote = input.teacherNote?.trim() ?? "";
       currentEnrollment.reviewedAt = new Date().toISOString();
-      currentEnrollment.reviewedBy = "Professor";
+      currentEnrollment.reviewedBy = input.reviewedByName?.trim() || "Professor";
 
       return cloneEnrollment(currentEnrollment);
     },
@@ -206,14 +208,14 @@ export const createPrismaEnrollmentsRepository = (): EnrollmentsRepository => {
             status: enrollmentStatusToPrisma[input.status],
             teacherNote: input.teacherNote?.trim() ?? "",
             reviewedAt: new Date(),
-            reviewedBy: "Professor",
+            reviewedBy: input.reviewedByName?.trim() || "Professor",
           },
         });
 
         await transaction.auditLog.create({
           data: createAuditEntry({
-            actorName: "Professor",
-            actorRole: PrismaUserRole.TEACHER,
+            actorName: input.reviewedByName?.trim() || "Professor",
+            actorRole: input.actorRole ?? PrismaUserRole.TEACHER,
             action: "Status de inscrição atualizado",
             entity: `Enrollment ${item.id}`,
             note: `Cadastro atualizado para ${input.status}.`,

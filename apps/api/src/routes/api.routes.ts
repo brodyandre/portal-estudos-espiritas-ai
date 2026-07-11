@@ -1,6 +1,7 @@
 import { Router } from "express";
 
 import { agentRouter } from "../modules/agent/agent.routes";
+import { authRouter } from "../modules/auth/auth.routes";
 import { enrollmentsRouter } from "../modules/enrollments/enrollments.routes";
 import { knowledgeRouter } from "../modules/knowledge/knowledge.routes";
 import { materialsRouter } from "../modules/materials/materials.routes";
@@ -11,6 +12,7 @@ import { summariesRouter } from "../modules/summaries/summaries.routes";
 
 export const apiRouter = Router();
 
+apiRouter.use("/auth", authRouter);
 apiRouter.use("/studies", studiesRouter);
 apiRouter.use("/summaries", summariesRouter);
 apiRouter.use("/questions", questionsRouter);

@@ -43,6 +43,7 @@ export const env = {
   nodeEnv: process.env.NODE_ENV ?? "development",
   port: parsePort(process.env.PORT),
   databaseUrl: process.env.DATABASE_URL?.trim() || null,
+  jwtSecret: parseNonEmptyString(process.env.JWT_SECRET, "jwt-secret-demo-local-only"),
   corsOrigins: parseCorsOrigins(process.env.CORS_ORIGINS),
   ollamaModel: parseNonEmptyString(process.env.OLLAMA_MODEL, DEFAULT_OLLAMA_MODEL),
   ollamaBaseUrl: parseNonEmptyString(

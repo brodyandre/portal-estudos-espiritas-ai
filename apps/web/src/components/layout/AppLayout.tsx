@@ -10,9 +10,10 @@ import {
   teacherSidebarConfig,
 } from "../../app/navigation";
 import { applyThemePreference, readThemePreference, type AppTheme, writeThemePreference } from "../../app/theme";
+import { useAuth } from "../../auth/useAuth";
 import { AreaSwitcher } from "../auth/AreaSwitcher";
 import { RoleBadge } from "../auth/RoleBadge";
-import { useCurrentUserMock } from "../../mocks/currentUser";
+import { Button } from "../ui/Button";
 import { MobileHeader } from "./MobileHeader";
 import { Sidebar } from "./Sidebar";
 import { ThemeSwitcher } from "./ThemeSwitcher";
@@ -79,7 +80,7 @@ const areaLabels: Record<LayoutArea, string> = {
 
 export const AppLayout = ({ area = "public" }: AppLayoutProps) => {
   const location = useLocation();
-  const currentUser = useCurrentUserMock();
+  const { isAuthenticated, isDemoMode, logout, user } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
   const [theme, setTheme] = useState<AppTheme>(() => readThemePreference());
@@ -218,8 +219,17 @@ export const AppLayout = ({ area = "public" }: AppLayoutProps) => {
                     <span className="page-context-bar__value">{currentSection.label}</span>
                   </div>
                 ) : null}
-                <RoleBadge user={currentUser} />
-                <AreaSwitcher />
+                <RoleBadge user={user} />
+                {isDemoMode ? <AreaSwitcher /> : null}
+                {isAuthenticated ? (
+                  <Button onClick={logout} type="button" variant="ghost">
+                    Sair
+                  </Button>
+                ) : (
+                  <Button to="/login" variant="ghost">
+                    Entrar
+                  </Button>
+                )}
                 <ThemeSwitcher onChange={setTheme} value={theme} />
               </div>
             </div>

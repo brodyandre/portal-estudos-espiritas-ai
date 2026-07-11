@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { AuthProvider } from "../auth/AuthProvider";
 import { AlunoPage } from "../pages/AlunoPage";
 import { AdminPage } from "../pages/AdminPage";
 import { resetMockAdminAuditEvents } from "../mocks/adminAudit";
@@ -18,17 +19,19 @@ import { ProfessorPage } from "../pages/ProfessorPage";
 
 const renderRoute = (path: string, element: ReactNode) => {
   return render(
-    <MemoryRouter
-      future={{
-        v7_relativeSplatPath: true,
-        v7_startTransition: true,
-      }}
-      initialEntries={[path]}
-    >
-      <Routes>
-        <Route element={element} path="*" />
-      </Routes>
-    </MemoryRouter>,
+    <AuthProvider>
+      <MemoryRouter
+        future={{
+          v7_relativeSplatPath: true,
+          v7_startTransition: true,
+        }}
+        initialEntries={[path]}
+      >
+        <Routes>
+          <Route element={element} path="*" />
+        </Routes>
+      </MemoryRouter>
+    </AuthProvider>,
   );
 };
 

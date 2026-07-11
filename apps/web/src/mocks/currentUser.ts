@@ -11,6 +11,7 @@ const subscribers = new Set<() => void>();
 const createUser = (role: UserRole, fullName: string): AppUser => ({
   id: `${role}-demo`,
   fullName,
+  email: `${role}.demo@example.com`,
   role,
   status: "active",
   permissions: getRolePermissions(role),
@@ -23,11 +24,10 @@ const mockUsersByRole: Record<UserRole, AppUser> = {
   admin: createUser("admin", "Admin demonstrativo"),
 };
 
-const canSwitchMockUser =
-  import.meta.env.DEV || import.meta.env.MODE === "test" || appConfig.appMode === "demo";
+const canSwitchMockUser = import.meta.env.MODE === "test" || appConfig.appMode === "demo";
 
 const getDefaultRole = (): UserRole => {
-  return appConfig.appMode === "local" ? "teacher" : "visitor";
+  return "visitor";
 };
 
 const readStoredRole = (): UserRole | null => {

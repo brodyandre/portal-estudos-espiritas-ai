@@ -3,6 +3,7 @@ import { Router } from "express";
 import { AppError } from "../../lib/app-error";
 import { sendSuccess } from "../../lib/api-response";
 import { asyncHandler } from "../../lib/async-handler";
+import { requireRole } from "../auth/auth.middleware";
 import {
   ENROLLMENT_TEACHER_NOTE_MAX_LENGTH,
   type EnrollmentInput,
@@ -123,6 +124,7 @@ const parseUpdateEnrollmentStatusBody = (body: unknown): UpdateEnrollmentStatusI
 };
 
 export const enrollmentsRouter = Router();
+const requireEnrollmentReviewRole = requireRole(["admin", "teacher"]);
 
 enrollmentsRouter.post(
   "/",
@@ -140,6 +142,7 @@ enrollmentsRouter.post(
 
 enrollmentsRouter.get(
   "/",
+  ...requireEnrollmentReviewRole,
   asyncHandler(async (request, response) => {
     const rawStatus =
       typeof request.query.status === "string" ? request.query.status : undefined;
@@ -187,6 +190,7 @@ enrollmentsRouter.get(
 
 enrollmentsRouter.get(
   "/:id",
+  ...requireEnrollmentReviewRole,
   asyncHandler(async (request, response) => {
     const enrollment = await getEnrollmentById(getRouteParam(request.params.id));
 
@@ -207,9 +211,19 @@ enrollmentsRouter.get(
 
 enrollmentsRouter.patch(
   "/:id/status",
+  ...requireEnrollmentReviewRole,
   asyncHandler(async (request, response) => {
     const input = parseUpdateEnrollmentStatusBody(request.body);
-    const updatedEnrollment = await updateEnrollmentStatus(getRouteParam(request.params.id), input);
+    const updatedEnrollment = await updateEnrollmentStatus(getRouteParam(request.params.id), {
+      ...input,
+      reviewedByName: request.authUser?.fullName,
+      actorRole:
+        request.authUser?.role === "admin"
+          ? "ADMIN"
+          : request.authUser?.role === "teacher"
+            ? "TEACHER"
+            : undefined,
+    });
 
     if (!updatedEnrollment) {
       throw new AppError({

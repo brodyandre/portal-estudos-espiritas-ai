@@ -1,5 +1,6 @@
 import { resolve } from "node:path";
 
+import bcrypt from "bcryptjs";
 import { config } from "dotenv";
 import { PrismaClient, GroupStatus, EnrollmentStatus, UserRole, UserStatus } from "@prisma/client";
 
@@ -7,11 +8,19 @@ config({ path: resolve(process.cwd(), "../../.env") });
 
 const prisma = new PrismaClient();
 
+const hashPassword = async (password: string) => bcrypt.hash(password, 10);
+
 async function main() {
   await prisma.auditLog.deleteMany();
   await prisma.enrollment.deleteMany();
   await prisma.studyGroup.deleteMany();
   await prisma.user.deleteMany();
+
+  const [adminPasswordHash, teacherPasswordHash, studentPasswordHash] = await Promise.all([
+    hashPassword("AdminDemo@123"),
+    hashPassword("ProfessorDemo@123"),
+    hashPassword("AlunoDemo@123"),
+  ]);
 
   await prisma.user.createMany({
     data: [
@@ -19,38 +28,30 @@ async function main() {
         id: "user-admin-demo",
         fullName: "Admin Demonstrativo",
         email: "admin.demo@example.com",
+        passwordHash: adminPasswordHash,
         whatsapp: "+55 00 90000-0100",
         role: UserRole.ADMIN,
         status: UserStatus.ACTIVE,
         adminNote: "Perfil administrativo demonstrativo para uso local.",
       },
       {
-        id: "user-teacher-ariete",
-        fullName: "Professora Ariete",
-        email: "ariete.demo@example.com",
+        id: "user-professor-demo",
+        fullName: "Professor Demonstrativo",
+        email: "professor.demo@example.com",
+        passwordHash: teacherPasswordHash,
         whatsapp: "+55 00 90000-0101",
         role: UserRole.TEACHER,
         status: UserStatus.ACTIVE,
         groupName: "Emmanuel",
         groupSlug: "emmanuel",
-        adminNote: "Responsavel pelo grupo Emmanuel no ambiente local.",
+        adminNote: "Perfil de professor demonstrativo para uso local.",
       },
       {
-        id: "user-teacher-luiz",
-        fullName: "Professor Luiz",
-        email: "luiz.demo@example.com",
-        whatsapp: "+55 00 90000-0102",
-        role: UserRole.TEACHER,
-        status: UserStatus.ACTIVE,
-        groupName: "A Caminho da Luz",
-        groupSlug: "a-caminho-da-luz",
-        adminNote: "Responsavel pelo grupo A Caminho da Luz no ambiente local.",
-      },
-      {
-        id: "user-student-demo",
+        id: "user-aluno-demo",
         fullName: "Aluno Demonstrativo",
         email: "aluno.demo@example.com",
-        whatsapp: "+55 00 90000-0103",
+        passwordHash: studentPasswordHash,
+        whatsapp: "+55 00 90000-0102",
         role: UserRole.STUDENT,
         status: UserStatus.ACTIVE,
         groupName: "Emmanuel",
