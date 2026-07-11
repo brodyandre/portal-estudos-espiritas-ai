@@ -6,49 +6,65 @@ Descrever a forma mais simples e coerente de publicar o projeto sem custo, respe
 
 ## Estrategia recomendada
 
-Para esta versao do projeto, a estrategia mais segura e:
+Para esta versao, a estrategia mais segura e:
 
 - publicar apenas o frontend no GitHub Pages
 - manter a API local para demonstracoes tecnicas
+- manter o Ollama rodando separado, apenas quando necessario
 - aproveitar o fallback do frontend para funcionar mesmo sem backend publicado
 
-Essa estrategia combina bem com portfolio porque reduz custo, simplifica manutencao e ainda mostra a experiencia principal do produto.
+## Livros e base de conhecimento
 
-## O que continua fora do GitHub Pages
+O projeto trabalha com dois conjuntos principais de materiais:
 
-Nesta fase, o GitHub Pages publica apenas arquivos estaticos do frontend.
+- `data/knowledge/emmanuel`
+- `data/knowledge/a_caminho_da_luz`
 
-Continuam locais:
+Esses arquivos sao lidos pela API local. No GitHub Pages, o frontend usa um fallback resumido local e nao expoe o Markdown completo.
+
+## O que fica no GitHub Pages
+
+O GitHub Pages publica apenas arquivos estaticos do frontend.
+
+Fica online:
+
+- home
+- portal compartilhavel
+- pagina publica `/#/educacao-continuada`
+- formulario `/#/inscricao`
+- painel do aluno com controle demonstrativo de acesso no navegador
+- painel do professor em modo funcional
+- paginas de materiais
+- fallback local para grupos, materiais, perguntas frequentes e respostas demonstrativas
+
+## O que continua local
+
+Continuam fora do GitHub Pages:
 
 - backend em Express
-- endpoints da assistencia
-- integracao com IA
-- Ollama
+- endpoints da base de conhecimento
+- assistente completo
+- busca nos arquivos Markdown
+- integracao com Ollama
 
-Essa separacao e intencional para manter a publicacao simples e sem secrets.
+Essa separacao evita secrets no frontend e simplifica a publicacao.
 
 ## Por que o frontend pode ser publicado sozinho
 
 O frontend foi preparado para esse cenario:
 
 - usa `HashRouter`
-- o Vite ajusta o `base` automaticamente quando `GITHUB_PAGES=true`
-- a camada de servicos usa fallback para mocks locais
-- as paginas principais continuam utilizaveis sem API remota
+- o Vite ajusta o `base` quando `GITHUB_PAGES=true`
+- a camada de servicos tolera ausencia de `VITE_API_URL`
+- a interface usa mocks e fallback local quando a API nao responde
 
 Na pratica:
 
 - a navegacao funciona no GitHub Pages
-- grupos, materiais, resumos e progresso podem aparecer via mocks
-- o assistente e as acoes do professor continuam em modo demonstrativo quando a API nao responde
-
-## Fluxo recomendado para GitHub Pages
-
-1. Rode `npm install`.
-2. Rode `make pages-check`.
-3. Confirme que a build do frontend foi gerada com sucesso.
-4. Envie a branch `main`.
-5. Deixe o workflow publicar `apps/web/dist`.
+- o usuario consegue ver grupos, materiais e resumos
+- o assistente e as acoes do professor continuam em modo demonstrativo
+- a area do aluno usa status local `visitor`, `pending` e `approved` apenas como protecao MVP
+- o QR Code pode apontar para `/#/educacao-continuada` sem expor o Google Meet
 
 ## Como rodar localmente antes de publicar
 
@@ -69,7 +85,31 @@ Nesse modo:
 - frontend em `http://localhost:5173`
 - API em `http://localhost:3333`
 
-O frontend continua funcional mesmo se a API estiver offline, usando fallback e mocks locais.
+Para subir so a API:
+
+```bash
+npm run dev:api
+```
+
+## Como testar perguntas localmente
+
+Com a API ativa, voce pode testar o assistente:
+
+```bash
+curl -X POST http://localhost:3333/api/agent/answer \
+  -H "Content-Type: application/json" \
+  -d '{
+    "question": "O livro A Caminho da Luz e historico ou espiritual?",
+    "group": "A Caminho da Luz"
+  }'
+```
+
+Outros exemplos uteis:
+
+- `Como continuar estudando mesmo desanimado?`
+- `O que significa esforco proprio?`
+- `Como entender Capela com prudencia?`
+- `Como viver o Evangelho na pratica?`
 
 ## Como testar a build do GitHub Pages
 
@@ -87,123 +127,53 @@ Esse comando:
 - nao depende de Ollama
 - nao depende de `VITE_API_URL`
 
-Se quiser apenas o comando direto:
-
-```bash
-GITHUB_PAGES=true VITE_API_URL= npm run build:web
-```
-
-## Configuracao de ambiente para deploy estatico
-
-Voce pode seguir dois caminhos.
-
-### Caminho 1. Portfolio estatico puro
-
-Nao configure `VITE_API_URL`.
-
-Resultado:
-
-- o frontend tenta a URL padrao local
-- no ambiente publicado essa chamada falha
-- a camada de servicos ativa o modo demonstrativo
-
-Esse e o caminho mais simples para portfolio.
-
-### Caminho 2. Frontend apontando para uma API externa
-
-Configure `VITE_API_URL` no processo de build para apontar para uma API publicada.
-
-Resultado:
-
-- o frontend tenta primeiro a API remota
-- se houver falha, ainda pode cair para mocks em varias telas
-
-Esse caminho so vale a pena quando existir uma hospedagem separada para a API.
-
-## Workflow de publicacao
-
-O arquivo `.github/workflows/pages.yml` foi pensado para:
-
-- instalar dependencias
-- buildar apenas `apps/web`
-- publicar `apps/web/dist`
-
-O workflow:
-
-- nao depende de backend
-- nao depende de Ollama
-- nao depende de secrets
-- usa o fallback do frontend para manter a experiencia util no GitHub Pages
-
 ## Como publicar no GitHub Pages
 
-1. Ative o GitHub Pages no repositorio com origem em `GitHub Actions`.
+1. Rode `make pages-check`.
 2. Confirme que o workflow `.github/workflows/pages.yml` esta na branch principal.
-3. Envie um push para `main` ou execute o workflow manualmente.
-4. Aguarde a publicacao do artefato estatico.
+3. Ative o GitHub Pages com origem em `GitHub Actions`.
+4. Envie um push para `main`.
+5. Aguarde a publicacao de `apps/web/dist`.
 
-## O que fica online nesse modelo
+## Sem backend publicado
 
-### Fica online
+Nesta fase, isso e esperado.
 
-- home
-- portal compartilhavel
-- painel do aluno em modo demonstrativo
-- painel do professor em modo demonstrativo
-- layout mobile-first
-- mensagens de fallback
+O frontend continua util porque:
 
-### Nao fica realmente publicado
+- usa dados de fallback para grupos, materiais e progresso
+- mostra respostas demonstrativas quando o backend nao esta disponivel
+- nao depende de segredos nem de servicos externos para navegar
+- usa um bloqueio local simples para evitar mostrar o link da aula a visitantes nao aprovados
+- permite demonstrar inscricao, revisao e aprovacao em fluxo local simples
 
-- API Node local
-- integracao real com Ollama
-- persistencia real de perguntas
-- estado compartilhado entre dispositivos
+## Com backend local
 
-## Como demonstrar a API sem hospedar
+Quando voce quiser demonstrar a experiencia completa:
 
-Voce pode manter a API local e ainda mostrar a integracao de forma profissional:
+- rode a API local
+- mantenha o frontend no navegador
+- teste perguntas relacionadas aos dois livros
+- use o Ollama apenas se quiser mostrar o fluxo completo do agente
 
-- rode `npm run dev` durante uma gravacao
-- faca uma demonstracao local com os endpoints ativos
-- mostre no portfolio que o frontend tambem funciona sem backend
+## Direitos autorais e revisao humana
 
-Isso comunica duas qualidades importantes:
+- os PDFs das obras nao devem ser versionados
+- o frontend publicado nao deve expor os PDFs
+- os materiais usados no projeto devem ser curtos e autorais
+- respostas e rascunhos devem passar por revisao humana
+- temas sensiveis pedem cuidado reforcado
+- a aprovacao de novos alunos continua dependendo de revisao humana
 
-- robustez de UX
-- clareza de arquitetura
+## Limite atual do MVP
 
-## Build e validacao antes de publicar
+Mesmo com o frontend publicado:
 
-```bash
-make pages-check
-npm run preview
-```
-
-Revise:
-
-- navegacao entre `/#/`, `/#/portal`, `/#/aluno` e `/#/professor`
-- layout em 360px
-- textos de fallback
-- links internos e botoes principais
-
-## Limites desta estrategia
-
-- nao substitui um ambiente completo de producao
-- nao publica a API
-- nao mostra o modelo local rodando em tempo real no site estatico
-
-Ainda assim, para portfolio, essa troca costuma ser boa: menos complexidade operacional e mais previsibilidade.
-
-## Evolucao futura
-
-Se o objetivo deixar de ser portfolio e passar a ser piloto real, o passo seguinte natural e:
-
-- hospedar uma API separada
-- adicionar persistencia
-- definir autenticacao e autorizacao
-- revisar governanca de conteudo
+- a autenticacao ainda nao e real
+- a aprovacao do aluno pode ser apenas demonstrativa sem backend
+- o Google Meet nao deve ser tratado como link publico
+- a melhoria futura prevista e autenticacao real com controle de acesso mais robusto
 
 ## Resumo
 
-Para esta versao, o melhor deploy gratuito e o frontend no GitHub Pages com fallback local ativo. A API continua local para demo, e isso esta alinhado com o objetivo do projeto: mostrar produto, arquitetura e boas decisoes de engenharia sem inflar a complexidade operacional.
+Para esta versao, o melhor deploy gratuito e o frontend no GitHub Pages com fallback local ativo. A API, a busca real nos Markdown e o Ollama continuam locais para demo, sem aumentar a complexidade operacional.

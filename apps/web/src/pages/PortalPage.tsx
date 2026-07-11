@@ -133,8 +133,15 @@ export const PortalPage = () => {
         <ProfileHeader
           actions={
             <div className="button-row">
+              <Button to="/inscricao">Quero participar</Button>
               <Button to="/aluno">Abrir area do aluno</Button>
-              <Button to="/professor" variant="secondary">
+              <Button to="/materiais" variant="secondary">
+                Abrir materiais dos livros
+              </Button>
+              <Button to="/educacao-continuada" variant="secondary">
+                Entrada pelo QR Code
+              </Button>
+              <Button to="/professor" variant="ghost">
                 Abrir area do professor
               </Button>
             </div>
@@ -150,7 +157,7 @@ export const PortalPage = () => {
             },
             { label: "Acesso", value: "Sem login" },
           ]}
-          title="Boas-vindas aos estudos espiritas online"
+          title="Boas-vindas a Educacao Continuada"
         />
       </div>
 
@@ -161,6 +168,26 @@ export const PortalPage = () => {
         {notice ??
           "Esta pagina pode ser compartilhada com novos participantes. Os encontros, materiais e orientacoes aparecem de forma simples, sem exigir cadastro."}
       </AlertBox>
+
+      <Card className="portal-invite-card" tone="soft">
+        <div className="portal-invite-card__content">
+          <div>
+            <p className="card-eyebrow">Novo participante</p>
+            <h3>Chegou pelo cartaz ou pelo QR Code?</h3>
+            <p className="student-panel__note">
+              Use a entrada publica para conhecer os grupos, entender como funciona a revisao dos
+              professores e seguir para o proximo passo sem expor o encontro publicamente.
+            </p>
+          </div>
+
+          <div className="button-row">
+            <Button to="/inscricao">Fazer inscricao</Button>
+            <Button to="/educacao-continuada" variant="secondary">
+              Abrir entrada publica
+            </Button>
+          </div>
+        </div>
+      </Card>
 
       <section className="page-section" id="portal-grupos">
         <SectionTitle
@@ -227,9 +254,12 @@ export const PortalPage = () => {
                     <Button href={group.meetUrl} rel="noreferrer" target="_blank">
                       Entrar no Google Meet
                     </Button>
+                    <Button to={`/materiais/${group.slug}`} variant="secondary">
+                      Ver materiais do livro
+                    </Button>
                     <Button
                       onClick={() => setActiveGroupSlug(group.slug)}
-                      variant={isActive ? "primary" : "secondary"}
+                      variant={isActive ? "primary" : "ghost"}
                     >
                       {isActive ? "Detalhes abertos" : "Ver detalhes"}
                     </Button>
@@ -285,6 +315,11 @@ export const PortalPage = () => {
                   </div>
                   <p className="student-panel__note">{material.description}</p>
                   <p className="student-panel__note">{material.publishedLabel}</p>
+                  <div className="button-row">
+                    <Button size="compact" to={`/materiais/${activeGroup.slug}`} variant="secondary">
+                      Abrir pagina do livro
+                    </Button>
+                  </div>
                 </Card>
               ))}
             </div>

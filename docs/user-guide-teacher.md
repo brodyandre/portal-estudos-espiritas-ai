@@ -2,134 +2,225 @@
 
 ## Objetivo
 
-Explicar como usar o painel do professor para preparar a aula, revisar rascunhos e organizar a semana do grupo.
+Explicar como usar o painel do professor para preparar a aula, revisar rascunhos e aproveitar a base dos dois livros com seguranca editorial.
 
 ## Onde acessar
 
 - `/#/professor`: painel do professor
+- `/#/materiais`: pagina publica de apoio com os materiais organizados por livro
+- `/#/divulgacao`: orientacao curta para saber qual URL deve virar QR Code no cartaz
 
-## O que o professor encontra
-
-O painel foi desenhado para apoiar cinco etapas:
-
-1. escolher o grupo e o tema
-2. inserir o link do Google Meet
-3. pedir sugestoes de roteiro e perguntas
-4. revisar e aprovar
-5. publicar
-
-## Fluxo recomendado
-
-### 1. Selecionar o grupo
-
-No topo do painel, escolha entre os grupos demonstrativos:
+## Livros e grupos disponiveis
 
 - `Emmanuel`
 - `A Caminho da Luz`
 
-Ao trocar o grupo, o restante do painel acompanha o contexto selecionado.
+O professor pode trocar o livro ou grupo no topo do painel para atualizar o contexto da aula.
 
-### 2. Preparar a proxima aula
+## O que o professor encontra
 
-No card `Preparar proxima aula`, informe:
+O painel foi desenhado para apoiar estas etapas:
 
-- livro ou estudo base
-- tema ou capitulo
-- link do Google Meet
+1. escolher o grupo e o tema
+2. inserir o link do Google Meet
+3. selecionar materiais da base como apoio
+4. pedir sugestoes de roteiro, perguntas, resumo ou mensagem
+5. revisar, aprovar e salvar localmente
 
-Esses campos orientam a geracao dos rascunhos.
+Tambem ha apoio para:
 
-### 3. Usar as acoes do painel
+- revisar inscricoes de novos alunos
+- aprovar, recusar ou marcar para conversar
+- orientar a divulgacao correta do QR Code
 
-O painel oferece quatro acoes:
+## Base de apoio da aula
 
-- `Gerar roteiro`
-- `Criar perguntas`
-- `Gerar resumo`
-- `Publicar`
+O card `Base de apoio da aula` lista materiais curtos do grupo selecionado.
 
-Nas tres primeiras, a aplicacao tenta buscar um rascunho inicial pela API. Quando o modelo local nao estiver disponivel, a resposta vem em modo demonstrativo.
+Ele ajuda o professor a:
+
+- selecionar um ou mais arquivos de apoio
+- ver tags principais
+- identificar temas sensiveis
+- montar melhor o contexto da aula
+
+Os materiais ficam organizados em:
+
+- `data/knowledge/emmanuel`
+- `data/knowledge/a_caminho_da_luz`
+
+## Gerar apoio para aula
+
+O painel permite solicitar:
+
+- `Gerar roteiro da aula`
+- `Gerar perguntas de reflexao`
+- `Gerar resumo para participantes`
+- `Gerar mensagem para o grupo`
+- `Listar pontos que exigem revisao`
+
+Essas acoes usam a API local quando disponivel. Se a API ou o modelo local falharem, o frontend continua em modo demonstrativo.
 
 ## Como funciona a previa editavel
 
-Todo conteudo gerado volta para a area `Previa do conteudo` com campos editaveis:
+Todo conteudo gerado volta para a area de previa com campos editaveis.
 
-- roteiro da aula
-- perguntas sugeridas
-- resumo da aula
+O objetivo e simples:
 
-O objetivo e simples: o sistema ajuda a ganhar tempo, mas a revisao e sempre humana.
+- ganhar tempo na preparacao
+- manter o professor no controle
+- facilitar ajuste de tom, foco e clareza
 
-## Aprovacao do professor
+## Como divulgar o QR Code
 
-No card `Aprovacao do professor`, use:
+Para materiais impressos, cartazes e convites, use a rota:
 
-- `Editar`
-- `Aprovar`
-- `Salvar rascunho`
+- `/#/educacao-continuada`
 
-Comportamento atual da demo:
+Ela foi pensada para:
 
-- a aprovacao e local
-- o rascunho e salvo no navegador com `localStorage`
-- `Publicar` marca o estado como publicado apenas localmente
+- apresentar os grupos antes da inscricao
+- orientar novos participantes com linguagem acolhedora
+- levar o visitante ao formulario sem expor o encontro
+
+Evite colocar o link do Google Meet diretamente no cartaz.
+
+Motivo:
+
+- melhora a organizacao
+- preserva o acolhimento
+- reduz exposicao indevida do encontro
+- facilita o acompanhamento dos novos alunos
+
+Texto sugerido para o cartaz:
+
+`Escaneie o QR Code para conhecer os grupos, fazer sua inscricao e receber o acesso as aulas online.`
+
+Se quiser revisar essa orientacao no proprio projeto, abra:
+
+- `/#/divulgacao`
+
+## Como revisar novas inscricoes
+
+No painel do professor, a secao `Novos interessados` ajuda a:
+
+- perceber rapidamente quando ha novas solicitacoes aguardando revisao
+- ver um contador de pendencias no topo da area
+- acompanhar quantos pendentes existem em `Emmanuel`, `A Caminho da Luz` e `Ainda nao sei`
+- ver quem preencheu o cadastro
+- filtrar por status
+- filtrar por grupo
+- adicionar observacao curta
+- aprovar, recusar ou marcar para conversar
+
+Os interessados aparecem com esta prioridade visual:
+
+- pendentes primeiro
+- depois quem foi marcado para conversar
+- depois aprovados
+- por fim recusados
+
+Quando houver novas solicitacoes, o painel mostra um aviso discreto para facilitar a revisao logo na chegada.
+
+Cada cadastro tambem oferece apoio para comunicacao manual:
+
+- `Copiar mensagem`: copia um texto pronto com base no status atual
+- `Abrir WhatsApp`: abre o `wa.me` com a mensagem pronta para revisao e envio manual
+- `Copiar e-mail`: facilita contato por outro canal quando necessario
+
+Antes de usar essas acoes, o professor pode revisar e ajustar o texto no campo `Mensagem pronta para revisar`.
+
+No MVP, o envio continua manual por tres motivos:
+
+- manter o professor no controle final da mensagem
+- evitar disparos automáticos indevidos
+- manter o frontend funcional mesmo no GitHub Pages, sem integrações externas
 
 Importante:
 
-- a demo nao distribui o conteudo para usuarios reais
-- a publicacao atual nao sincroniza automaticamente com o painel do aluno
+- para alunos aprovados, a mensagem envia o link do portal
+- o link direto do Google Meet nao entra na mensagem pronta
+- para pendentes, o tom da mensagem prioriza conversa e confirmacao
 
-## Duvidas recebidas
+Regras importantes:
 
-O card `Duvidas recebidas` mostra perguntas demonstrativas do grupo ativo.
+- o cadastro coleta apenas dados minimos
+- o link do Meet nao aparece publicamente
+- a aprovacao libera a area do aluno e o link da aula
+- em modo demonstrativo, a aprovacao local nao substitui um fluxo real de autenticacao
 
-Uso sugerido:
+## Pontos sensiveis
 
-- identificar temas recorrentes
-- ajustar a abertura da aula
-- decidir quais pontos merecem reforco no encontro
+O painel destaca com mais cuidado temas como:
 
-## Uso com e sem modelo local
+- sofrimento
+- mediunidade
+- reencarnacao
+- instituicoes religiosas
+- Capela
+- racas adamicas
+- guerras
+- futuro
+- conflitos pessoais
 
-### Com modelo local
+Nesses casos, a recomendacao e direta:
 
-- a API tenta usar Ollama para gerar roteiro, perguntas e resumo
-- o resultado pode aproveitar contexto dos materiais e resumos cadastrados
+`O professor deve revisar antes de publicar.`
 
-### Sem modelo local
+## Como testar localmente
 
-- a API cai para um modo de contingencia
-- a interface continua funcionando
-- o professor ainda pode editar e seguir o fluxo completo
+1. Suba a API:
 
-## Uso no celular
+```bash
+npm run dev:api
+```
 
-O painel tambem foi pensado para 360px:
+2. Suba o frontend:
 
-- menu em drawer
-- cards empilhados
-- campos em coluna unica
-- botoes com area confortavel para toque
+```bash
+npm run dev:web
+```
 
-Mesmo no mobile, a ordem do fluxo continua clara.
+3. Experimente perguntas e geracoes com temas como:
+
+- `Como continuar estudando mesmo desanimado?`
+- `O que significa esforco proprio?`
+- `O livro A Caminho da Luz e historico ou espiritual?`
+- `Como entender Capela com prudencia?`
+- `Como viver o Evangelho na pratica?`
+
+## Uso com e sem backend
+
+### Com backend local
+
+- a API le os arquivos Markdown dos dois livros
+- a busca local recupera os materiais mais aderentes
+- o agente monta respostas e rascunhos curtos
+
+### Sem backend
+
+- o frontend continua funcional
+- a base aparece por fallback resumido
+- as respostas e geracoes passam a ser demonstrativas
+- as inscricoes e aprovacoes podem funcionar em modo demonstrativo local
+
+Esse comportamento foi pensado para manter o GitHub Pages util sem expor infraestrutura extra.
 
 ## Boas praticas
 
 - escrever um tema curto e objetivo
-- confirmar o link do Meet antes de salvar
-- revisar o texto gerado antes de aprovar
-- ajustar tom, foco e clareza para o publico do grupo
-- evitar publicar qualquer texto sem leitura humana
+- selecionar materiais realmente ligados ao encontro
+- revisar todo texto antes de aprovar
+- tratar a geracao como rascunho, nao como publicacao final
+- reforcar prudencia em temas sensiveis
 
 ## Limites desta demo
 
 - sem autenticacao
 - sem banco de dados
-- sem publicacao real para uma turma externa
-- sem historico persistente compartilhado entre dispositivos
-
-Esses limites sao intencionais para manter o projeto simples, portavel e util para demonstracao tecnica.
+- sem publicacao real para alunos externos
+- sem sincronizacao entre dispositivos
 
 ## Recomendacao final
 
-Use o painel como ferramenta de preparacao. O valor principal nao esta em automatizar o professor, e sim em reduzir trabalho repetitivo, organizar melhor a aula e deixar mais tempo para a revisao humana.
+Use o painel como ferramenta de preparacao. O valor principal nao esta em automatizar o professor, e sim em reduzir trabalho repetitivo, organizar a aula e preservar a revisao humana.

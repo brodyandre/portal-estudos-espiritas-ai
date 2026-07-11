@@ -2,55 +2,96 @@
 
 ## Objetivo
 
-Explicar como usar a experiencia do aluno de forma simples, tanto no desktop quanto no celular.
+Explicar como usar o painel do aluno de forma simples, tanto no desktop quanto no celular.
 
 ## Onde acessar
 
 - `/#/portal`: pagina aberta, compartilhavel e sem login
+- `/#/educacao-continuada`: pagina publica para quem chega pelo QR Code
+- `/#/inscricao`: formulario simples de interesse
 - `/#/aluno`: painel completo do aluno
+- `/#/materiais`: acesso rapido aos materiais dos livros
+
+## Livros e grupos disponiveis
+
+- `Emmanuel`
+- `A Caminho da Luz`
+
+Esses livros aparecem no painel como selecao de grupo ou livro para organizar materiais e perguntas.
 
 ## O que o aluno encontra
 
 No painel do aluno, a experiencia foi organizada para facilitar o estudo semanal:
 
 - proxima aula
-- botao para entrar no Google Meet
+- botao para entrar no Google Meet, quando o acesso ja foi aprovado
+- seletor de grupo ou livro
+- materiais de apoio do livro escolhido
 - assistente de estudo e envio de duvidas
-- materiais da semana
-- progresso e resumo da ultima aula
+- resumo da ultima aula
+- progresso demonstrativo
 
 ## Como usar
 
-1. Escolha o grupo desejado.
+Antes do acesso ao painel completo:
+
+1. escaneie o QR Code ou abra `/#/educacao-continuada`
+2. leia a proposta dos grupos
+3. preencha a inscricao com dados minimos
+4. aguarde a revisao dos professores
+5. depois da aprovacao, abra a area do aluno
+
+Dentro do painel:
+
+1. Escolha o grupo ou livro desejado.
 2. Veja a proxima aula e confira o horario.
 3. Use o botao do Google Meet quando estiver perto do encontro.
-4. Leia os materiais e o resumo da ultima aula.
+4. Leia os materiais de apoio, o resumo e as tags do tema.
 5. Se precisar, envie uma pergunta ao assistente.
 6. Se a duvida continuar importante, envie ao professor.
 7. Acompanhe o progresso demonstrativo no painel.
 
-## Grupos iniciais da demo
+## Materiais de apoio
 
-- `Emmanuel`: segunda-feira, 20h
-- `A Caminho da Luz`: quarta-feira, 20h
+O card `Materiais de apoio` mostra arquivos curtos da base do grupo selecionado.
 
-## Assistente de estudo
+Voce pode ver:
+
+- titulo do material
+- tipo do arquivo, como tema, capitulo, FAQ ou palavras-chave
+- tags principais
+- resumo curto
+- aviso de revisao humana quando necessario
+
+O objetivo nao e entregar o livro inteiro na tela, e sim organizar apoios curtos para estudo.
+
+## Pergunte ao assistente
 
 O bloco `Pergunte ao assistente` serve como apoio inicial.
 
 Ele pode ajudar a:
 
-- retomar um resumo
-- lembrar a leitura recomendada
-- indicar o proximo encontro
-- organizar uma duvida simples para levar ao professor
+- retomar um tema da semana
+- resumir um ponto simples
+- indicar materiais relacionados
+- organizar uma duvida para levar ao professor
+
+Exemplos de perguntas:
+
+- `Como continuar estudando mesmo desanimado?`
+- `O que significa esforco proprio?`
+- `O livro A Caminho da Luz e historico ou espiritual?`
+- `Como entender Capela com prudencia?`
+- `Como viver o Evangelho na pratica?`
 
 ## O que esperar da resposta
 
 - linguagem curta e educativa
 - fontes baseadas nos materiais cadastrados
-- aviso claro de que a resposta e apoio inicial
-- indicacao de revisar com o professor quando necessario
+- aviso de que a resposta e apoio inicial
+- recomendacao de conversar com o professor em temas sensiveis
+
+No frontend publicado sem backend, a resposta pode aparecer em modo demonstrativo.
 
 ## Enviar duvida ao professor
 
@@ -58,31 +99,9 @@ Depois de perguntar ao assistente, o aluno pode usar o botao `Enviar duvida ao p
 
 Na demo atual:
 
-- a pergunta e registrada para o grupo selecionado
+- a pergunta e registrada localmente ou enviada para a API quando disponivel
 - o objetivo e simular o fluxo de acompanhamento
 - nao existe banco nem notificacao real nesta etapa
-
-## Materiais e resumo
-
-O painel mostra:
-
-- materiais da semana
-- tipo de material
-- breve descricao
-- resumo da ultima aula
-
-Esses conteudos sao demonstrativos e foram pensados para leitura rapida em tela pequena.
-
-## Meu progresso
-
-O card `Meu progresso` mostra um acompanhamento demonstrativo do aluno, como:
-
-- aulas concluidas
-- frequencia
-- constancia
-- proximo passo sugerido
-
-Na versao atual, esse progresso e de exemplo e nao representa dados pessoais reais.
 
 ## Uso no celular
 
@@ -98,7 +117,7 @@ Boas praticas:
 
 - abra o menu pelo header
 - use os cards em coluna unica
-- toque nos botoes principais sem precisar ampliar a tela
+- toque nos botoes principais sem ampliar a tela
 
 ## Se algo nao carregar
 
@@ -107,15 +126,22 @@ O frontend foi preparado para continuar util mesmo quando a API falha.
 Isso significa que:
 
 - grupos e materiais podem aparecer em modo demonstrativo
-- respostas do assistente podem vir de fallback
-- a navegacao segue funcionando normalmente
+- perguntas frequentes e palavras-chave continuam disponiveis
+- respostas do assistente podem vir de fallback local
+- a navegacao segue funcionando no GitHub Pages
+- o fluxo de inscricao continua funcionando em modo demonstrativo
+
+Quando isso acontecer, a interface pode avisar:
+
+`Modo demonstrativo: para aprovação real de alunos, rode o backend local.`
 
 ## Limites importantes
 
 - o assistente nao substitui o professor
 - a resposta nao deve ser tratada como orientacao final
-- a demo nao usa conta real de aluno
+- o projeto nao expoe PDFs nem conteudo longo das obras
 - o progresso exibido e apenas ilustrativo
+- o acesso do aluno no MVP usa controle simples, nao autenticacao real
 
 ## Recomendacao final
 

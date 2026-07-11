@@ -8,8 +8,10 @@ import {
   studentSidebarConfig,
   teacherSidebarConfig,
 } from "../../app/navigation";
+import { applyThemePreference, readThemePreference, type AppTheme, writeThemePreference } from "../../app/theme";
 import { MobileHeader } from "./MobileHeader";
 import { Sidebar } from "./Sidebar";
+import { ThemeSwitcher } from "./ThemeSwitcher";
 
 const resolveActiveSection = (sectionIds: string[]) => {
   if (typeof window === "undefined" || sectionIds.length === 0) {
@@ -62,10 +64,16 @@ export const AppLayout = () => {
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
+  const [theme, setTheme] = useState<AppTheme>(() => readThemePreference());
 
   useEffect(() => {
     setIsMobileMenuOpen(false);
   }, [location.pathname]);
+
+  useEffect(() => {
+    applyThemePreference(theme);
+    writeThemePreference(theme);
+  }, [theme]);
 
   useEffect(() => {
     if (!isMobileMenuOpen) {
@@ -182,12 +190,15 @@ export const AppLayout = () => {
                 <span className="page-context-bar__eyebrow">Tela atual</span>
                 <strong>{currentPage.title}</strong>
               </div>
-              {currentSection ? (
-                <div className="page-context-bar__status">
-                  <span className="page-context-bar__label">Secao</span>
-                  <span className="page-context-bar__value">{currentSection.label}</span>
-                </div>
-              ) : null}
+              <div className="page-context-bar__controls">
+                {currentSection ? (
+                  <div className="page-context-bar__status">
+                    <span className="page-context-bar__label">Secao</span>
+                    <span className="page-context-bar__value">{currentSection.label}</span>
+                  </div>
+                ) : null}
+                <ThemeSwitcher onChange={setTheme} value={theme} />
+              </div>
             </div>
             <Outlet />
           </div>

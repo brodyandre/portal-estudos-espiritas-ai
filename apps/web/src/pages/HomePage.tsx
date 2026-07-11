@@ -2,6 +2,7 @@ import { groups, homeSteps } from "../data/demo";
 import { FlowStepCard } from "../components/display/FlowStepCard";
 import { GroupCard } from "../components/display/GroupCard";
 import { ProfileHeader } from "../components/display/ProfileHeader";
+import { BrandLogo } from "../components/layout/BrandLogo";
 import { AlertBox } from "../components/ui/AlertBox";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
@@ -31,6 +32,14 @@ export const HomePage = () => {
           { label: "Encontros", value: "Google Meet com apoio revisavel" },
         ]}
         title="Estudo online com clareza, acolhimento e organizacao"
+        visual={
+          <div className="profile-brand-showcase">
+            <BrandLogo className="profile-brand-showcase__logo" />
+            <p className="profile-brand-showcase__caption">
+              Programa de estudo online com acolhimento, organizacao e revisao humana.
+            </p>
+          </div>
+        }
       />
 
       <AlertBox title="Apoio ao estudo, nao substituicao" tone="warning">

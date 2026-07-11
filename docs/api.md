@@ -164,6 +164,203 @@ Query opcionais:
 - `studentId`
 - `groupId`
 
+### `POST /api/enrollments`
+
+Recebe um cadastro simples de interesse vindo da pagina publica do portal.
+
+Body esperado:
+
+```json
+{
+  "fullName": "Bianca Ferreira",
+  "email": "bianca.ferreira.demo@example.com",
+  "whatsapp": "+55 11 99999-8888",
+  "groupInterest": "Emmanuel",
+  "alreadyParticipates": "Não",
+  "message": "Gostaria de conhecer o grupo com tranquilidade."
+}
+```
+
+Comportamento:
+
+- valida os campos obrigatorios;
+- cria um registro em memoria com status `pending`;
+- nao expõe link do Google Meet;
+- retorna a mensagem:
+  `Sua solicitação foi recebida. Os professores revisarão seu cadastro.`
+
+Validacoes basicas:
+
+- `fullName` obrigatorio
+- `email` obrigatorio e valido
+- `whatsapp` obrigatorio
+- `groupInterest` obrigatorio
+- `message` opcional com limite de tamanho
+- `teacherNote` opcional
+
+### `GET /api/enrollments`
+
+Lista os interessados para o painel do professor.
+
+Query opcionais:
+
+- `status`: `pending`, `approved`, `rejected`, `needs_contact`
+- `groupInterest`: `Emmanuel`, `A Caminho da Luz`, `Ainda não sei`
+
+Exemplo:
+
+```text
+/api/enrollments?status=approved
+/api/enrollments?groupInterest=A%20Caminho%20da%20Luz
+```
+
+### `GET /api/enrollments/:id`
+
+Retorna um cadastro especifico de interesse.
+
+Se o item nao existir, a API devolve:
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "ENROLLMENT_NOT_FOUND",
+    "message": "Cadastro de interesse nao encontrado."
+  }
+}
+```
+
+### `PATCH /api/enrollments/:id/status`
+
+Atualiza o status do cadastro depois da revisao do professor.
+
+Body esperado:
+
+```json
+{
+  "status": "approved",
+  "teacherNote": "Aprovado para acompanhar o proximo encontro."
+}
+```
+
+Status aceitos nesta etapa:
+
+- `approved`
+- `rejected`
+- `needs_contact`
+
+Comportamento:
+
+- preenche `reviewedAt`
+- define `reviewedBy` como `Professor`
+- aceita `teacherNote` opcional
+- nao expõe link do Meet
+
+### `GET /api/knowledge`
+
+Retorna uma visao geral curta da base de conhecimento, com total de arquivos publicos, grupos disponiveis e materiais compartilhados.
+
+Observacoes:
+
+- nao devolve conteudo integral dos arquivos;
+- usa apenas resumo curto, titulo, tags e tipo;
+- ignora arquivos de documentacao interna na listagem publica.
+
+### `GET /api/knowledge/groups`
+
+Lista os grupos disponiveis na base de conhecimento.
+
+Grupos aceitos:
+
+- `emmanuel`
+- `a_caminho_da_luz`
+
+### `GET /api/knowledge/:group`
+
+Retorna os dados resumidos de um grupo especifico, com arquivos em destaque.
+
+Grupos aceitos:
+
+- `emmanuel`
+- `a_caminho_da_luz`
+
+Se o grupo nao existir, a API retorna `404` com erro amigavel:
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "KNOWLEDGE_GROUP_NOT_FOUND",
+    "message": "Grupo da base de conhecimento nao encontrado."
+  }
+}
+```
+
+### `GET /api/knowledge/:group/files`
+
+Lista os arquivos publicos e resumidos de um grupo, sem expor conteudo longo.
+
+Campos principais por item:
+
+- `title`
+- `filename`
+- `type`
+- `tags`
+- `summary`
+- `teacherReviewRecommended`
+
+### `GET /api/knowledge/search?q=&group=`
+
+Busca materiais curtos na base de conhecimento usando o retriever local por palavras-chave e similaridade simples.
+
+Query esperada:
+
+- `q`: obrigatoria, com pelo menos 2 caracteres
+- `group`: opcional, aceita `emmanuel` ou `a_caminho_da_luz`
+
+Exemplo:
+
+```text
+/api/knowledge/search?q=prece
+/api/knowledge/search?q=capela&group=a_caminho_da_luz
+```
+
+Resposta esperada:
+
+```json
+{
+  "success": true,
+  "message": "Busca na base de conhecimento concluida com sucesso.",
+  "data": {
+    "query": "prece",
+    "group": null,
+    "items": [
+      {
+        "title": "Orientacoes do grupo",
+        "filename": "orientacoes_do_grupo.md",
+        "group": "Compartilhado",
+        "book": "Base compartilhada",
+        "type": "orientacoes",
+        "tags": ["orientacoes", "convivio", "prece"],
+        "summary": "Orientacoes curtas de convivio, participacao e uso responsavel do apoio ao estudo.",
+        "teacherReviewRecommended": false,
+        "sensitiveTopics": [],
+        "score": 4.2,
+        "source": "Base compartilhada · Orientacoes do grupo"
+      }
+    ],
+    "guidance": "Resultados demonstrativos carregados com sucesso."
+  },
+  "meta": {
+    "count": 1,
+    "query": "prece",
+    "group": null
+  }
+}
+```
+
+Se a busca nao encontrar contexto suficiente, a API responde com `success: true`, lista vazia e orientacao para levar a duvida ao professor.
+
 ### `POST /api/agent/lesson-plan`
 
 Gera um roteiro inicial para a aula.
@@ -231,22 +428,30 @@ Resposta esperada:
   "message": "Resposta inicial gerada com sucesso.",
   "data": {
     "answer": "Resposta curta e revisavel.",
+    "group": {
+      "id": "emmanuel",
+      "name": "Emmanuel",
+      "bookTitle": "Emmanuel",
+      "matchMode": "question_hint"
+    },
     "sources": [
       {
-        "source": "contexto-informado-na-pergunta",
+        "source": "Contexto informado na pergunta",
         "title": "Contexto informado na pergunta",
         "score": 1
       },
       {
-        "source": "conteudo autoral demonstrativo",
+        "source": "Emmanuel · Emmanuel - constancia no estudo",
         "title": "Orientacoes do grupo",
         "score": 2.4
       }
     ],
+    "keywords": ["constancia", "estudo", "semana"],
     "needsTeacherReview": true,
     "safetyNotes": [
       "Conteudo de apoio gerado para revisao humana. Revise com cuidado antes de publicar ou compartilhar."
     ],
+    "suggestedTeacherFollowUp": "Se quiser aprofundar, vale levar esta pergunta ao professor com o trecho que mais chamou sua atencao.",
     "provider": "ollama",
     "usedFallback": false
   },
@@ -260,6 +465,9 @@ Resposta esperada:
 Observacoes:
 
 - O fluxo segue as etapas `receiveQuestion -> classifyStudyGroup -> retrieveContext -> checkContext -> generateAnswer -> applySafetyReview -> returnResponse`.
+- O campo `group` mostra o foco mais provavel da resposta. Quando a pergunta nao aponta um livro com clareza, a busca pode considerar Emmanuel e A Caminho da Luz.
+- O campo `keywords` resume palavras-chave uteis para leitura e revisao.
+- O campo `suggestedTeacherFollowUp` indica como levar a duvida ao professor quando o tema pedir maior cuidado.
 - Se o contexto ainda for insuficiente, a resposta orienta levar a duvida ao professor.
 - A lista `sources` pode incluir o contexto enviado pelo proprio usuario, alem dos arquivos recuperados em `data/knowledge`.
 
@@ -275,6 +483,12 @@ Testes basicos implementados:
 
 - `GET /health`
 - `GET /api/studies`
+- `GET /api/knowledge`
+- `GET /api/knowledge/groups`
+- `GET /api/knowledge/emmanuel`
+- `GET /api/knowledge/a_caminho_da_luz`
+- `GET /api/knowledge/search?q=prece`
+- `GET /api/knowledge/search?q=capela`
 - `POST /api/agent/lesson-plan`
 - `POST /api/agent/answer`
 
@@ -282,6 +496,9 @@ Testes basicos implementados:
 
 - Os dados usam apenas mocks locais em `apps/api/src/data`.
 - O endpoint `POST /api/questions` grava em memoria apenas durante a execucao do processo.
+- Os endpoints em `/api/knowledge/*` leem apenas a base local em `data/knowledge`, sem banco de dados.
+- A listagem da base de conhecimento nunca devolve conteudo longo dos arquivos Markdown.
+- O endpoint `GET /api/knowledge/search` reutiliza o retriever local ja usado pela resposta do assistente.
 - Os endpoints em `/api/agent/*` usam `LangChain.js + Ollama` quando o modelo local estiver disponivel.
 - O endpoint `POST /api/agent/answer` usa `LangGraph.js` para orquestrar pergunta, classificacao do grupo, busca local e revisao de seguranca.
 - Quando o modelo local nao responde, a API usa um fallback simples e explicito para a demonstracao continuar.

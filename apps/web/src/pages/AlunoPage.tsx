@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
+import { StudentAccessGate } from "../components/access/StudentAccessGate";
 import { FlowStepCard } from "../components/display/FlowStepCard";
 import { AlertBox } from "../components/ui/AlertBox";
 import { Badge } from "../components/ui/Badge";
@@ -7,6 +9,8 @@ import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { EmptyState } from "../components/ui/EmptyState";
 import { LoadingState } from "../components/ui/LoadingState";
+import { SectionTitle } from "../components/ui/SectionTitle";
+import { Select } from "../components/ui/Select";
 import { StatusTag } from "../components/ui/StatusTag";
 import { TextInput } from "../components/ui/TextInput";
 import type {
@@ -14,17 +18,29 @@ import type {
   DemoGroup,
   DemoProgressResponse,
   DemoQuestion,
+  GroupSlug,
 } from "../mocks";
+import { groups as demoGroups } from "../mocks";
 import { collectServiceNotice } from "../services/api";
 import {
   askStudyAssistant,
   getInitialAssistantReply,
   type AssistantReply,
 } from "../services/agentService";
+import {
+  listKnowledgeFilesByGroup,
+  type KnowledgeSupportFile,
+} from "../services/knowledgeService";
 import { listMaterials } from "../services/materialsService";
 import { buildProgressHighlights, getProgress } from "../services/progressService";
 import { createQuestion, listQuestions } from "../services/questionsService";
 import { listStudies } from "../services/studiesService";
+import {
+  getStudentAccessStatusFromSearch,
+  readStudentAccessStatus,
+  writeStudentAccessStatus,
+  type StudentAccessStatus,
+} from "../services/studentAccessService";
 import { listSummaries } from "../services/summariesService";
 
 type AssistantFeedback = "helpful" | "not-helpful" | null;
@@ -62,11 +78,20 @@ const groupCardIds: Record<DemoGroup["slug"], string> = {
   "a-caminho-da-luz": "grupo-a-caminho-da-luz",
 };
 
-const questionSuggestions = [
-  "Como entro na proxima aula?",
-  "Qual leitura devo revisar hoje?",
-  "Pode resumir o ultimo encontro?",
-];
+const quickQuestionSuggestions: Record<GroupSlug, string[]> = {
+  emmanuel: [
+    "Como continuar estudando mesmo desanimado?",
+    "O que significa esforco proprio?",
+    "Como viver o Evangelho na pratica?",
+    "Como lidar com duvidas sobre mediunidade?",
+  ],
+  "a-caminho-da-luz": [
+    "O livro e historico ou espiritual?",
+    "O que significa Capela?",
+    "Como entender racas adamicas com prudencia?",
+    "Qual o papel do Evangelho no futuro da humanidade?",
+  ],
+};
 
 const getQuestionStatus = (status: DemoQuestion["status"]) => {
   if (status === "answered") {
@@ -104,14 +129,19 @@ const BellIcon = () => {
 };
 
 export const AlunoPage = () => {
+  const [searchParams] = useSearchParams();
+  const initialAccessStatus = getStudentAccessStatusFromSearch(searchParams) ?? readStudentAccessStatus();
+  const [studentAccessStatus, setStudentAccessStatus] = useState<StudentAccessStatus>(initialAccessStatus);
   const [groups, setGroups] = useState<DemoGroup[]>([]);
   const [materials, setMaterials] = useState<Awaited<ReturnType<typeof listMaterials>>["data"]>([]);
   const [summaries, setSummaries] = useState<Awaited<ReturnType<typeof listSummaries>>["data"]>([]);
   const [questions, setQuestions] = useState<DemoQuestion[]>([]);
+  const [supportFiles, setSupportFiles] = useState<KnowledgeSupportFile[]>([]);
   const [progress, setProgress] = useState<DemoProgressResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);
   const [activeGroupSlug, setActiveGroupSlug] = useState<DemoGroup["slug"]>("emmanuel");
+  const [selectedSupportFileId, setSelectedSupportFileId] = useState<string | null>(null);
   const [assistantInput, setAssistantInput] = useState("");
   const [assistantResponse, setAssistantResponse] = useState<AssistantReply>(getInitialAssistantReply());
   const [assistantFeedback, setAssistantFeedback] = useState<AssistantFeedback>(null);
@@ -121,19 +151,44 @@ export const AlunoPage = () => {
   const [isSendingTeacherQuestion, setIsSendingTeacherQuestion] = useState(false);
 
   useEffect(() => {
+    const nextStatus = getStudentAccessStatusFromSearch(searchParams);
+
+    if (!nextStatus) {
+      return;
+    }
+
+    writeStudentAccessStatus(nextStatus);
+    setStudentAccessStatus(nextStatus);
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (studentAccessStatus !== "approved") {
+      setIsLoading(false);
+      return;
+    }
+
     let isActive = true;
 
     const loadDashboard = async () => {
       setIsLoading(true);
 
-      const [studiesResult, materialsResult, summariesResult, questionsResult, progressResult] =
-        await Promise.all([
-          listStudies(),
-          listMaterials(),
-          listSummaries(),
-          listQuestions(),
-          getProgress(),
-        ]);
+      const [
+        studiesResult,
+        materialsResult,
+        summariesResult,
+        questionsResult,
+        progressResult,
+        emmanuelKnowledgeResult,
+        caminhoKnowledgeResult,
+      ] = await Promise.all([
+        listStudies(),
+        listMaterials(),
+        listSummaries(),
+        listQuestions(),
+        getProgress(),
+        listKnowledgeFilesByGroup("emmanuel"),
+        listKnowledgeFilesByGroup("a-caminho-da-luz"),
+      ]);
 
       if (!isActive) {
         return;
@@ -143,6 +198,10 @@ export const AlunoPage = () => {
       setMaterials(materialsResult.data);
       setSummaries(summariesResult.data);
       setQuestions(questionsResult.data);
+      setSupportFiles([
+        ...emmanuelKnowledgeResult.data,
+        ...caminhoKnowledgeResult.data,
+      ]);
       setProgress(progressResult.data);
       setNotice(
         collectServiceNotice([
@@ -151,6 +210,8 @@ export const AlunoPage = () => {
           summariesResult,
           questionsResult,
           progressResult,
+          emmanuelKnowledgeResult,
+          caminhoKnowledgeResult,
         ]),
       );
       setActiveGroupSlug((currentSlug) => {
@@ -166,9 +227,14 @@ export const AlunoPage = () => {
     return () => {
       isActive = false;
     };
-  }, []);
+  }, [studentAccessStatus]);
 
-  const activeGroup = groups.find((group) => group.slug === activeGroupSlug) ?? groups[0] ?? null;
+  const availableGroups = groups.length > 0 ? groups : demoGroups;
+  const activeGroup =
+    groups.find((group) => group.slug === activeGroupSlug) ??
+    availableGroups.find((group) => group.slug === activeGroupSlug) ??
+    availableGroups[0] ??
+    null;
   const activeMaterials = useMemo(() => {
     if (!activeGroup) {
       return [];
@@ -176,6 +242,13 @@ export const AlunoPage = () => {
 
     return materials.filter((material) => material.groupSlug === activeGroup.slug);
   }, [activeGroup, materials]);
+  const activeSupportFiles = useMemo(() => {
+    if (!activeGroup) {
+      return [];
+    }
+
+    return supportFiles.filter((file) => file.groupSlug === activeGroup.slug);
+  }, [activeGroup, supportFiles]);
   const activeSummary = useMemo(() => {
     if (!activeGroup) {
       return null;
@@ -195,6 +268,31 @@ export const AlunoPage = () => {
   const recommendedReading =
     activeMaterials.find((material) => material.kind === "Leitura")?.title ??
     "Leitura demonstrativa da semana";
+  const activeSupportFile =
+    activeSupportFiles.find((file) => file.id === selectedSupportFileId) ?? activeSupportFiles[0] ?? null;
+  const activeQuickQuestions = activeGroup
+    ? quickQuestionSuggestions[activeGroup.slug]
+    : quickQuestionSuggestions.emmanuel;
+  const requestedGroupSlug = searchParams.get("grupo");
+
+  useEffect(() => {
+    if (studentAccessStatus !== "approved") {
+      return;
+    }
+
+    if (!requestedGroupSlug) {
+      return;
+    }
+
+    const normalizedRequestedGroup = requestedGroupSlug.trim().toLowerCase();
+
+    if (
+      normalizedRequestedGroup === "emmanuel" ||
+      normalizedRequestedGroup === "a-caminho-da-luz"
+    ) {
+      setActiveGroupSlug(normalizedRequestedGroup as DemoGroup["slug"]);
+    }
+  }, [requestedGroupSlug, studentAccessStatus]);
 
   useEffect(() => {
     setAssistantResponse(getInitialAssistantReply());
@@ -202,6 +300,18 @@ export const AlunoPage = () => {
     setAssistantMessage(null);
     setLastSubmittedQuestion("");
   }, [activeGroupSlug]);
+
+  useEffect(() => {
+    setSelectedSupportFileId((currentId) => {
+      return activeSupportFiles.some((file) => file.id === currentId)
+        ? currentId
+        : (activeSupportFiles[0]?.id ?? null);
+    });
+  }, [activeSupportFiles]);
+
+  if (studentAccessStatus !== "approved") {
+    return <StudentAccessGate status={studentAccessStatus} />;
+  }
 
   const handleAssistantSubmit = async (nextQuestion?: string) => {
     const content = (nextQuestion ?? assistantInput).trim();
@@ -221,6 +331,7 @@ export const AlunoPage = () => {
       group: activeGroup,
       materials: activeMaterials,
       summary: activeSummary,
+      supportFiles: activeSupportFiles,
     });
 
     setAssistantResponse(result.data);
@@ -260,7 +371,7 @@ export const AlunoPage = () => {
       <section className="student-hero" id="aluno-inicio">
         <div className="student-hero__intro">
           <Badge tone="sand">Area do aluno</Badge>
-          <h1>Portal dos Estudos Espiritas Online</h1>
+          <h1>Educacao Continuada</h1>
           <p className="student-hero__subtitle">Painel do Aluno</p>
           <p className="student-hero__description">
             Acompanhe a proxima aula, revise materiais, registre duvidas e veja seu progresso em um
@@ -288,6 +399,23 @@ export const AlunoPage = () => {
       ) : null}
 
       <section className="student-page__groups-section page-section">
+        <SectionTitle
+          action={
+            <Select
+              id="student-group-select"
+              label="Livro ou grupo"
+              onChange={(event) => setActiveGroupSlug(event.target.value as DemoGroup["slug"])}
+              options={availableGroups.map((group) => ({
+                label: group.name,
+                value: group.slug,
+              }))}
+              value={activeGroupSlug}
+            />
+          }
+          description="Escolha o livro que deseja acompanhar para atualizar os materiais de apoio e as perguntas sugeridas."
+          title="Escolha o grupo ou livro"
+        />
+
         {isLoading ? (
           <LoadingState
             description="Estamos reunindo grupos, materiais e progresso para montar seu painel."
@@ -344,6 +472,10 @@ export const AlunoPage = () => {
                       <dt>Leitura</dt>
                       <dd>{readingTitle}</dd>
                     </div>
+                    <div>
+                      <dt>Livro</dt>
+                      <dd>{group.name}</dd>
+                    </div>
                   </dl>
 
                   <div className="button-row">
@@ -393,6 +525,9 @@ export const AlunoPage = () => {
                   <Button href={activeGroup.meetUrl} rel="noreferrer" target="_blank">
                     Entrar no Google Meet
                   </Button>
+                  <Button to={`/materiais/${activeGroup.slug}`} variant="secondary">
+                    Ver materiais do livro
+                  </Button>
                 </div>
               </Card>
 
@@ -407,11 +542,11 @@ export const AlunoPage = () => {
                     <p className="card-eyebrow">Pergunte ao assistente</p>
                     <h2>Apoio inicial para estudar</h2>
                   </div>
-                    <Badge tone="sand">Revisavel</Badge>
+                  <Badge tone="sand">{activeGroup.name}</Badge>
                 </div>
 
                 <div className="assistant-card__chips" aria-label="Sugestoes de perguntas" role="list">
-                  {questionSuggestions.map((suggestion) => (
+                  {activeQuickQuestions.map((suggestion) => (
                     <button
                       className="assistant-chip"
                       key={suggestion}
@@ -428,7 +563,7 @@ export const AlunoPage = () => {
                     id="assistant-question"
                     label="Sua duvida"
                     onChange={(event) => setAssistantInput(event.target.value)}
-                    placeholder="Exemplo: como revisar melhor a aula desta semana?"
+                    placeholder={`Exemplo: o que vale revisar melhor no grupo ${activeGroup.name}?`}
                     value={assistantInput}
                   />
                   <Button onClick={() => void handleAssistantSubmit()}>
@@ -436,17 +571,34 @@ export const AlunoPage = () => {
                   </Button>
                 </div>
 
-                <div className="assistant-card__response">
-                  <strong>Resposta demonstrativa</strong>
+                <div aria-live="polite" className="assistant-card__response">
+                  <strong>
+                    {assistantResponse.groupLabel
+                      ? `Resposta para ${assistantResponse.groupLabel}`
+                      : "Resposta demonstrativa"}
+                  </strong>
                   <p>{assistantResponse.answer}</p>
-                  <p className="assistant-card__source">
-                    Resposta baseada nos materiais cadastrados.
-                  </p>
-                  <p className="assistant-card__helper">{assistantResponse.supportNotice}</p>
+                  <AlertBox className="assistant-card__alert" title="Uso responsavel" tone="warning">
+                    Resposta baseada nos materiais cadastrados. Em temas sensiveis, converse com o professor.
+                  </AlertBox>
+                  {assistantResponse.teacherFollowUp ? (
+                    <p className="assistant-card__helper">{assistantResponse.teacherFollowUp}</p>
+                  ) : (
+                    <p className="assistant-card__helper">{assistantResponse.supportNotice}</p>
+                  )}
+                  {assistantResponse.warnings.length > 0 ? (
+                    <div className="assistant-card__warnings">
+                      {assistantResponse.warnings.slice(0, 2).map((warning) => (
+                        <p className="assistant-card__source" key={warning}>
+                          {warning}
+                        </p>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
 
                 <div className="assistant-card__sources">
-                  <p className="assistant-card__sources-label">Fontes indicadas</p>
+                  <p className="assistant-card__sources-label">Fontes usadas</p>
                   <div className="button-row">
                     {assistantResponse.sources.map((source) => (
                       <Badge key={source} tone="sand">
@@ -485,64 +637,127 @@ export const AlunoPage = () => {
           </section>
 
           <section className="student-page__resources-section page-section">
-            <div className="three-column-grid student-page__resources-grid">
-              <Card className="student-panel" id="materiais-da-semana" tone="soft">
+            <div className="student-resources-layout">
+              <Card className="student-panel student-panel--support" id="materiais-da-semana" tone="soft">
                 <div className="student-panel__header">
-                  <h2>Materiais da semana</h2>
-                  <Badge tone="sand">{activeMaterials.length} itens</Badge>
+                  <div>
+                    <h2>Materiais de apoio</h2>
+                    <p className="student-panel__note">
+                      Arquivos curtos do livro selecionado para preparar sua leitura, sua pergunta
+                      e a conversa do encontro.
+                    </p>
+                  </div>
+                  <div className="button-row">
+                    <Badge tone="sand">{activeSupportFiles.length} arquivos</Badge>
+                    <Button size="compact" to={`/materiais/${activeGroup.slug}`} variant="secondary">
+                      Abrir pagina do livro
+                    </Button>
+                  </div>
                 </div>
-                <div className="stack-list">
-                  {activeMaterials.map((material) => (
-                    <article className="stack-list__item" key={material.id}>
-                      <div className="stack-list__header">
-                        <strong>{material.title}</strong>
-                        <Badge tone="sand">{material.kind}</Badge>
-                      </div>
-                      <p className="student-panel__note">{material.description}</p>
-                      <p className="stack-list__meta">{material.publishedLabel}</p>
-                    </article>
-                  ))}
-                </div>
+                {activeSupportFiles.length > 0 ? (
+                  <div className="student-support-list">
+                    {activeSupportFiles.map((file) => {
+                      const isActiveSupportFile = activeSupportFile?.id === file.id;
+
+                      return (
+                        <article
+                          className={`student-support-item ${
+                            isActiveSupportFile ? "student-support-item--active" : ""
+                          }`}
+                          key={file.id}
+                        >
+                          <div className="student-support-item__header">
+                            <div>
+                              <strong>{file.title}</strong>
+                              <p className="stack-list__meta">{file.typeLabel}</p>
+                            </div>
+                            <Badge tone="sand">{file.typeLabel}</Badge>
+                          </div>
+
+                          <div className="student-support-item__tags" aria-label="Palavras de apoio">
+                            {file.tags.slice(0, 5).map((tag) => (
+                              <Badge key={`${file.id}-${tag}`} tone="neutral">
+                                {tag}
+                              </Badge>
+                            ))}
+                          </div>
+
+                          {isActiveSupportFile ? (
+                            <div aria-live="polite" className="student-support-item__preview">
+                              <p>{file.summary}</p>
+                              {file.teacherReviewRecommended ? (
+                                <AlertBox title="Revisao recomendada" tone="warning">
+                                  Este ponto merece conversa com o professor antes de virar
+                                  conclusao do grupo.
+                                </AlertBox>
+                              ) : (
+                                <p className="assistant-card__helper">
+                                  Use este resumo como apoio para sua leitura e para preparar sua
+                                  pergunta.
+                                </p>
+                              )}
+                            </div>
+                          ) : null}
+
+                          <Button
+                            onClick={() => setSelectedSupportFileId(file.id)}
+                            size="compact"
+                            variant={isActiveSupportFile ? "primary" : "secondary"}
+                          >
+                            {isActiveSupportFile ? "Resumo aberto" : file.actionLabel}
+                          </Button>
+                        </article>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <EmptyState
+                    description="Os materiais do livro selecionado ainda nao foram carregados."
+                    title="Sem materiais de apoio"
+                  />
+                )}
               </Card>
 
-              <Card className="student-panel" id="duvidas-enviadas" tone="soft">
-                <div className="student-panel__header">
-                  <h2>Minhas duvidas enviadas</h2>
-                  <Badge tone="sand">{filteredQuestions.length}</Badge>
-                </div>
-                <div className="stack-list">
-                  {filteredQuestions.slice(0, 3).map((question) => {
-                    const status = getQuestionStatus(question.status);
+              <div className="student-resources-stack">
+                <Card className="student-panel" id="duvidas-enviadas" tone="soft">
+                  <div className="student-panel__header">
+                    <h2>Minhas duvidas enviadas</h2>
+                    <Badge tone="sand">{filteredQuestions.length}</Badge>
+                  </div>
+                  <div className="stack-list">
+                    {filteredQuestions.slice(0, 3).map((question) => {
+                      const status = getQuestionStatus(question.status);
 
-                    return (
-                      <article className="stack-list__item" key={question.id}>
-                        <div className="student-panel__header">
-                          <strong>{question.question}</strong>
-                          <StatusTag label={status.label} tone={status.tone} />
-                        </div>
-                        <p className="student-panel__note">{question.lessonTitle}</p>
-                      </article>
-                    );
-                  })}
-                </div>
-              </Card>
+                      return (
+                        <article className="stack-list__item" key={question.id}>
+                          <div className="student-panel__header">
+                            <strong>{question.question}</strong>
+                            <StatusTag label={status.label} tone={status.tone} />
+                          </div>
+                          <p className="student-panel__note">{question.lessonTitle}</p>
+                        </article>
+                      );
+                    })}
+                  </div>
+                </Card>
 
-              <Card className="student-panel" id="aluno-resumo" tone="soft">
-                <div className="student-panel__header">
-                  <h2>Resumo da ultima aula</h2>
-                  <Badge tone="sand">{activeSummary?.readingTimeLabel ?? "Leitura breve"}</Badge>
-                </div>
-                <p className="student-panel__note">
-                  {activeSummary?.content ?? "Resumo demonstrativo disponivel para revisao."}
-                </p>
-                {activeSummary?.takeaways.length ? (
-                  <ul className="bullet-list">
-                    {activeSummary.takeaways.map((takeaway) => (
-                      <li key={takeaway}>{takeaway}</li>
-                    ))}
-                  </ul>
-                ) : null}
-              </Card>
+                <Card className="student-panel" id="aluno-resumo" tone="soft">
+                  <div className="student-panel__header">
+                    <h2>Resumo da ultima aula</h2>
+                    <Badge tone="sand">{activeSummary?.readingTimeLabel ?? "Leitura breve"}</Badge>
+                  </div>
+                  <p className="student-panel__note">
+                    {activeSummary?.content ?? "Resumo demonstrativo disponivel para revisao."}
+                  </p>
+                  {activeSummary?.takeaways.length ? (
+                    <ul className="bullet-list">
+                      {activeSummary.takeaways.map((takeaway) => (
+                        <li key={takeaway}>{takeaway}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </Card>
+              </div>
             </div>
           </section>
 

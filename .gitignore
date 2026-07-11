@@ -1,3 +1,8 @@
 node_modules/
 dist/
 coverage/
+
+# Fontes originais e materiais privados
+data/sources/
+data/sources/private/
+*.pdf

@@ -30,8 +30,8 @@ export interface PageSectionContext {
 
 export const appSidebarConfig: SidebarConfig = {
   badge: "Projeto demonstrativo",
-  title: "Portal de Estudos Espiritas AI",
-  description: "Organizacao acolhedora para encontros online via Google Meet.",
+  title: "Educacao Continuada",
+  description: "Programa acolhedor para encontros online via Google Meet.",
   footerTitle: "Apoio com revisao humana",
   footerDescription:
     "A plataforma ajuda a estudar, organizar materiais e preparar encontros, mas nao substitui professores.",
@@ -51,9 +51,33 @@ export const appSidebarConfig: SidebarConfig = {
     },
     {
       type: "route",
+      to: "/educacao-continuada",
+      label: "Educacao continuada",
+      description: "Entrada publica para visitantes que chegam pelo QR Code do cartaz.",
+    },
+    {
+      type: "route",
+      to: "/inscricao",
+      label: "Inscricao",
+      description: "Formulario simples de interesse para novos participantes.",
+    },
+    {
+      type: "route",
+      to: "/divulgacao",
+      label: "Divulgacao",
+      description: "Orientacao para o professor usar a pagina certa no QR Code do cartaz.",
+    },
+    {
+      type: "route",
       to: "/aluno",
       label: "Aluno",
       description: "Aulas, materiais, resumos, duvidas e progresso.",
+    },
+    {
+      type: "route",
+      to: "/materiais",
+      label: "Materiais",
+      description: "Biblioteca simples com os livros, arquivos e duvidas frequentes.",
     },
     {
       type: "route",
@@ -66,7 +90,7 @@ export const appSidebarConfig: SidebarConfig = {
 
 export const studentSidebarConfig: SidebarConfig = {
   badge: "Painel do Aluno",
-  title: "Portal dos Estudos Espiritas Online",
+  title: "Educacao Continuada",
   description: "Acesso simples a encontros, materiais, duvidas e progresso.",
   footerTitle: "Estudo com apoio humano",
   footerDescription:
@@ -95,7 +119,7 @@ export const studentSidebarConfig: SidebarConfig = {
       type: "section",
       targetId: "materiais-da-semana",
       label: "Materiais",
-      description: "Ver os materiais e a leitura recomendada da semana.",
+      description: "Ver materiais de apoio, resumos e leitura recomendada do livro selecionado.",
     },
     {
       type: "section",
@@ -109,12 +133,18 @@ export const studentSidebarConfig: SidebarConfig = {
       label: "Meu progresso",
       description: "Acompanhar presenca, aulas e constancia.",
     },
+    {
+      type: "route",
+      to: "/materiais",
+      label: "Materiais dos livros",
+      description: "Abrir a biblioteca com resumos curtos e arquivos do estudo.",
+    },
   ],
 };
 
 export const teacherSidebarConfig: SidebarConfig = {
   badge: "Painel do Professor",
-  title: "Portal dos Estudos Espiritas Online",
+  title: "Educacao Continuada",
   description: "Planejamento da aula, revisao do conteudo e publicacao com cuidado humano.",
   footerTitle: "Revisao antes de publicar",
   footerDescription:
@@ -157,6 +187,12 @@ export const teacherSidebarConfig: SidebarConfig = {
       label: "Configuracoes",
       description: "Conferir aprovacao, rascunho e publicacao final.",
     },
+    {
+      type: "route",
+      to: "/materiais",
+      label: "Materiais dos livros",
+      description: "Abrir a biblioteca com a base de apoio dos grupos.",
+    },
   ],
 };
 
@@ -169,9 +205,33 @@ export const pageMeta = {
     title: "Portal",
     description: "Panorama acolhedor dos grupos, encontros e proximos passos.",
   },
+  "/educacao-continuada": {
+    title: "Educacao Continuada Online",
+    description: "Entrada publica para novos participantes conhecerem os grupos e o proximo passo.",
+  },
+  "/inscricao": {
+    title: "Inscricao",
+    description: "Cadastro simples de interesse para os estudos online.",
+  },
+  "/divulgacao": {
+    title: "Divulgacao do QR Code",
+    description: "Orientacao simples para divulgar o QR Code sem expor o encontro.",
+  },
   "/aluno": {
     title: "Painel do Aluno",
     description: "Encontros, materiais, assistente e progresso em um so lugar.",
+  },
+  "/materiais": {
+    title: "Materiais dos Livros",
+    description: "Biblioteca simples com arquivos curtos para alunos e professores.",
+  },
+  "/materiais/emmanuel": {
+    title: "Materiais de Emmanuel",
+    description: "Arquivos curtos, tags e duvidas frequentes do grupo Emmanuel.",
+  },
+  "/materiais/a-caminho-da-luz": {
+    title: "Materiais de A Caminho da Luz",
+    description: "Arquivos curtos, tags e duvidas frequentes do grupo A Caminho da Luz.",
   },
   "/professor": {
     title: "Painel do Professor",
@@ -207,6 +267,56 @@ export const pageSections: Record<string, PageSectionContext[]> = {
       label: "Orientacoes",
     },
   ],
+  "/educacao-continuada": [
+    {
+      targetId: "educacao-continuada-inicio",
+      label: "Inicio",
+    },
+    {
+      targetId: "educacao-continuada-proposta",
+      label: "Proposta",
+    },
+    {
+      targetId: "educacao-continuada-grupos",
+      label: "Grupos",
+    },
+    {
+      targetId: "educacao-continuada-acoes",
+      label: "Proximo passo",
+    },
+  ],
+  "/inscricao": [
+    {
+      targetId: "inscricao-inicio",
+      label: "Inicio",
+    },
+    {
+      targetId: "inscricao-formulario",
+      label: "Formulario",
+    },
+  ],
+  "/divulgacao": [
+    {
+      targetId: "divulgacao-inicio",
+      label: "Inicio",
+    },
+    {
+      targetId: "divulgacao-orientacao",
+      label: "URL recomendada",
+    },
+    {
+      targetId: "divulgacao-cartaz",
+      label: "Texto do cartaz",
+    },
+    {
+      targetId: "divulgacao-motivos",
+      label: "Motivos",
+    },
+    {
+      targetId: "divulgacao-acoes",
+      label: "Acessos rapidos",
+    },
+  ],
   "/aluno": [
     {
       targetId: "aluno-inicio",
@@ -232,7 +342,7 @@ export const pageSections: Record<string, PageSectionContext[]> = {
     },
     {
       targetId: "materiais-da-semana",
-      label: "Materiais",
+      label: "Materiais de apoio",
     },
     {
       targetId: "aluno-resumo",
@@ -242,6 +352,56 @@ export const pageSections: Record<string, PageSectionContext[]> = {
     {
       targetId: "meu-progresso",
       label: "Progresso",
+    },
+  ],
+  "/materiais": [
+    {
+      targetId: "materiais-inicio",
+      label: "Inicio",
+    },
+    {
+      targetId: "materiais-grupos",
+      label: "Livros",
+    },
+    {
+      targetId: "materiais-aviso",
+      label: "Revisao humana",
+    },
+  ],
+  "/materiais/emmanuel": [
+    {
+      targetId: "materiais-inicio",
+      label: "Inicio",
+    },
+    {
+      targetId: "materiais-arquivos",
+      label: "Arquivos",
+    },
+    {
+      targetId: "materiais-duvidas",
+      label: "Duvidas frequentes",
+    },
+    {
+      targetId: "materiais-aviso",
+      label: "Revisao humana",
+    },
+  ],
+  "/materiais/a-caminho-da-luz": [
+    {
+      targetId: "materiais-inicio",
+      label: "Inicio",
+    },
+    {
+      targetId: "materiais-arquivos",
+      label: "Arquivos",
+    },
+    {
+      targetId: "materiais-duvidas",
+      label: "Duvidas frequentes",
+    },
+    {
+      targetId: "materiais-aviso",
+      label: "Revisao humana",
     },
   ],
   "/professor": [

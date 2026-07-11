@@ -1,4 +1,5 @@
 import { Button } from "../ui/Button";
+import { BrandLogo } from "./BrandLogo";
 
 interface MobileHeaderProps {
   title: string;
@@ -16,8 +17,13 @@ export const MobileHeader = ({
   return (
     <header className="mobile-header">
       <div className="mobile-header__brand">
-        <span className="mobile-header__eyebrow">Portal de estudos</span>
-        <strong>{title}</strong>
+        <div className="mobile-header__brand-row">
+          <BrandLogo className="mobile-header__logo" compact />
+          <div className="mobile-header__brand-copy">
+            <span className="mobile-header__eyebrow">Programa online</span>
+            <strong>{title}</strong>
+          </div>
+        </div>
         <p>{description}</p>
       </div>
       <Button

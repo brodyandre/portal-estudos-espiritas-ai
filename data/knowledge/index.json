@@ -1,0 +1,725 @@
+{
+  "version": 2,
+  "updatedAt": "2026-07-10",
+  "description": "Catalogo da base de conhecimento em Markdown autoral para os grupos Emmanuel e A Caminho da Luz, com arquivos compartilhados de apoio e governanca.",
+  "books": [
+    "Emmanuel",
+    "A Caminho da Luz"
+  ],
+  "contentTypes": [
+    "readme",
+    "orientacoes",
+    "demo",
+    "visao_geral",
+    "tema",
+    "capitulo",
+    "faq",
+    "palavras_chave"
+  ],
+  "files": [
+    {
+      "id": "knowledge-readme",
+      "title": "README da base de conhecimento",
+      "group": "Compartilhado",
+      "book": "Base compartilhada",
+      "filename": "README.md",
+      "path": "data/knowledge/README.md",
+      "type": "readme",
+      "tags": [
+        "base de conhecimento",
+        "governanca",
+        "markdown",
+        "direitos autorais",
+        "revisao humana"
+      ],
+      "description": "Documentacao geral da base em Markdown, com regras de autoria, uso de PDFs e organizacao por grupo.",
+      "sensitiveTopics": [],
+      "teacherReviewRecommended": false
+    },
+    {
+      "id": "orientacoes-do-grupo",
+      "title": "Orientacoes do grupo",
+      "group": "Compartilhado",
+      "book": "Base compartilhada",
+      "filename": "orientacoes_do_grupo.md",
+      "path": "data/knowledge/orientacoes_do_grupo.md",
+      "type": "orientacoes",
+      "tags": [
+        "orientacoes",
+        "convivio",
+        "prece",
+        "google meet",
+        "assistente de estudo",
+        "organizacao do grupo"
+      ],
+      "description": "Orientacoes curtas de convivio, participacao e uso responsavel do apoio ao estudo.",
+      "sensitiveTopics": [],
+      "teacherReviewRecommended": false
+    },
+    {
+      "id": "emmanuel-demo",
+      "title": "Leitura demonstrativa - Emmanuel",
+      "group": "Emmanuel",
+      "book": "Emmanuel",
+      "filename": "emmanuel_demo.md",
+      "path": "data/knowledge/emmanuel_demo.md",
+      "type": "demo",
+      "tags": [
+        "emmanuel",
+        "leitura demonstrativa",
+        "constancia",
+        "estudo da semana",
+        "pergunta curta"
+      ],
+      "description": "Material demonstrativo curto para acolher o estudo semanal do grupo Emmanuel.",
+      "sensitiveTopics": [],
+      "teacherReviewRecommended": false
+    },
+    {
+      "id": "a-caminho-da-luz-demo",
+      "title": "Leitura demonstrativa - A Caminho da Luz",
+      "group": "A Caminho da Luz",
+      "book": "A Caminho da Luz",
+      "filename": "a_caminho_da_luz_demo.md",
+      "path": "data/knowledge/a_caminho_da_luz_demo.md",
+      "type": "demo",
+      "tags": [
+        "a caminho da luz",
+        "leitura demonstrativa",
+        "escuta",
+        "convivio",
+        "estudo da semana"
+      ],
+      "description": "Material demonstrativo curto para acolher o estudo semanal do grupo A Caminho da Luz.",
+      "sensitiveTopics": [],
+      "teacherReviewRecommended": false
+    },
+    {
+      "id": "emmanuel-folder-readme",
+      "title": "README da pasta Emmanuel",
+      "group": "Emmanuel",
+      "book": "Emmanuel",
+      "filename": "README.md",
+      "path": "data/knowledge/emmanuel/README.md",
+      "type": "readme",
+      "tags": [
+        "emmanuel",
+        "readme",
+        "catalogo local",
+        "governanca",
+        "revisao humana"
+      ],
+      "description": "Resumo da organizacao interna dos arquivos do grupo Emmanuel e dos cuidados editoriais da pasta.",
+      "sensitiveTopics": [],
+      "teacherReviewRecommended": false
+    },
+    {
+      "id": "emmanuel-visao-geral-legado",
+      "title": "Visao geral inicial do estudo Emmanuel",
+      "group": "Emmanuel",
+      "book": "Emmanuel",
+      "filename": "visao_geral.md",
+      "path": "data/knowledge/emmanuel/visao_geral.md",
+      "type": "visao_geral",
+      "tags": [
+        "emmanuel",
+        "visao geral",
+        "estudo em grupo",
+        "leitura calma",
+        "pratica no cotidiano"
+      ],
+      "description": "Panorama inicial do estudo Emmanuel com foco em acolhimento, constancia e aplicacao pratica.",
+      "sensitiveTopics": [],
+      "teacherReviewRecommended": false
+    },
+    {
+      "id": "emmanuel-temas-centrais-legado",
+      "title": "Temas centrais do estudo Emmanuel",
+      "group": "Emmanuel",
+      "book": "Emmanuel",
+      "filename": "temas_centrais.md",
+      "path": "data/knowledge/emmanuel/temas_centrais.md",
+      "type": "tema",
+      "tags": [
+        "emmanuel",
+        "temas centrais",
+        "constancia",
+        "escuta",
+        "convivio"
+      ],
+      "description": "Mapa inicial dos principais eixos de conversa do grupo Emmanuel.",
+      "sensitiveTopics": [],
+      "teacherReviewRecommended": false
+    },
+    {
+      "id": "emmanuel-duvidas-frequentes-legado",
+      "title": "Duvidas frequentes do estudo Emmanuel",
+      "group": "Emmanuel",
+      "book": "Emmanuel",
+      "filename": "duvidas_frequentes.md",
+      "path": "data/knowledge/emmanuel/duvidas_frequentes.md",
+      "type": "faq",
+      "tags": [
+        "emmanuel",
+        "faq",
+        "duvidas comuns",
+        "professor",
+        "estudo semanal"
+      ],
+      "description": "Perguntas iniciais do grupo Emmanuel para respostas curtas e revisaveis.",
+      "sensitiveTopics": [],
+      "teacherReviewRecommended": false
+    },
+    {
+      "id": "emmanuel-palavras-chave-legado",
+      "title": "Palavras-chave do estudo Emmanuel",
+      "group": "Emmanuel",
+      "book": "Emmanuel",
+      "filename": "palavras_chave.md",
+      "path": "data/knowledge/emmanuel/palavras_chave.md",
+      "type": "palavras_chave",
+      "tags": [
+        "emmanuel",
+        "palavras-chave",
+        "sinonimos",
+        "busca simples",
+        "linguagem natural"
+      ],
+      "description": "Lista inicial de termos e sinonimos para perguntas naturais do grupo Emmanuel.",
+      "sensitiveTopics": [],
+      "teacherReviewRecommended": false
+    },
+    {
+      "id": "emmanuel-tema-constancia",
+      "title": "Emmanuel - constancia no estudo",
+      "group": "Emmanuel",
+      "book": "Emmanuel",
+      "filename": "emmanuel_tema_constancia.md",
+      "path": "data/knowledge/emmanuel/emmanuel_tema_constancia.md",
+      "type": "tema",
+      "tags": [
+        "emmanuel",
+        "constancia",
+        "regularidade",
+        "perseveranca",
+        "revisao da semana"
+      ],
+      "description": "Tema curto sobre regularidade, perseveranca e retorno sereno ao estudo.",
+      "sensitiveTopics": [],
+      "teacherReviewRecommended": false
+    },
+    {
+      "id": "emmanuel-tema-estudo-sereno",
+      "title": "Emmanuel - estudo sereno",
+      "group": "Emmanuel",
+      "book": "Emmanuel",
+      "filename": "emmanuel_tema_estudo_sereno.md",
+      "path": "data/knowledge/emmanuel/emmanuel_tema_estudo_sereno.md",
+      "type": "tema",
+      "tags": [
+        "emmanuel",
+        "estudo sereno",
+        "leitura calma",
+        "sem pressa",
+        "paciencia no estudo"
+      ],
+      "description": "Tema curto sobre leitura calma, paciencia e compreensao sem pressa.",
+      "sensitiveTopics": [],
+      "teacherReviewRecommended": false
+    },
+    {
+      "id": "emmanuel-tema-escuta-respeitosa",
+      "title": "Emmanuel - escuta respeitosa",
+      "group": "Emmanuel",
+      "book": "Emmanuel",
+      "filename": "emmanuel_tema_escuta_respeitosa.md",
+      "path": "data/knowledge/emmanuel/emmanuel_tema_escuta_respeitosa.md",
+      "type": "tema",
+      "tags": [
+        "emmanuel",
+        "escuta respeitosa",
+        "ouvir o outro",
+        "nao interromper",
+        "acolhimento"
+      ],
+      "description": "Tema curto sobre escuta respeitosa, participacao equilibrada e acolhimento no encontro.",
+      "sensitiveTopics": [],
+      "teacherReviewRecommended": false
+    },
+    {
+      "id": "emmanuel-tema-aplicacao-pratica",
+      "title": "Emmanuel - aplicacao pratica",
+      "group": "Emmanuel",
+      "book": "Emmanuel",
+      "filename": "emmanuel_tema_aplicacao_pratica.md",
+      "path": "data/knowledge/emmanuel/emmanuel_tema_aplicacao_pratica.md",
+      "type": "tema",
+      "tags": [
+        "emmanuel",
+        "aplicacao pratica",
+        "vida diaria",
+        "atitude concreta",
+        "cotidiano"
+      ],
+      "description": "Tema curto sobre levar o estudo para atitudes concretas no cotidiano.",
+      "sensitiveTopics": [],
+      "teacherReviewRecommended": false
+    },
+    {
+      "id": "emmanuel-tema-convivio-fraterno",
+      "title": "Emmanuel - convivio fraterno",
+      "group": "Emmanuel",
+      "book": "Emmanuel",
+      "filename": "emmanuel_tema_convivio_fraterno.md",
+      "path": "data/knowledge/emmanuel/emmanuel_tema_convivio_fraterno.md",
+      "type": "tema",
+      "tags": [
+        "emmanuel",
+        "convivio fraterno",
+        "acolhimento",
+        "cooperacao",
+        "ambiente do grupo"
+      ],
+      "description": "Tema curto sobre clima do grupo, cooperacao e fraternidade no estudo.",
+      "sensitiveTopics": [],
+      "teacherReviewRecommended": false
+    },
+    {
+      "id": "emmanuel-capitulo-01",
+      "title": "Emmanuel - capitulo 1 - almas enfraquecidas",
+      "group": "Emmanuel",
+      "book": "Emmanuel",
+      "filename": "emmanuel_capitulo_01.md",
+      "path": "data/knowledge/emmanuel/emmanuel_capitulo_01.md",
+      "type": "capitulo",
+      "tags": [
+        "emmanuel",
+        "capitulo 1",
+        "almas enfraquecidas",
+        "fragilidade",
+        "acolhimento"
+      ],
+      "description": "Capitulo curto sobre fragilidade humana, acolhimento e prudencia ao tratar sofrimento.",
+      "sensitiveTopics": [
+        "sofrimento",
+        "mediunidade",
+        "conflitos pessoais"
+      ],
+      "teacherReviewRecommended": true
+    },
+    {
+      "id": "emmanuel-capitulo-02",
+      "title": "Emmanuel - capitulo 2 - ascendencia do Evangelho",
+      "group": "Emmanuel",
+      "book": "Emmanuel",
+      "filename": "emmanuel_capitulo_02.md",
+      "path": "data/knowledge/emmanuel/emmanuel_capitulo_02.md",
+      "type": "capitulo",
+      "tags": [
+        "emmanuel",
+        "capitulo 2",
+        "ascendencia do evangelho",
+        "influencia moral",
+        "valores espirituais"
+      ],
+      "description": "Capitulo curto sobre a influencia moral do Evangelho e a necessidade de leitura prudente.",
+      "sensitiveTopics": [
+        "mediunidade",
+        "reencarnacao",
+        "instituicoes religiosas"
+      ],
+      "teacherReviewRecommended": true
+    },
+    {
+      "id": "emmanuel-capitulo-03",
+      "title": "Emmanuel - capitulo 3 - Roma e humanidade",
+      "group": "Emmanuel",
+      "book": "Emmanuel",
+      "filename": "emmanuel_capitulo_03.md",
+      "path": "data/knowledge/emmanuel/emmanuel_capitulo_03.md",
+      "type": "capitulo",
+      "tags": [
+        "emmanuel",
+        "capitulo 3",
+        "roma e humanidade",
+        "historia",
+        "instituicoes"
+      ],
+      "description": "Capitulo curto sobre leitura historica, cultura e instituicoes com respeito e sem confrontos simplistas.",
+      "sensitiveTopics": [
+        "instituicoes religiosas"
+      ],
+      "teacherReviewRecommended": true
+    },
+    {
+      "id": "emmanuel-capitulo-04",
+      "title": "Emmanuel - capitulo 4 - base religiosa",
+      "group": "Emmanuel",
+      "book": "Emmanuel",
+      "filename": "emmanuel_capitulo_04.md",
+      "path": "data/knowledge/emmanuel/emmanuel_capitulo_04.md",
+      "type": "capitulo",
+      "tags": [
+        "emmanuel",
+        "capitulo 4",
+        "base religiosa",
+        "fundamento espiritual",
+        "valores"
+      ],
+      "description": "Capitulo curto sobre fundamento religioso, valores espirituais e respeito entre tradicoes.",
+      "sensitiveTopics": [
+        "instituicoes religiosas",
+        "reencarnacao"
+      ],
+      "teacherReviewRecommended": true
+    },
+    {
+      "id": "emmanuel-capitulo-05",
+      "title": "Emmanuel - capitulo 5 - necessidade da experiencia",
+      "group": "Emmanuel",
+      "book": "Emmanuel",
+      "filename": "emmanuel_capitulo_05.md",
+      "path": "data/knowledge/emmanuel/emmanuel_capitulo_05.md",
+      "type": "capitulo",
+      "tags": [
+        "emmanuel",
+        "capitulo 5",
+        "necessidade da experiencia",
+        "vivencia",
+        "amadurecimento"
+      ],
+      "description": "Capitulo curto sobre amadurecimento pela vivencia e ligacao entre estudo e pratica.",
+      "sensitiveTopics": [
+        "sofrimento",
+        "conflitos pessoais"
+      ],
+      "teacherReviewRecommended": true
+    },
+    {
+      "id": "emmanuel-capitulo-06",
+      "title": "Emmanuel - capitulo 6 - revivescencia do Cristianismo",
+      "group": "Emmanuel",
+      "book": "Emmanuel",
+      "filename": "emmanuel_capitulo_06.md",
+      "path": "data/knowledge/emmanuel/emmanuel_capitulo_06.md",
+      "type": "capitulo",
+      "tags": [
+        "emmanuel",
+        "capitulo 6",
+        "revivescencia do cristianismo",
+        "renovacao interior",
+        "valores cristaos"
+      ],
+      "description": "Capitulo curto sobre renovacao interior e pratica de valores cristaos com prudencia historica e institucional.",
+      "sensitiveTopics": [
+        "instituicoes religiosas",
+        "mediunidade"
+      ],
+      "teacherReviewRecommended": true
+    },
+    {
+      "id": "emmanuel-duvidas-frequentes",
+      "title": "Emmanuel - duvidas frequentes",
+      "group": "Emmanuel",
+      "book": "Emmanuel",
+      "filename": "emmanuel_duvidas_frequentes.md",
+      "path": "data/knowledge/emmanuel/emmanuel_duvidas_frequentes.md",
+      "type": "faq",
+      "tags": [
+        "emmanuel",
+        "faq",
+        "duvidas frequentes",
+        "respostas prudentes",
+        "professor"
+      ],
+      "description": "FAQ padronizado do grupo Emmanuel com perguntas recorrentes e orientacao de revisao humana.",
+      "sensitiveTopics": [
+        "sofrimento",
+        "mediunidade",
+        "reencarnacao",
+        "instituicoes religiosas",
+        "conflitos pessoais"
+      ],
+      "teacherReviewRecommended": true
+    },
+    {
+      "id": "emmanuel-palavras-chave",
+      "title": "Emmanuel - palavras-chave para busca",
+      "group": "Emmanuel",
+      "book": "Emmanuel",
+      "filename": "emmanuel_palavras_chave.md",
+      "path": "data/knowledge/emmanuel/emmanuel_palavras_chave.md",
+      "type": "palavras_chave",
+      "tags": [
+        "emmanuel",
+        "palavras-chave",
+        "sinonimos",
+        "busca",
+        "linguagem natural"
+      ],
+      "description": "Vocabulário padronizado do grupo Emmanuel para melhorar busca simples, sinonimos e perguntas naturais.",
+      "sensitiveTopics": [
+        "sofrimento",
+        "mediunidade",
+        "reencarnacao",
+        "instituicoes religiosas",
+        "conflitos pessoais"
+      ],
+      "teacherReviewRecommended": true
+    },
+    {
+      "id": "a-caminho-da-luz-folder-readme",
+      "title": "README da pasta A Caminho da Luz",
+      "group": "A Caminho da Luz",
+      "book": "A Caminho da Luz",
+      "filename": "README.md",
+      "path": "data/knowledge/a_caminho_da_luz/README.md",
+      "type": "readme",
+      "tags": [
+        "a caminho da luz",
+        "readme",
+        "catalogo local",
+        "governanca",
+        "revisao humana"
+      ],
+      "description": "Resumo da organizacao interna dos arquivos do grupo A Caminho da Luz e dos cuidados editoriais da pasta.",
+      "sensitiveTopics": [],
+      "teacherReviewRecommended": false
+    },
+    {
+      "id": "a-caminho-da-luz-visao-geral-legado",
+      "title": "Visao geral inicial do estudo A Caminho da Luz",
+      "group": "A Caminho da Luz",
+      "book": "A Caminho da Luz",
+      "filename": "visao_geral.md",
+      "path": "data/knowledge/a_caminho_da_luz/visao_geral.md",
+      "type": "visao_geral",
+      "tags": [
+        "a caminho da luz",
+        "visao geral",
+        "escuta",
+        "convivio",
+        "vida pratica"
+      ],
+      "description": "Panorama inicial do estudo A Caminho da Luz com foco em convivio respeitoso e revisao humana.",
+      "sensitiveTopics": [],
+      "teacherReviewRecommended": false
+    },
+    {
+      "id": "a-caminho-da-luz-temas-centrais-legado",
+      "title": "Temas centrais do estudo A Caminho da Luz",
+      "group": "A Caminho da Luz",
+      "book": "A Caminho da Luz",
+      "filename": "temas_centrais.md",
+      "path": "data/knowledge/a_caminho_da_luz/temas_centrais.md",
+      "type": "tema",
+      "tags": [
+        "a caminho da luz",
+        "temas centrais",
+        "convivio fraterno",
+        "escuta",
+        "responsabilidade"
+      ],
+      "description": "Mapa inicial dos principais eixos de conversa do grupo A Caminho da Luz.",
+      "sensitiveTopics": [],
+      "teacherReviewRecommended": false
+    },
+    {
+      "id": "a-caminho-da-luz-duvidas-frequentes-legado",
+      "title": "Duvidas frequentes do estudo A Caminho da Luz",
+      "group": "A Caminho da Luz",
+      "book": "A Caminho da Luz",
+      "filename": "duvidas_frequentes.md",
+      "path": "data/knowledge/a_caminho_da_luz/duvidas_frequentes.md",
+      "type": "faq",
+      "tags": [
+        "a caminho da luz",
+        "faq",
+        "duvidas comuns",
+        "professor",
+        "preparacao"
+      ],
+      "description": "Perguntas iniciais do grupo A Caminho da Luz para respostas curtas e revisaveis.",
+      "sensitiveTopics": [],
+      "teacherReviewRecommended": false
+    },
+    {
+      "id": "a-caminho-da-luz-palavras-chave-legado",
+      "title": "Palavras-chave do estudo A Caminho da Luz",
+      "group": "A Caminho da Luz",
+      "book": "A Caminho da Luz",
+      "filename": "palavras_chave.md",
+      "path": "data/knowledge/a_caminho_da_luz/palavras_chave.md",
+      "type": "palavras_chave",
+      "tags": [
+        "a caminho da luz",
+        "palavras-chave",
+        "sinonimos",
+        "busca simples",
+        "linguagem natural"
+      ],
+      "description": "Lista inicial de termos e sinonimos para perguntas naturais do grupo A Caminho da Luz.",
+      "sensitiveTopics": [],
+      "teacherReviewRecommended": false
+    },
+    {
+      "id": "a-caminho-da-luz-visao-geral",
+      "title": "A Caminho da Luz - visao geral da obra",
+      "group": "A Caminho da Luz",
+      "book": "A Caminho da Luz",
+      "filename": "a_caminho_da_luz_visao_geral.md",
+      "path": "data/knowledge/a_caminho_da_luz/a_caminho_da_luz_visao_geral.md",
+      "type": "visao_geral",
+      "tags": [
+        "a caminho da luz",
+        "visao geral da obra",
+        "historia espiritual",
+        "reflexao moral",
+        "responsabilidade"
+      ],
+      "description": "Visao geral padronizada da obra A Caminho da Luz para acolher estudo, leitura historica prudente e revisao interior.",
+      "sensitiveTopics": [],
+      "teacherReviewRecommended": false
+    },
+    {
+      "id": "a-caminho-da-luz-historia-espiritual",
+      "title": "A Caminho da Luz - historia espiritual da humanidade",
+      "group": "A Caminho da Luz",
+      "book": "A Caminho da Luz",
+      "filename": "a_caminho_da_luz_tema_historia_espiritual.md",
+      "path": "data/knowledge/a_caminho_da_luz/a_caminho_da_luz_tema_historia_espiritual.md",
+      "type": "tema",
+      "tags": [
+        "a caminho da luz",
+        "historia espiritual",
+        "humanidade",
+        "aprendizado coletivo",
+        "responsabilidade moral"
+      ],
+      "description": "Tema curto sobre leitura espiritual e moral da historia humana, sem conclusoes fechadas.",
+      "sensitiveTopics": [
+        "reencarnacao"
+      ],
+      "teacherReviewRecommended": true
+    },
+    {
+      "id": "a-caminho-da-luz-civilizacoes-antigas",
+      "title": "A Caminho da Luz - civilizacoes antigas",
+      "group": "A Caminho da Luz",
+      "book": "A Caminho da Luz",
+      "filename": "a_caminho_da_luz_tema_civilizacoes_antigas.md",
+      "path": "data/knowledge/a_caminho_da_luz/a_caminho_da_luz_tema_civilizacoes_antigas.md",
+      "type": "tema",
+      "tags": [
+        "a caminho da luz",
+        "civilizacoes antigas",
+        "capela",
+        "racas adamicas",
+        "prudencia historica"
+      ],
+      "description": "Tema curto sobre culturas antigas com cuidado para evitar leituras racistas, biologizantes ou deterministas.",
+      "sensitiveTopics": [
+        "Capela",
+        "racas adamicas"
+      ],
+      "teacherReviewRecommended": true
+    },
+    {
+      "id": "a-caminho-da-luz-jesus-evangelho",
+      "title": "A Caminho da Luz - Jesus e Evangelho como eixo moral",
+      "group": "A Caminho da Luz",
+      "book": "A Caminho da Luz",
+      "filename": "a_caminho_da_luz_tema_jesus_e_evangelho.md",
+      "path": "data/knowledge/a_caminho_da_luz/a_caminho_da_luz_tema_jesus_e_evangelho.md",
+      "type": "tema",
+      "tags": [
+        "a caminho da luz",
+        "jesus",
+        "evangelho",
+        "eixo moral",
+        "caridade"
+      ],
+      "description": "Tema curto sobre o Evangelho como referencia de vida, revisao interior e pratica do bem.",
+      "sensitiveTopics": [
+        "mediunidade",
+        "reencarnacao",
+        "instituicoes religiosas"
+      ],
+      "teacherReviewRecommended": true
+    },
+    {
+      "id": "a-caminho-da-luz-transicoes-crises",
+      "title": "A Caminho da Luz - transicoes, crises e responsabilidade moral",
+      "group": "A Caminho da Luz",
+      "book": "A Caminho da Luz",
+      "filename": "a_caminho_da_luz_tema_transicoes_e_crises.md",
+      "path": "data/knowledge/a_caminho_da_luz/a_caminho_da_luz_tema_transicoes_e_crises.md",
+      "type": "tema",
+      "tags": [
+        "a caminho da luz",
+        "transicoes",
+        "crises",
+        "responsabilidade moral",
+        "discernimento"
+      ],
+      "description": "Tema curto sobre mudancas historicas, crises e responsabilidade moral em tempos dificeis.",
+      "sensitiveTopics": [
+        "crises",
+        "instituicoes religiosas",
+        "conflitos pessoais"
+      ],
+      "teacherReviewRecommended": true
+    },
+    {
+      "id": "a-caminho-da-luz-espiritismo-futuro",
+      "title": "A Caminho da Luz - Espiritismo, Evangelho e futuro da humanidade",
+      "group": "A Caminho da Luz",
+      "book": "A Caminho da Luz",
+      "filename": "a_caminho_da_luz_tema_espiritismo_e_futuro.md",
+      "path": "data/knowledge/a_caminho_da_luz/a_caminho_da_luz_tema_espiritismo_e_futuro.md",
+      "type": "tema",
+      "tags": [
+        "a caminho da luz",
+        "espiritismo",
+        "evangelho",
+        "futuro da humanidade",
+        "esperanca prudente"
+      ],
+      "description": "Tema curto sobre esperanca, responsabilidade e futuro sem determinismo nem previsoes fechadas.",
+      "sensitiveTopics": [
+        "futuro",
+        "mediunidade",
+        "reencarnacao",
+        "instituicoes religiosas"
+      ],
+      "teacherReviewRecommended": true
+    },
+    {
+      "id": "a-caminho-da-luz-duvidas-frequentes",
+      "title": "A Caminho da Luz - duvidas frequentes",
+      "group": "A Caminho da Luz",
+      "book": "A Caminho da Luz",
+      "filename": "a_caminho_da_luz_duvidas_frequentes.md",
+      "path": "data/knowledge/a_caminho_da_luz/a_caminho_da_luz_duvidas_frequentes.md",
+      "type": "faq",
+      "tags": [
+        "a caminho da luz",
+        "faq",
+        "duvidas frequentes",
+        "capela",
+        "futuro"
+      ],
+      "description": "FAQ padronizado do grupo A Caminho da Luz com perguntas recorrentes e alerta de revisao humana em temas sensiveis.",
+      "sensitiveTopics": [
+        "Capela",
+        "racas adamicas",
+        "sofrimento",
+        "mediunidade",
+        "reencarnacao",
+        "instituicoes religiosas",
+        "futuro"
+      ],
+      "teacherReviewRecommended": true
+    }
+  ]
+}

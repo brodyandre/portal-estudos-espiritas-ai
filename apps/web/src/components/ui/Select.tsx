@@ -12,6 +12,7 @@ interface SelectProps extends Omit<SelectHTMLAttributes<HTMLSelectElement>, "chi
   label: string;
   options: SelectOption[];
   helperText?: string;
+  error?: string;
 }
 
 export const Select = ({
@@ -19,20 +20,22 @@ export const Select = ({
   label,
   options,
   helperText,
+  error,
   className,
   ...rest
 }: SelectProps) => {
   return (
     <label className={cn("field", className)} htmlFor={id}>
       <span className="field__label">{label}</span>
-      <select className="field__control" id={id} {...rest}>
+      <select className={cn("field__control", error && "field__control--error")} id={id} {...rest}>
         {options.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}
           </option>
         ))}
       </select>
-      {helperText ? <span className="field__message">{helperText}</span> : null}
+      {error ? <span className="field__message field__message--error">{error}</span> : null}
+      {!error && helperText ? <span className="field__message">{helperText}</span> : null}
     </label>
   );
 };
