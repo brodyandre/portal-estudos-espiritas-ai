@@ -22,6 +22,7 @@ Grupos de estudo online costumam espalhar informacoes entre links, mensagens, re
 
 - Home com apresentacao do projeto e acesso rapido para Portal, Aluno e Professor
 - Pagina `/portal` compartilhavel, sem login e pronta para GitHub Pages
+- Paginas `/educacao-continuada`, `/inscricao` e `/divulgacao` para acolhimento e divulgacao de novos alunos
 - Painel `/aluno` com proxima aula, materiais de apoio, assistente, duvidas, resumo e progresso
 - Painel `/professor` com selecao de livro, base de apoio da aula, geracao de rascunhos, revisao e publicacao local
 - Paginas de materiais com navegacao para os livros `Emmanuel` e `A Caminho da Luz`
@@ -205,6 +206,7 @@ O que fica publicado:
 
 - Home
 - Portal
+- entrada publica para QR Code e inscricao
 - Painel do Aluno
 - Painel do Professor
 - paginas de materiais
@@ -222,6 +224,35 @@ Na pratica:
 
 - o site publicado continua navegavel e util sem backend
 - a experiencia completa de respostas e busca na base roda melhor com a API local
+
+## Fluxo de entrada de novos alunos
+
+Nesta fase, o projeto usa um fluxo simples para receber novos participantes sem expor o Google Meet publicamente.
+
+Como funciona:
+
+1. o novo aluno escaneia o QR Code do cartaz
+2. o QR Code aponta para `/#/educacao-continuada`
+3. o visitante conhece os grupos e segue para `/#/inscricao`
+4. o cadastro coleta apenas dados minimos de contato e interesse
+5. o professor revisa a solicitacao no painel
+6. o aluno aprovado acessa a area do aluno e o link da aula
+
+Regras importantes:
+
+- o Google Meet nao deve ser exposto publicamente
+- o QR Code deve apontar para `/educacao-continuada`
+- professores revisam as solicitacoes antes de liberar o encontro
+- temas sensiveis continuam exigindo revisao humana
+- o MVP usa controle simples de acesso no frontend
+- autenticacao real e melhoria futura
+
+Exemplo de fluxo:
+
+- novo aluno escaneia o QR Code
+- preenche a inscricao
+- professor aprova
+- aluno acessa materiais e link da aula
 
 ## Uso sem Ollama
 

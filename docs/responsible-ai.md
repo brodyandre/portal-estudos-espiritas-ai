@@ -65,12 +65,33 @@ Nota editorial do projeto:
 - a resposta do assistente e apoio inicial
 - perguntas importantes devem ser confirmadas com o professor
 - a interface nao deve ser tratada como fonte definitiva
+- o acesso ao encontro nao deve ser liberado publicamente sem revisao humana
 
 ### Para o professor
 
 - roteiro, perguntas e resumo nascem como rascunho
 - o professor revisa, ajusta e aprova antes de publicar
 - temas sensiveis exigem leitura ainda mais cuidadosa
+- solicitacoes de novos alunos devem ser revisadas antes de liberar a area do aluno e o link da aula
+
+## Cadastro e privacidade minima
+
+No fluxo atual:
+
+- o QR Code deve apontar para `/#/educacao-continuada`
+- o Google Meet nao deve ser exposto publicamente
+- o cadastro coleta apenas dados minimos
+- a aprovacao do professor acontece antes do acesso ao encontro
+
+Dados minimos esperados:
+
+- nome completo
+- email
+- WhatsApp
+- grupo de interesse
+- mensagem curta opcional
+
+Esse fluxo existe para acolher melhor o novo aluno sem ampliar a coleta de dados.
 
 ## Temas sensiveis
 
@@ -107,6 +128,7 @@ Nota importante:
 - esse controle local de acesso nao e autenticacao real
 - ele existe apenas para demonstrar que o link da aula deve ficar restrito a alunos aprovados
 - em producao, o projeto deve evoluir para autenticacao e autorizacao reais
+- o mesmo vale para aprovacoes feitas em modo demonstrativo no painel do professor
 
 ### Backend local
 

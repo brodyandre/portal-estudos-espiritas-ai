@@ -30,6 +30,8 @@ Fica online:
 
 - home
 - portal compartilhavel
+- pagina publica `/#/educacao-continuada`
+- formulario `/#/inscricao`
 - painel do aluno com controle demonstrativo de acesso no navegador
 - painel do professor em modo funcional
 - paginas de materiais
@@ -62,6 +64,7 @@ Na pratica:
 - o usuario consegue ver grupos, materiais e resumos
 - o assistente e as acoes do professor continuam em modo demonstrativo
 - a area do aluno usa status local `visitor`, `pending` e `approved` apenas como protecao MVP
+- o QR Code pode apontar para `/#/educacao-continuada` sem expor o Google Meet
 
 ## Como rodar localmente antes de publicar
 
@@ -142,6 +145,7 @@ O frontend continua util porque:
 - mostra respostas demonstrativas quando o backend nao esta disponivel
 - nao depende de segredos nem de servicos externos para navegar
 - usa um bloqueio local simples para evitar mostrar o link da aula a visitantes nao aprovados
+- permite demonstrar inscricao, revisao e aprovacao em fluxo local simples
 
 ## Com backend local
 
@@ -159,6 +163,16 @@ Quando voce quiser demonstrar a experiencia completa:
 - os materiais usados no projeto devem ser curtos e autorais
 - respostas e rascunhos devem passar por revisao humana
 - temas sensiveis pedem cuidado reforcado
+- a aprovacao de novos alunos continua dependendo de revisao humana
+
+## Limite atual do MVP
+
+Mesmo com o frontend publicado:
+
+- a autenticacao ainda nao e real
+- a aprovacao do aluno pode ser apenas demonstrativa sem backend
+- o Google Meet nao deve ser tratado como link publico
+- a melhoria futura prevista e autenticacao real com controle de acesso mais robusto
 
 ## Resumo
 

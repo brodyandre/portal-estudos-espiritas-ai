@@ -7,6 +7,7 @@ Documentar o fluxo MVP de entrada de novos alunos a partir do QR Code de um cart
 Neste modelo:
 
 - o QR Code nao leva direto ao Google Meet
+- o QR Code deve apontar para `/#/educacao-continuada`
 - o visitante primeiro acessa uma pagina publica do portal
 - o visitante registra interesse de forma simples
 - o professor revisa o pedido no painel
@@ -43,6 +44,10 @@ No MVP, a pagina publica continua aberta, mas o link do encontro deve ficar rest
 
 O QR Code deve abrir uma pagina publica do portal, como uma rota de boas-vindas ou uma secao publica em `/portal`.
 
+Na implementacao atual do projeto, a rota recomendada e:
+
+- `/#/educacao-continuada`
+
 Essa pagina pode mostrar:
 
 - nome do grupo
@@ -66,13 +71,11 @@ O visitante informa apenas dados minimos e nao sensiveis.
 
 Dados recomendados para o MVP:
 
-- nome como prefere ser chamado
-- primeiro nome ou nome curto
-- cidade e estado, opcional
+- nome completo
 - WhatsApp ou email para contato
 - grupo de interesse
+- indicacao simples se ja participa da casa espirita
 - mensagem curta, opcional
-- como conheceu o grupo, opcional
 
 ### 4. Recebe confirmacao simples
 
@@ -87,6 +90,12 @@ Nao mostrar o link do Meet nesse momento.
 O visitante fica em estado inicial `pending`.
 
 Se o projeto estiver rodando sem backend, esse envio pode ser apenas demonstrativo no frontend. Se o backend local estiver ativo, o registro pode ficar em memoria ou JSON, seguindo o padrao simples do projeto.
+
+No GitHub Pages:
+
+- o formulario funciona em modo demonstrativo
+- a interface pode mostrar a mensagem:
+  `Modo demonstrativo: para aprovação real de alunos, rode o backend local.`
 
 ## Fluxo do professor
 
@@ -162,11 +171,12 @@ O professor continua como referencia principal. O sistema apenas organiza os ped
 
 ### Coletar
 
-- nome como prefere ser chamado
-- forma simples de contato
+- nome completo
+- email
+- WhatsApp
 - grupo de interesse
+- indicacao simples se ja participa da casa espirita
 - mensagem curta opcional
-- cidade e estado opcionais
 
 ### Nao coletar
 
@@ -200,6 +210,8 @@ Isso significa:
 - a pagina publica do QR Code pode existir no frontend estatico
 - o formulario pode funcionar em modo demonstrativo quando a API estiver offline
 - o estado visual pode mostrar que o pedido foi recebido localmente
+- a aprovacao no painel do professor pode ser simulada localmente
+- o acesso do aluno pode usar um bloqueio demonstrativo simples
 - sem backend, o fluxo nao representa liberacao real de acesso
 
 No ambiente com backend local:
@@ -223,7 +235,7 @@ Essas limitacoes sao aceitaveis nesta fase porque o foco e demonstrar fluxo, aco
 
 Passos naturais para uma versao mais madura:
 
-- login real para alunos aprovados
+- autenticacao real para alunos aprovados
 - convites com token temporario
 - aprovacao com historico de revisao
 - persistencia segura em banco de dados

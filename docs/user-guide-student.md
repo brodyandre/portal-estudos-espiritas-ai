@@ -7,6 +7,8 @@ Explicar como usar o painel do aluno de forma simples, tanto no desktop quanto n
 ## Onde acessar
 
 - `/#/portal`: pagina aberta, compartilhavel e sem login
+- `/#/educacao-continuada`: pagina publica para quem chega pelo QR Code
+- `/#/inscricao`: formulario simples de interesse
 - `/#/aluno`: painel completo do aluno
 - `/#/materiais`: acesso rapido aos materiais dos livros
 
@@ -22,7 +24,7 @@ Esses livros aparecem no painel como selecao de grupo ou livro para organizar ma
 No painel do aluno, a experiencia foi organizada para facilitar o estudo semanal:
 
 - proxima aula
-- botao para entrar no Google Meet
+- botao para entrar no Google Meet, quando o acesso ja foi aprovado
 - seletor de grupo ou livro
 - materiais de apoio do livro escolhido
 - assistente de estudo e envio de duvidas
@@ -30,6 +32,16 @@ No painel do aluno, a experiencia foi organizada para facilitar o estudo semanal
 - progresso demonstrativo
 
 ## Como usar
+
+Antes do acesso ao painel completo:
+
+1. escaneie o QR Code ou abra `/#/educacao-continuada`
+2. leia a proposta dos grupos
+3. preencha a inscricao com dados minimos
+4. aguarde a revisao dos professores
+5. depois da aprovacao, abra a area do aluno
+
+Dentro do painel:
 
 1. Escolha o grupo ou livro desejado.
 2. Veja a proxima aula e confira o horario.
@@ -117,6 +129,11 @@ Isso significa que:
 - perguntas frequentes e palavras-chave continuam disponiveis
 - respostas do assistente podem vir de fallback local
 - a navegacao segue funcionando no GitHub Pages
+- o fluxo de inscricao continua funcionando em modo demonstrativo
+
+Quando isso acontecer, a interface pode avisar:
+
+`Modo demonstrativo: para aprovação real de alunos, rode o backend local.`
 
 ## Limites importantes
 
@@ -124,6 +141,7 @@ Isso significa que:
 - a resposta nao deve ser tratada como orientacao final
 - o projeto nao expoe PDFs nem conteudo longo das obras
 - o progresso exibido e apenas ilustrativo
+- o acesso do aluno no MVP usa controle simples, nao autenticacao real
 
 ## Recomendacao final
 

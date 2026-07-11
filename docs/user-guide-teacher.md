@@ -27,6 +27,12 @@ O painel foi desenhado para apoiar estas etapas:
 4. pedir sugestoes de roteiro, perguntas, resumo ou mensagem
 5. revisar, aprovar e salvar localmente
 
+Tambem ha apoio para:
+
+- revisar inscricoes de novos alunos
+- aprovar, recusar ou marcar para conversar
+- orientar a divulgacao correta do QR Code
+
 ## Base de apoio da aula
 
 O card `Base de apoio da aula` lista materiais curtos do grupo selecionado.
@@ -79,6 +85,13 @@ Ela foi pensada para:
 
 Evite colocar o link do Google Meet diretamente no cartaz.
 
+Motivo:
+
+- melhora a organizacao
+- preserva o acolhimento
+- reduz exposicao indevida do encontro
+- facilita o acompanhamento dos novos alunos
+
 Texto sugerido para o cartaz:
 
 `Escaneie o QR Code para conhecer os grupos, fazer sua inscricao e receber o acesso as aulas online.`
@@ -86,6 +99,23 @@ Texto sugerido para o cartaz:
 Se quiser revisar essa orientacao no proprio projeto, abra:
 
 - `/#/divulgacao`
+
+## Como revisar novas inscricoes
+
+No painel do professor, a secao `Novos interessados` ajuda a:
+
+- ver quem preencheu o cadastro
+- filtrar por status
+- filtrar por grupo
+- adicionar observacao curta
+- aprovar, recusar ou marcar para conversar
+
+Regras importantes:
+
+- o cadastro coleta apenas dados minimos
+- o link do Meet nao aparece publicamente
+- a aprovacao libera a area do aluno e o link da aula
+- em modo demonstrativo, a aprovacao local nao substitui um fluxo real de autenticacao
 
 ## Pontos sensiveis
 
@@ -140,6 +170,7 @@ npm run dev:web
 - o frontend continua funcional
 - a base aparece por fallback resumido
 - as respostas e geracoes passam a ser demonstrativas
+- as inscricoes e aprovacoes podem funcionar em modo demonstrativo local
 
 Esse comportamento foi pensado para manter o GitHub Pages util sem expor infraestrutura extra.
 
