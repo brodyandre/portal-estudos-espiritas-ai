@@ -86,6 +86,23 @@ OLLAMA_BASE_URL=http://127.0.0.1:11434
 }
 ```
 
+### Erro de rate limit
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "AUTH_RATE_LIMITED",
+    "message": "Muitas tentativas. Aguarde antes de tentar novamente.",
+    "details": {
+      "retryAfterSeconds": 123
+    }
+  }
+}
+```
+
+Quando aplicável, a API também envia o header `Retry-After`.
+
 ## Endpoints
 
 ### `GET /health`
@@ -197,6 +214,13 @@ Observacoes:
 - `passwordHash` nunca retorna
 - credenciais reais nao devem ser publicadas no frontend do GitHub Pages
 
+Rate limit:
+
+- 5 tentativas inválidas por combinação de IP + e-mail em 15 minutos
+- ao exceder, retorna `429` com `AUTH_RATE_LIMITED`
+- a chave usa e-mail normalizado apenas em memória interna
+- login bem-sucedido limpa o contador dessa identidade
+
 ### `GET /api/auth/me`
 
 Retorna o usuario autenticado com base no token local.
@@ -238,6 +262,13 @@ Enquanto `mustChangePassword` estiver `true`, a API bloqueia as demais rotas aut
   }
 }
 ```
+
+Rate limit:
+
+- 5 tentativas inválidas por usuário em 15 minutos
+- o foco é proteger erros de senha atual incorreta
+- ao exceder, retorna `429` com `PASSWORD_CHANGE_RATE_LIMITED`
+- sucesso na troca limpa o contador do usuário
 
 ### `POST /api/admin/users/:userId/reset-password`
 
@@ -286,6 +317,19 @@ Cuidados:
 - a senha temporária deve ser entregue por canal seguro
 - o endpoint não deve ser usado para auto-reset administrativo
 - `passwordHash` nunca retorna
+
+Rate limit:
+
+- 10 redefinições por admin em 15 minutos
+- limite adicional global para redefinições repetidas do mesmo usuário-alvo, mesmo com admins diferentes
+- ao exceder, retorna `429` com `ADMIN_PASSWORD_RESET_RATE_LIMITED`
+- quando bloqueado, o endpoint não expõe senha temporária
+
+Observação operacional:
+
+- nesta etapa, os contadores ficam apenas em memória
+- ao reiniciar a API, o histórico de tentativas é perdido
+- produção futura deve considerar Redis ou armazenamento distribuído
 
 ### `POST /api/enrollments`
 

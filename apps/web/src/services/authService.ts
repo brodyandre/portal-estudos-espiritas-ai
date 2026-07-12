@@ -1,6 +1,7 @@
 import { appConfig } from "../config/appMode";
 import type { AppUser } from "../auth/types";
 import { clearStoredAuthSession, readStoredAuthToken, writeStoredAuthSession } from "../auth/storage";
+import { formatRetryAfterLabel } from "./api";
 
 const DEFAULT_LOCAL_API_URL = "http://localhost:3333";
 
@@ -8,6 +9,17 @@ interface ApiSuccessBody<T> {
   success: true;
   message: string;
   data: T;
+}
+
+interface ApiErrorBody {
+  success: false;
+  error?: {
+    code?: string;
+    message?: string;
+    details?: {
+      retryAfterSeconds?: number;
+    };
+  };
 }
 
 interface LoginResponse {
@@ -35,16 +47,22 @@ const buildAuthUrl = (path: string) => {
   return new URL(path, `${baseUrl.replace(/\/$/u, "")}/`).toString();
 };
 
+const buildApiErrorMessage = (payload: ApiErrorBody | null, fallbackMessage: string) => {
+  const baseMessage = payload?.error?.message ?? fallbackMessage;
+  const retryAfterSeconds = payload?.error?.details?.retryAfterSeconds;
+
+  if (!retryAfterSeconds) {
+    return baseMessage;
+  }
+
+  return `${baseMessage} Tente novamente em cerca de ${formatRetryAfterLabel(retryAfterSeconds)}.`;
+};
+
 const parseSuccess = async <T>(response: Response): Promise<ApiSuccessBody<T>> => {
-  const payload = (await response.json().catch(() => null)) as ApiSuccessBody<T> | null;
+  const payload = (await response.json().catch(() => null)) as ApiSuccessBody<T> | ApiErrorBody | null;
 
-  if (!response.ok || !payload?.success) {
-    const message =
-      payload && typeof payload === "object" && "error" in payload
-        ? ((payload as { error?: { message?: string } }).error?.message ?? null)
-        : null;
-
-    throw new Error(message ?? "Não foi possível concluir o login local agora.");
+  if (!response.ok || !payload || payload.success !== true) {
+    throw new Error(buildApiErrorMessage(payload as ApiErrorBody | null, "Não foi possível concluir o login local agora."));
   }
 
   return payload;

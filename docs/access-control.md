@@ -149,6 +149,7 @@ Comportamento esperado:
 - pode acompanhar auditoria
 - pode aprovar inscricoes e ativar acesso local quando necessario
 - pode redefinir a senha de outros usuarios no ambiente local
+- sofre limite de redefinicoes administrativas para evitar abuso e excesso de tentativas
 - no ambiente local, autentica pela rota `/login`
 - no MVP atual, a tela `/admin/usuarios` usa acoes simuladas e log mockado local
 - no MVP atual, a tela `/admin/grupos` usa configuracao simulada e nunca expõe o Meet real no frontend publico
@@ -173,6 +174,7 @@ No ambiente local/private do owner:
 - backend roda em `http://localhost:3333`
 - login local usa JWT assinado por `JWT_SECRET`
 - o primeiro acesso do aluno aprovado exige troca da senha temporaria
+- endpoints de credenciais usam rate limiting em memória com `429` e `Retry-After`
 - professor pode revisar interessados
 - aluno aprovado pode acessar a area do aluno
 - aprovacoes locais podem criar ou reativar acesso do aluno no PostgreSQL

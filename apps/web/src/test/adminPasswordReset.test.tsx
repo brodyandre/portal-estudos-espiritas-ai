@@ -248,4 +248,44 @@ describe("admin password reset ui", () => {
       await screen.findByText("Usuário não encontrado para redefinição administrativa de senha."),
     ).toBeInTheDocument();
   });
+
+  it("mostra mensagem de rate limit no reset administrativo", async () => {
+    storeSession("admin", "user-admin-demo");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string) => {
+        if (input.includes("/api/admin/users/user-aluno-demo/reset-password")) {
+          return createJsonResponse(
+            {
+              success: false,
+              error: {
+                code: "ADMIN_PASSWORD_RESET_RATE_LIMITED",
+                message: "Muitas tentativas. Aguarde antes de tentar novamente.",
+                details: {
+                  retryAfterSeconds: 120,
+                },
+              },
+            },
+            false,
+          );
+        }
+
+        if (input.includes("/api/admin/users")) {
+          return createJsonResponse({ success: true, message: "ok", data: adminUsersResponse });
+        }
+
+        return createJsonResponse({ success: true, message: "ok", data: auditResponse });
+      }),
+    );
+
+    renderAdminUsersPage();
+    fireEvent.click(await screen.findByRole("button", { name: /Redefinir senha de Aluno Demonstrativo/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Confirmar redefinição/i }));
+
+    expect(
+      await screen.findByText(
+        "Muitas tentativas. Aguarde antes de tentar novamente. Tente novamente em cerca de 2 minutos.",
+      ),
+    ).toBeInTheDocument();
+  });
 });

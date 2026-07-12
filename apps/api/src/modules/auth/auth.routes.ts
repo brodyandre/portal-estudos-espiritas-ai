@@ -55,7 +55,9 @@ const parseChangePasswordBody = (body: unknown): ChangePasswordInput => {
 authRouter.post(
   "/login",
   asyncHandler(async (request, response) => {
-    const result = await loginUser(parseLoginBody(request.body));
+    const result = await loginUser(parseLoginBody(request.body), {
+      ipAddress: request.ip,
+    });
 
     return sendSuccess(response, {
       status: 200,
