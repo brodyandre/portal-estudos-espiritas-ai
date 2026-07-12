@@ -24,6 +24,12 @@ export const errorHandler: ErrorRequestHandler = (error, _request, response, _ne
     console.error("[api:error]", error);
   }
 
+  if (appError.headers) {
+    for (const [headerName, headerValue] of Object.entries(appError.headers)) {
+      response.setHeader(headerName, headerValue);
+    }
+  }
+
   const body: ApiErrorBody = {
     success: false,
     error: {

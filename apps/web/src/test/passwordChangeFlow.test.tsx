@@ -105,6 +105,56 @@ describe("fluxo de troca obrigatoria de senha", () => {
     expect(await screen.findByRole("heading", { name: "Troque sua senha temporária" })).toBeInTheDocument();
   });
 
+  it("mostra mensagem de rate limit no login e evita clique duplicado enquanto envia", async () => {
+    let resolveLogin: ((value: unknown) => void) | undefined;
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => {
+        return new Promise((resolve) => {
+          resolveLogin = resolve;
+        });
+      }),
+    );
+
+    renderAuthFlow("/login");
+
+    fireEvent.change(screen.getByLabelText("E-mail"), {
+      target: { value: "aluno.local@example.com" },
+    });
+    fireEvent.change(screen.getByLabelText("Senha"), {
+      target: { value: "SenhaTemporaria@123" },
+    });
+
+    const submitButton = screen.getByRole("button", { name: "Entrar" });
+    fireEvent.click(submitButton);
+
+    await waitFor(() => {
+      expect(submitButton).toBeDisabled();
+    });
+
+    expect(resolveLogin).toBeDefined();
+    resolveLogin?.({
+      ok: false,
+      json: async () => ({
+        success: false,
+        error: {
+          code: "AUTH_RATE_LIMITED",
+          message: "Muitas tentativas. Aguarde antes de tentar novamente.",
+          details: {
+            retryAfterSeconds: 90,
+          },
+        },
+      }),
+    });
+
+    expect(
+      await screen.findByText(
+        "Muitas tentativas. Aguarde antes de tentar novamente. Tente novamente em cerca de 2 minutos.",
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("renderiza a pagina e atualiza os indicadores das regras da senha", async () => {
     storeLocalSession(true);
     renderAuthFlow("/primeiro-acesso");
@@ -151,6 +201,45 @@ describe("fluxo de troca obrigatoria de senha", () => {
 
     expect(
       await screen.findByText("A senha atual informada não confere."),
+    ).toBeInTheDocument();
+  });
+
+  it("mostra mensagem de rate limit na troca obrigatoria de senha", async () => {
+    storeLocalSession(true);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: false,
+        json: async () => ({
+          success: false,
+          error: {
+            code: "PASSWORD_CHANGE_RATE_LIMITED",
+            message: "Muitas tentativas. Aguarde antes de tentar novamente.",
+            details: {
+              retryAfterSeconds: 45,
+            },
+          },
+        }),
+      })),
+    );
+
+    renderAuthFlow("/primeiro-acesso");
+
+    fireEvent.change(getPasswordField("#current-password"), {
+      target: { value: "SenhaTemporaria@123" },
+    });
+    fireEvent.change(getPasswordField("#new-password"), {
+      target: { value: "NovaSenha@123" },
+    });
+    fireEvent.change(getPasswordField("#confirm-password"), {
+      target: { value: "NovaSenha@123" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Atualizar senha" }));
+
+    expect(
+      await screen.findByText(
+        "Muitas tentativas. Aguarde antes de tentar novamente. Tente novamente em cerca de 45 segundos.",
+      ),
     ).toBeInTheDocument();
   });
 

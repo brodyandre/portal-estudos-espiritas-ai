@@ -14,11 +14,18 @@ export interface ServiceResult<T> {
 export class ServiceRequestError extends Error {
   readonly kind: "api" | "network";
   readonly code?: string;
+  readonly retryAfterSeconds?: number;
 
-  constructor(options: { message: string; kind: "api" | "network"; code?: string }) {
+  constructor(options: {
+    message: string;
+    kind: "api" | "network";
+    code?: string;
+    retryAfterSeconds?: number;
+  }) {
     super(options.message);
     this.kind = options.kind;
     this.code = options.code;
+    this.retryAfterSeconds = options.retryAfterSeconds;
   }
 }
 
@@ -118,6 +125,44 @@ const parseErrorCode = (payload: unknown) => {
   return undefined;
 };
 
+const parseRetryAfterSeconds = (payload: unknown) => {
+  if (
+    payload &&
+    typeof payload === "object" &&
+    "success" in payload &&
+    payload.success === false &&
+    "error" in payload &&
+    payload.error &&
+    typeof payload.error === "object" &&
+    "details" in payload.error &&
+    payload.error.details &&
+    typeof payload.error.details === "object" &&
+    "retryAfterSeconds" in payload.error.details &&
+    typeof payload.error.details.retryAfterSeconds === "number"
+  ) {
+    return payload.error.details.retryAfterSeconds;
+  }
+
+  return undefined;
+};
+
+export const formatRetryAfterLabel = (retryAfterSeconds: number) => {
+  if (retryAfterSeconds < 60) {
+    return `${retryAfterSeconds} segundo${retryAfterSeconds === 1 ? "" : "s"}`;
+  }
+
+  const roundedMinutes = Math.ceil(retryAfterSeconds / 60);
+  return `${roundedMinutes} minuto${roundedMinutes === 1 ? "" : "s"}`;
+};
+
+const buildRateLimitMessage = (message: string, retryAfterSeconds?: number) => {
+  if (!retryAfterSeconds) {
+    return message;
+  }
+
+  return `${message} Tente novamente em cerca de ${formatRetryAfterLabel(retryAfterSeconds)}.`;
+};
+
 export const requestJson = async <T>({ path, query, init }: RequestOptions): Promise<ApiSuccessBody<T>> => {
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -139,10 +184,15 @@ export const requestJson = async <T>({ path, query, init }: RequestOptions): Pro
     const payload = (await response.json().catch(() => null)) as ApiSuccessBody<T> | ApiErrorBody | null;
 
     if (!response.ok || !payload || payload.success !== true) {
+      const retryAfterSeconds = parseRetryAfterSeconds(payload);
       throw new ServiceRequestError({
-        message: parseErrorMessage(payload) ?? "Nao foi possivel concluir a solicitacao.",
+        message: buildRateLimitMessage(
+          parseErrorMessage(payload) ?? "Nao foi possivel concluir a solicitacao.",
+          retryAfterSeconds,
+        ),
         kind: "api",
         code: parseErrorCode(payload),
+        retryAfterSeconds,
       });
     }
 

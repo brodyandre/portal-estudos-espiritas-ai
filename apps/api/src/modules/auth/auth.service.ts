@@ -2,6 +2,17 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
 import { buildTemporaryPassword } from "../enrollments/student-access.service";
+import {
+  assertAdminPasswordResetRateLimit,
+  assertLoginRateLimit,
+  assertPasswordChangeRateLimit,
+  clearLoginRateLimit,
+  clearPasswordChangeRateLimit,
+  resetAuthRateLimitStore,
+  recordAdminPasswordResetAttempt,
+  recordFailedLoginAttempt,
+  recordFailedPasswordChangeAttempt,
+} from "../../security/auth-rate-limit";
 import { AppError } from "../../lib/app-error";
 import { env } from "../../config/env";
 import type { UserRole } from "../../auth/types";
@@ -62,11 +73,20 @@ export const verifyAuthToken = (token: string): AuthTokenPayload => {
   return jwt.verify(token, env.jwtSecret) as AuthTokenPayload;
 };
 
-export const loginUser = async (input: LoginInput): Promise<LoginResponse> => {
+export const loginUser = async (
+  input: LoginInput,
+  options?: {
+    ipAddress?: string;
+  },
+): Promise<LoginResponse> => {
   const normalizedInput = normalizeLoginInput(input);
+  const ipAddress = options?.ipAddress ?? "unknown";
+
+  assertLoginRateLimit(ipAddress, normalizedInput.email);
   const storedUser = await authRepository.getByEmail(normalizedInput.email);
 
   if (!storedUser) {
+    recordFailedLoginAttempt(ipAddress, normalizedInput.email);
     throw new AppError({
       statusCode: 401,
       code: "INVALID_CREDENTIALS",
@@ -77,6 +97,7 @@ export const loginUser = async (input: LoginInput): Promise<LoginResponse> => {
   const isValidPassword = await bcrypt.compare(normalizedInput.password, storedUser.passwordHash);
 
   if (!isValidPassword) {
+    recordFailedLoginAttempt(ipAddress, normalizedInput.email);
     throw new AppError({
       statusCode: 401,
       code: "INVALID_CREDENTIALS",
@@ -93,6 +114,7 @@ export const loginUser = async (input: LoginInput): Promise<LoginResponse> => {
   }
 
   const user = toAuthUser(storedUser);
+  clearLoginRateLimit(ipAddress, normalizedInput.email);
 
   return {
     token: signAuthToken(user),
@@ -142,6 +164,7 @@ export const changePassword = async (
   authUser: AuthUser,
   input: ChangePasswordInput,
 ): Promise<LoginResponse> => {
+  assertPasswordChangeRateLimit(authUser.id);
   const storedUser = await authRepository.getById(authUser.id);
 
   if (!storedUser || storedUser.status !== "active") {
@@ -187,6 +210,7 @@ export const changePassword = async (
   const isValidCurrentPassword = await bcrypt.compare(currentPassword, storedUser.passwordHash);
 
   if (!isValidCurrentPassword) {
+    recordFailedPasswordChangeAttempt(authUser.id);
     throw new AppError({
       statusCode: 401,
       code: "CURRENT_PASSWORD_INVALID",
@@ -229,6 +253,7 @@ export const changePassword = async (
   }
 
   const user = toAuthUser(persistedUser);
+  clearPasswordChangeRateLimit(authUser.id);
 
   return {
     token: signAuthToken(user),
@@ -261,6 +286,9 @@ export const resetPasswordByAdmin = async (
       message: "Use o fluxo normal de troca de senha para atualizar o próprio acesso.",
     });
   }
+
+  assertAdminPasswordResetRateLimit(authUser.id, targetUserId);
+  recordAdminPasswordResetAttempt(authUser.id, targetUserId);
 
   const storedUser = await authRepository.getById(targetUserId);
 
@@ -319,6 +347,7 @@ export const provisionStudentAccess = (
 
 export const resetAuthStore = () => {
   resetMemoryAuthRepositoryStore();
+  resetAuthRateLimitStore();
   authRepository = createMemoryAuthRepository();
 };
 

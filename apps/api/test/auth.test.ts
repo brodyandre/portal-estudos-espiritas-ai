@@ -1,10 +1,11 @@
 import request from "supertest";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { app } from "../src/app";
 import { getMemoryAuthAuditLogs, provisionStudentAccessWithPrisma } from "../src/modules/auth/auth.repository";
 import { resetAuthStore } from "../src/modules/auth/auth.service";
 import { resetEnrollmentStore } from "../src/modules/enrollments/enrollments.service";
+import { setAuthRateLimitNowProviderForTesting } from "../src/security/auth-rate-limit";
 
 const loginAs = async (email: string, password: string) => {
   return request(app).post("/api/auth/login").send({ email, password });
@@ -25,9 +26,18 @@ const approveEnrollmentAndGetStudentAccess = async (enrollmentId = "enrollment-0
 };
 
 describe("auth endpoints", () => {
+  let currentTime = 0;
+
   beforeEach(() => {
+    currentTime = 0;
+    app.set("trust proxy", true);
     resetAuthStore();
     resetEnrollmentStore();
+    setAuthRateLimitNowProviderForTesting(() => currentTime);
+  });
+
+  afterEach(() => {
+    app.set("trust proxy", false);
   });
 
   it("faz login local com sucesso", async () => {
@@ -66,6 +76,111 @@ describe("auth endpoints", () => {
 
     expect(response.status).toBe(401);
     expect(response.body.error.code).toBe("INVALID_CREDENTIALS");
+  });
+
+  it("mantem INVALID_CREDENTIALS abaixo do limite e retorna 429 ao exceder", async () => {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const response = await loginAs("admin.demo@example.com", "senha-incorreta");
+
+      expect(response.status).toBe(401);
+      expect(response.body.error.code).toBe("INVALID_CREDENTIALS");
+    }
+
+    const blockedResponse = await loginAs("admin.demo@example.com", "senha-incorreta");
+
+    expect(blockedResponse.status).toBe(429);
+    expect(blockedResponse.body.error.code).toBe("AUTH_RATE_LIMITED");
+    expect(blockedResponse.body.error.details.retryAfterSeconds).toEqual(expect.any(Number));
+    expect(blockedResponse.headers["retry-after"]).toBeDefined();
+  });
+
+  it("normaliza e-mail com espacos e caixa para a mesma identidade de limite", async () => {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      await request(app).post("/api/auth/login").send({
+        email: "  ADMIN.DEMO@example.com ",
+        password: "senha-incorreta",
+      });
+    }
+
+    const blockedResponse = await request(app).post("/api/auth/login").send({
+      email: "admin.demo@example.com",
+      password: "senha-incorreta",
+    });
+
+    expect(blockedResponse.status).toBe(429);
+    expect(blockedResponse.body.error.code).toBe("AUTH_RATE_LIMITED");
+  });
+
+  it("mantem comportamento equivalente para usuario inexistente ao exceder o limite", async () => {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      await loginAs("nao.existe@example.com", "Senha@123");
+    }
+
+    const blockedResponse = await loginAs("nao.existe@example.com", "Senha@123");
+
+    expect(blockedResponse.status).toBe(429);
+    expect(blockedResponse.body.error.code).toBe("AUTH_RATE_LIMITED");
+  });
+
+  it("limpa o contador apos um login valido antes do bloqueio", async () => {
+    await loginAs("admin.demo@example.com", "senha-incorreta");
+    await loginAs("admin.demo@example.com", "senha-incorreta");
+
+    const successResponse = await loginAs("admin.demo@example.com", "AdminDemo@123");
+
+    expect(successResponse.status).toBe(200);
+
+    const nextInvalidResponse = await loginAs("admin.demo@example.com", "senha-incorreta");
+
+    expect(nextInvalidResponse.status).toBe(401);
+    expect(nextInvalidResponse.body.error.code).toBe("INVALID_CREDENTIALS");
+  }, 10000);
+
+  it("nao compartilha o contador entre IPs distintos", async () => {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      await request(app)
+        .post("/api/auth/login")
+        .set("X-Forwarded-For", "10.0.0.1")
+        .send({
+          email: "admin.demo@example.com",
+          password: "senha-incorreta",
+        });
+    }
+
+    const ipOneBlocked = await request(app)
+      .post("/api/auth/login")
+      .set("X-Forwarded-For", "10.0.0.1")
+      .send({
+        email: "admin.demo@example.com",
+        password: "senha-incorreta",
+      });
+
+    const ipTwoStillAllowed = await request(app)
+      .post("/api/auth/login")
+      .set("X-Forwarded-For", "10.0.0.2")
+      .send({
+        email: "admin.demo@example.com",
+        password: "senha-incorreta",
+      });
+
+    expect(ipOneBlocked.status).toBe(429);
+    expect(ipTwoStillAllowed.status).toBe(401);
+    expect(ipTwoStillAllowed.body.error.code).toBe("INVALID_CREDENTIALS");
+  });
+
+  it("permite novas tentativas depois da janela expirar", async () => {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      await loginAs("admin.demo@example.com", "senha-incorreta");
+    }
+
+    const blockedResponse = await loginAs("admin.demo@example.com", "senha-incorreta");
+    expect(blockedResponse.status).toBe(429);
+
+    currentTime += 16 * 60 * 1000;
+
+    const responseAfterWindow = await loginAs("admin.demo@example.com", "senha-incorreta");
+    expect(responseAfterWindow.status).toBe(401);
+    expect(responseAfterWindow.body.error.code).toBe("INVALID_CREDENTIALS");
   });
 
   it("bloqueia usuario inativo", async () => {
@@ -193,6 +308,127 @@ describe("auth endpoints", () => {
 
     expect(response.status).toBe(401);
     expect(response.body.error.code).toBe("CURRENT_PASSWORD_INVALID");
+  });
+
+  it("limita tentativas de troca com senha atual incorreta", async () => {
+    const approvalResponse = await approveEnrollmentAndGetStudentAccess();
+    const studentAccess = approvalResponse.body.data.studentAccess as {
+      email: string;
+      temporaryPassword: string;
+    };
+    const loginResponse = await loginAs(studentAccess.email, studentAccess.temporaryPassword);
+    const token = loginResponse.body.data.token as string;
+
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const response = await request(app)
+        .patch("/api/auth/change-password")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+          currentPassword: "SenhaErrada@123",
+          newPassword: "NovaSenha@123",
+          confirmPassword: "NovaSenha@123",
+        });
+
+      expect(response.status).toBe(401);
+      expect(response.body.error.code).toBe("CURRENT_PASSWORD_INVALID");
+    }
+
+    const blockedResponse = await request(app)
+      .patch("/api/auth/change-password")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        currentPassword: "SenhaErrada@123",
+        newPassword: "NovaSenha@123",
+        confirmPassword: "NovaSenha@123",
+      });
+
+    expect(blockedResponse.status).toBe(429);
+    expect(blockedResponse.body.error.code).toBe("PASSWORD_CHANGE_RATE_LIMITED");
+    expect(blockedResponse.body.error.details.retryAfterSeconds).toEqual(expect.any(Number));
+    expect(blockedResponse.headers["retry-after"]).toBeDefined();
+  });
+
+  it("mantem contadores independentes para usuarios distintos na troca de senha", async () => {
+    const firstApproval = await approveEnrollmentAndGetStudentAccess("enrollment-001");
+    const secondApproval = await approveEnrollmentAndGetStudentAccess("enrollment-002");
+    const firstAccess = firstApproval.body.data.studentAccess as {
+      email: string;
+      temporaryPassword: string;
+    };
+    const secondAccess = secondApproval.body.data.studentAccess as {
+      email: string;
+      temporaryPassword: string;
+    };
+
+    const firstLogin = await loginAs(firstAccess.email, firstAccess.temporaryPassword);
+    const secondLogin = await loginAs(secondAccess.email, secondAccess.temporaryPassword);
+
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      await request(app)
+        .patch("/api/auth/change-password")
+        .set("Authorization", `Bearer ${firstLogin.body.data.token as string}`)
+        .send({
+          currentPassword: "SenhaErrada@123",
+          newPassword: "NovaSenha@123",
+          confirmPassword: "NovaSenha@123",
+        });
+    }
+
+    const unaffectedUserResponse = await request(app)
+      .patch("/api/auth/change-password")
+      .set("Authorization", `Bearer ${secondLogin.body.data.token as string}`)
+      .send({
+        currentPassword: "SenhaErrada@123",
+        newPassword: "NovaSenha@123",
+        confirmPassword: "NovaSenha@123",
+      });
+
+    expect(unaffectedUserResponse.status).toBe(401);
+    expect(unaffectedUserResponse.body.error.code).toBe("CURRENT_PASSWORD_INVALID");
+  });
+
+  it("limpa o contador de troca de senha apos sucesso", async () => {
+    const approvalResponse = await approveEnrollmentAndGetStudentAccess();
+    const studentAccess = approvalResponse.body.data.studentAccess as {
+      email: string;
+      temporaryPassword: string;
+    };
+    const loginResponse = await loginAs(studentAccess.email, studentAccess.temporaryPassword);
+    const token = loginResponse.body.data.token as string;
+
+    await request(app)
+      .patch("/api/auth/change-password")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        currentPassword: "SenhaErrada@123",
+        newPassword: "NovaSenha@123",
+        confirmPassword: "NovaSenha@123",
+      });
+
+    const successResponse = await request(app)
+      .patch("/api/auth/change-password")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        currentPassword: studentAccess.temporaryPassword,
+        newPassword: "NovaSenha@123",
+        confirmPassword: "NovaSenha@123",
+      });
+
+    expect(successResponse.status).toBe(200);
+
+    const relogin = await loginAs(studentAccess.email, "NovaSenha@123");
+    const nextToken = relogin.body.data.token as string;
+    const postSuccessFailure = await request(app)
+      .patch("/api/auth/change-password")
+      .set("Authorization", `Bearer ${nextToken}`)
+      .send({
+        currentPassword: "SenhaErrada@123",
+        newPassword: "OutraSenha@123",
+        confirmPassword: "OutraSenha@123",
+      });
+
+    expect(postSuccessFailure.status).toBe(401);
+    expect(postSuccessFailure.body.error.code).toBe("CURRENT_PASSWORD_INVALID");
   });
 
   it("rejeita troca quando a confirmacao diverge", async () => {

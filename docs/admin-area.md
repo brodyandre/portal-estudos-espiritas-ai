@@ -88,6 +88,9 @@ Regras da redefinicao de senha:
 - a senha temporaria aparece uma unica vez na interface
 - sessoes anteriores do usuario sao encerradas
 - o usuario deve trocar a senha no proximo acesso
+- o endpoint possui limite de uso por admin e por usuario-alvo
+- o limite por usuario-alvo e compartilhado entre administradores
+- quando o limite e excedido, a interface deve orientar o admin a aguardar antes de tentar novamente
 
 ### `/admin/grupos`
 
@@ -230,7 +233,7 @@ Isso vale inclusive para `/admin/usuarios`, `/admin/grupos`, `/admin/conteudos`,
 No ambiente local:
 
 - a area administrativa pode consumir a API local
-- continua sem autenticacao real nesta fase
+- usa autenticacao local simples nesta fase
 - serve apenas como MVP de operacao interna
 - a tela `/admin/usuarios` pode simular a gestao de usuarios sem expor o link do Meet
 - a tela `/admin/grupos` pode revisar configuracoes do grupo e mostrar o Meet real apenas no ambiente local autorizado

@@ -51,6 +51,24 @@ Essas credenciais existem apenas para ambiente local controlado.
 - a nova senha deve ter pelo menos 8 caracteres, com letra maiúscula, letra minúscula e número
 - `passwordChangedAt` representa a última alteração de credencial, incluindo troca de senha e redefinição de senha temporária
 
+## Rate limiting local
+
+Proteções atuais em memória:
+
+- `POST /api/auth/login`: 5 tentativas inválidas por IP + e-mail em 15 minutos
+- `PATCH /api/auth/change-password`: 5 tentativas inválidas por usuário em 15 minutos
+- `POST /api/admin/users/:userId/reset-password`: 10 redefinições por admin em 15 minutos
+- o reset administrativo também limita repetições globais para o mesmo usuário-alvo dentro da mesma janela
+
+Comportamento:
+
+- ao exceder o limite, a API responde com `429`
+- os códigos estáveis são `AUTH_RATE_LIMITED`, `PASSWORD_CHANGE_RATE_LIMITED` e `ADMIN_PASSWORD_RESET_RATE_LIMITED`
+- a resposta inclui `details.retryAfterSeconds`
+- quando fizer sentido, a API também envia o header `Retry-After`
+- os contadores vivem apenas em memória local e são perdidos ao reiniciar a API
+- esta etapa não usa Redis; uma versão distribuída fica para produção futura
+
 ## Redefinição administrativa de senha
 
 No ambiente local:

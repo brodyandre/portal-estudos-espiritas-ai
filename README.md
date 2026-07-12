@@ -33,6 +33,7 @@ Grupos de estudo online costumam espalhar informacoes entre links, mensagens, re
 - autenticação local simples com JWT para Admin, Professor e Aluno no ambiente privado
 - troca obrigatória da senha temporária no primeiro acesso do aluno aprovado
 - redefinição administrativa de senha por admin, com encerramento imediato das sessões anteriores
+- proteção contra força bruta e excesso de tentativas em login, troca de senha e reset administrativo
 - Integracao opcional com Ollama, com fallback claro quando o modelo nao estiver disponivel
 - Funcionamento da interface mesmo com backend desligado, usando mocks e respostas demonstrativas no frontend
 
@@ -200,6 +201,15 @@ Na gestão administrativa local:
 - sessões anteriores são invalidadas imediatamente
 - `mustChangePassword` volta para `true`
 - a senha temporária é exibida uma única vez e deve ser entregue por canal seguro
+
+Proteção de tentativas no ambiente local:
+
+- `POST /api/auth/login`: até 5 tentativas inválidas por IP + e-mail em 15 minutos
+- `PATCH /api/auth/change-password`: até 5 tentativas inválidas por usuário em 15 minutos
+- `POST /api/admin/users/:userId/reset-password`: até 10 redefinições por admin em 15 minutos
+- o reset administrativo também limita repetições globais para o mesmo usuário-alvo, mesmo entre admins diferentes
+- a API responde com `429`, código estável e `Retry-After`
+- os contadores ficam apenas em memória e são perdidos ao reiniciar a API
 
 Atalhos com Makefile:
 
