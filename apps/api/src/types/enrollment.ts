@@ -36,6 +36,19 @@ export interface Enrollment {
   teacherNote: string;
 }
 
+export interface EnrollmentStudentAccessInfo {
+  email: string;
+  invitationType: "enrollment_approval";
+  deliveryStatus: "pending" | "sent" | "failed" | "not_configured";
+  expiresAt: string;
+  mustCreatePassword: true;
+}
+
+export interface EnrollmentStatusUpdateResult {
+  enrollment: Enrollment;
+  studentAccess: EnrollmentStudentAccessInfo | null;
+}
+
 export interface EnrollmentInput {
   fullName: string;
   email: string;

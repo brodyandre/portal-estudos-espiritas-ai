@@ -36,23 +36,25 @@ describe("enrollmentMessages", () => {
     expect(message).not.toContain("Google Meet");
   });
 
-  it("gera mensagem de aprovacao com credencial temporaria e orientacao de nova senha", () => {
+  it("gera mensagem de aprovacao com convite para criar a propria senha", () => {
     const message = buildEnrollmentMessage({
       enrollment: enrollmentBase,
       portalUrl: "https://portal-exemplo.com/#/portal",
       status: "approved",
       studentAccess: {
         email: "mariana.souza.demo@example.com",
-        temporaryPassword: "TempDemo@123",
-        mustChangePassword: true,
+        invitationType: "enrollment_approval",
+        deliveryStatus: "sent",
+        expiresAt: "2026-07-14T20:00:00.000Z",
+        mustCreatePassword: true,
       },
     });
 
-    expect(message).toContain("senha temporária");
+    expect(message).toContain("criará sua própria senha");
     expect(message).toContain("mariana.souza.demo@example.com");
-    expect(message).toContain("TempDemo@123");
-    expect(message).toContain("No primeiro acesso, o portal solicitará a criação de uma nova senha");
+    expect(message).toContain("convite");
     expect(message).not.toContain("troque a senha futuramente");
+    expect(message).not.toContain("TempDemo@123");
   });
 
   it("usa mensagem de conversa para cadastro pendente", () => {

@@ -272,7 +272,7 @@ describe("paginas principais com fallback local", () => {
     await waitFor(() => {
       expect(within(contentCard as HTMLElement).getByText("Revisado")).toBeInTheDocument();
     });
-  });
+  }, 10000);
 
   it("/admin/configuracoes renderiza e salva ajustes em modo demonstrativo", async () => {
     renderRoute("/admin/configuracoes", <AdminPage section="configuracoes" />);

@@ -43,6 +43,11 @@ interface ResetPasswordResponse {
   message: string;
 }
 
+interface AcceptInvitationResponse {
+  success: true;
+  message: string;
+}
+
 interface LogoutResponse {
   revokedCurrentSession?: boolean;
 }
@@ -165,6 +170,31 @@ export const resetPasswordByRecoveryToken = async (
   const payload = await parseSuccess<ResetPasswordResponse>(
     response,
     "Não foi possível redefinir a senha agora.",
+  );
+  return payload.data;
+};
+
+export const acceptAccountInvitation = async (
+  token: string,
+  password: string,
+  confirmPassword: string,
+) => {
+  if (appConfig.appMode !== "local") {
+    throw new Error("Modo demonstrativo: a ativação real da conta depende da API local.");
+  }
+
+  const response = await fetch(buildAuthUrl("/api/auth/accept-invitation"), {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ token, password, confirmPassword }),
+  });
+
+  const payload = await parseSuccess<AcceptInvitationResponse>(
+    response,
+    "Não foi possível ativar a conta agora.",
   );
   return payload.data;
 };

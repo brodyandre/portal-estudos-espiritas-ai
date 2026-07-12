@@ -225,16 +225,11 @@ enrollmentsRouter.patch(
     const updatedEnrollment = await updateEnrollmentStatusWithStudentAccess(
       getRouteParam(request.params.id),
       {
-      ...input,
-      reviewedByName,
-      actorRole:
-        request.authUser?.role === "admin"
-          ? "ADMIN"
-          : request.authUser?.role === "teacher"
-            ? "TEACHER"
-            : undefined,
-      actorName: reviewedByName,
-      authRole,
+        ...input,
+        reviewedByName,
+        actorUserId: request.authUser?.id,
+        actorName: reviewedByName,
+        authRole,
       },
     );
 

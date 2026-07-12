@@ -21,6 +21,16 @@ export interface PreparedStudentAccessProvision {
   temporaryPassword: string;
 }
 
+export interface PreparedEnrollmentInvitationProvision {
+  email: string;
+  fullName: string;
+  whatsapp: string;
+  groupName: string | null;
+  groupSlug: string | null;
+  actorName: string;
+  actorRole: "teacher" | "admin";
+}
+
 const groupSlugByName: Record<Enrollment["groupInterest"], string | null> = {
   Emmanuel: "emmanuel",
   "A Caminho da Luz": "a-caminho-da-luz",
@@ -77,5 +87,24 @@ export const prepareStudentAccessForEnrollment = async (
     temporaryPasswordGeneratedAt: new Date().toISOString(),
     mustChangePassword: true,
     temporaryPassword,
+  };
+};
+
+export const prepareEnrollmentInvitationForEnrollment = (
+  enrollment: Enrollment,
+  actor: {
+    actorName: string;
+    actorRole: "teacher" | "admin";
+  },
+): PreparedEnrollmentInvitationProvision => {
+  return {
+    fullName: enrollment.fullName,
+    email: enrollment.email,
+    whatsapp: enrollment.whatsapp,
+    groupName:
+      enrollment.groupInterest === "Ainda não sei" ? null : enrollment.groupInterest,
+    groupSlug: groupSlugByName[enrollment.groupInterest],
+    actorName: actor.actorName,
+    actorRole: actor.actorRole,
   };
 };

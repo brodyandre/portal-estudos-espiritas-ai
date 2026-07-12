@@ -177,7 +177,7 @@ No ambiente local/private do owner:
 - backend roda em `http://localhost:3333`
 - login local usa JWT assinado por `JWT_SECRET`
 - cada login cria uma sessao local individual que pode ser revogada depois
-- o primeiro acesso do aluno aprovado exige troca da senha temporaria
+- o primeiro acesso do aluno aprovado usa um convite por e-mail para criar a própria senha
 - a recuperacao de senha real so funciona no ambiente local com API
 - endpoints de credenciais usam rate limiting em memória com `429` e `Retry-After`
 - professor pode revisar interessados

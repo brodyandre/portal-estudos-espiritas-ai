@@ -8,15 +8,18 @@ import {
 import { enrollments as seededEnrollments } from "../../data/enrollments";
 import { env } from "../../config/env";
 import { getPrismaClient } from "../../database/prisma";
+import {
+  provisionEnrollmentInvitationInMemory,
+  provisionEnrollmentInvitationWithPrisma,
+} from "../auth/auth.repository";
+import type { EnrollmentInvitationProvisionInput } from "../auth/auth.types";
 import type {
   Enrollment,
   EnrollmentGroupInterest,
   EnrollmentInput,
   EnrollmentStatus,
 } from "../../types/enrollment";
-import { provisionStudentAccess } from "../auth/auth.service";
-import { provisionStudentAccessWithPrisma } from "../auth/auth.repository";
-import type { PreparedStudentAccessProvision } from "./student-access.service";
+import type { PreparedEnrollmentInvitationProvision } from "./student-access.service";
 
 export interface EnrollmentFilters {
   status?: EnrollmentStatus;
@@ -35,13 +38,33 @@ export interface EnrollmentsRepository {
   getById(id: string): Promise<Enrollment | null>;
   create(input: EnrollmentInput): Promise<Enrollment>;
   updateStatus(id: string, input: UpdateEnrollmentStatusInput): Promise<Enrollment | null>;
+  approveWithInvitation(input: EnrollmentInvitationProvisionInput & {
+    enrollmentId: string;
+    teacherNote?: string;
+    reviewedByName?: string;
+    persistenceActorRole?: PrismaUserRole;
+  }): Promise<{
+    enrollment: Enrollment;
+    invitation: {
+      id: string;
+      userId: string;
+      expiresAt: string;
+      deliveryStatus: "pending" | "sent" | "failed" | "not_configured";
+      recipientEmailSnapshot: string;
+    };
+    user: {
+      id: string;
+      fullName: string;
+      email: string;
+    };
+  } | null>;
   reviewStatusWithStudentAccess(
     id: string,
     input: UpdateEnrollmentStatusInput & {
       actorName: string;
       authRole: "visitor" | "student" | "teacher" | "admin";
     },
-    studentAccess?: PreparedStudentAccessProvision,
+    studentAccess?: PreparedEnrollmentInvitationProvision,
   ): Promise<Enrollment | null>;
 }
 
@@ -144,27 +167,46 @@ export const createMemoryEnrollmentsRepository = (
       return cloneEnrollment(currentEnrollment);
     },
 
-    async reviewStatusWithStudentAccess(id, input, studentAccess) {
-      const currentEnrollment = enrollmentStore.find((enrollment) => enrollment.id === id);
+    async approveWithInvitation(input) {
+      const currentEnrollment = enrollmentStore.find((enrollment) => enrollment.id === input.enrollmentId);
 
       if (!currentEnrollment) {
         return null;
       }
 
-      if (input.status === "approved" && studentAccess) {
-        await provisionStudentAccess({
-          enrollmentId: currentEnrollment.id,
-          fullName: studentAccess.fullName,
-          email: studentAccess.email,
-          whatsapp: studentAccess.whatsapp,
-          groupName: studentAccess.groupName,
-          groupSlug: studentAccess.groupSlug,
-          passwordHash: studentAccess.passwordHash,
-          temporaryPasswordGeneratedAt: studentAccess.temporaryPasswordGeneratedAt,
-          mustChangePassword: studentAccess.mustChangePassword,
-          actorName: input.actorName,
-          actorRole: input.authRole,
-        });
+      const prepared = await provisionEnrollmentInvitationInMemory(input);
+      const updatedEnrollment: Enrollment = {
+        ...currentEnrollment,
+        status: "approved",
+        teacherNote: input.teacherNote?.trim() ?? "",
+        reviewedAt: new Date().toISOString(),
+        reviewedBy: input.reviewedByName?.trim() || "Professor",
+      };
+      const targetIndex = enrollmentStore.findIndex((enrollment) => enrollment.id === input.enrollmentId);
+      enrollmentStore.splice(targetIndex, 1, updatedEnrollment);
+
+      return {
+        enrollment: cloneEnrollment(updatedEnrollment),
+        invitation: {
+          id: prepared.invitation.id,
+          userId: prepared.invitation.userId,
+          expiresAt: prepared.invitation.expiresAt,
+          deliveryStatus: prepared.invitation.deliveryStatus,
+          recipientEmailSnapshot: prepared.invitation.recipientEmailSnapshot,
+        },
+        user: {
+          id: prepared.user.id,
+          fullName: prepared.user.fullName,
+          email: prepared.user.email,
+        },
+      };
+    },
+
+    async reviewStatusWithStudentAccess(id, input, studentAccess) {
+      const currentEnrollment = enrollmentStore.find((enrollment) => enrollment.id === id);
+
+      if (!currentEnrollment) {
+        return null;
       }
 
       currentEnrollment.status = input.status;
@@ -270,6 +312,58 @@ export const createPrismaEnrollmentsRepository = (): EnrollmentsRepository => {
       return mapPrismaEnrollment(updatedEnrollment);
     },
 
+    async approveWithInvitation(input) {
+      const approvedEnrollment = await prisma.$transaction(async (transaction) => {
+        const currentEnrollment = await transaction.enrollment.findUnique({
+          where: { id: input.enrollmentId },
+        });
+
+        if (!currentEnrollment) {
+          return null;
+        }
+
+        const item = await transaction.enrollment.update({
+          where: { id: input.enrollmentId },
+          data: {
+            status: PrismaEnrollmentStatus.APPROVED,
+            teacherNote: input.teacherNote?.trim() ?? "",
+            reviewedAt: new Date(),
+            reviewedBy: input.reviewedByName?.trim() || "Professor",
+          },
+        });
+
+        await transaction.auditLog.create({
+          data: createAuditEntry({
+            actorName: input.reviewedByName?.trim() || "Professor",
+            actorRole: input.persistenceActorRole ?? PrismaUserRole.TEACHER,
+            action: "Status de inscrição atualizado",
+            entity: `Enrollment ${item.id}`,
+            note: "Cadastro atualizado para approved.",
+          }),
+        });
+
+        const prepared = await provisionEnrollmentInvitationWithPrisma(transaction, input);
+
+        return {
+          enrollment: mapPrismaEnrollment(item),
+          invitation: {
+            id: prepared.invitation.id,
+            userId: prepared.invitation.userId,
+            expiresAt: prepared.invitation.expiresAt,
+            deliveryStatus: prepared.invitation.deliveryStatus,
+            recipientEmailSnapshot: prepared.invitation.recipientEmailSnapshot,
+          },
+          user: {
+            id: prepared.user.id,
+            fullName: prepared.user.fullName,
+            email: prepared.user.email,
+          },
+        };
+      });
+
+      return approvedEnrollment;
+    },
+
     async reviewStatusWithStudentAccess(id, input, studentAccess) {
       const reviewedEnrollment = await prisma.$transaction(async (transaction) => {
         const currentEnrollment = await transaction.enrollment.findUnique({
@@ -300,21 +394,7 @@ export const createPrismaEnrollmentsRepository = (): EnrollmentsRepository => {
           }),
         });
 
-        if (input.status === "approved" && studentAccess) {
-          await provisionStudentAccessWithPrisma(transaction, {
-            enrollmentId: item.id,
-            fullName: studentAccess.fullName,
-            email: studentAccess.email,
-            whatsapp: studentAccess.whatsapp,
-            groupName: studentAccess.groupName,
-            groupSlug: studentAccess.groupSlug,
-            passwordHash: studentAccess.passwordHash,
-            temporaryPasswordGeneratedAt: studentAccess.temporaryPasswordGeneratedAt,
-            mustChangePassword: studentAccess.mustChangePassword,
-            actorName: input.actorName,
-            actorRole: input.authRole,
-          });
-        }
+        void studentAccess;
 
         return item;
       });

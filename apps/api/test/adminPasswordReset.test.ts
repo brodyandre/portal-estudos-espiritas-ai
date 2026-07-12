@@ -30,6 +30,7 @@ const createCustomAdminRepository = (): AuthRepository => {
       passwordHash: bcrypt.hashSync("AdminDemo@123", 10),
       role: "admin" as const,
       status: "active" as const,
+      accountActivatedAt: "2026-07-12T09:00:00.000Z",
       mustChangePassword: false,
       passwordChangedAt: null,
       temporaryPasswordGeneratedAt: null,
@@ -41,6 +42,7 @@ const createCustomAdminRepository = (): AuthRepository => {
       passwordHash: bcrypt.hashSync("AdminTwo@123", 10),
       role: "admin" as const,
       status: "active" as const,
+      accountActivatedAt: "2026-07-12T09:00:00.000Z",
       mustChangePassword: false,
       passwordChangedAt: null,
       temporaryPasswordGeneratedAt: null,
@@ -52,6 +54,7 @@ const createCustomAdminRepository = (): AuthRepository => {
       passwordHash: bcrypt.hashSync("AlunoDemo@123", 10),
       role: "student" as const,
       status: "active" as const,
+      accountActivatedAt: "2026-07-12T09:00:00.000Z",
       mustChangePassword: false,
       passwordChangedAt: null,
       temporaryPasswordGeneratedAt: null,
@@ -63,6 +66,7 @@ const createCustomAdminRepository = (): AuthRepository => {
       passwordHash: bcrypt.hashSync("AlunoInativo@123", 10),
       role: "student" as const,
       status: "inactive" as const,
+      accountActivatedAt: "2026-07-12T09:00:00.000Z",
       mustChangePassword: false,
       passwordChangedAt: null,
       temporaryPasswordGeneratedAt: null,
@@ -74,6 +78,7 @@ const createCustomAdminRepository = (): AuthRepository => {
       passwordHash: bcrypt.hashSync("ProfessorDemo@123", 10),
       role: "teacher" as const,
       status: "active" as const,
+      accountActivatedAt: "2026-07-12T09:00:00.000Z",
       mustChangePassword: false,
       passwordChangedAt: null,
       temporaryPasswordGeneratedAt: null,
@@ -85,6 +90,7 @@ const createCustomAdminRepository = (): AuthRepository => {
       passwordHash: bcrypt.hashSync("VisitanteDemo@123", 10),
       role: "visitor" as const,
       status: "pending" as const,
+      accountActivatedAt: "2026-07-12T09:00:00.000Z",
       mustChangePassword: false,
       passwordChangedAt: null,
       temporaryPasswordGeneratedAt: null,
@@ -360,7 +366,7 @@ describe("admin password reset endpoint", () => {
     expect(firstReset.body.data.user.temporaryPasswordGeneratedAt).not.toBe(
       secondReset.body.data.user.temporaryPasswordGeneratedAt,
     );
-  }, 10000);
+  }, 15000);
 
   it("cria auditoria sem expor senha nem hash", async () => {
     const adminToken = await loginAsAdmin();

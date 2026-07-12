@@ -5,6 +5,7 @@ import { sendSuccess } from "../../lib/api-response";
 import { asyncHandler } from "../../lib/async-handler";
 import { requireAuth } from "./auth.middleware";
 import {
+  acceptAccountInvitation,
   changePassword,
   getPasswordRecoveryPreviewList,
   getAuthenticatedUser,
@@ -17,7 +18,13 @@ import {
   resetPasswordWithRecovery,
   revokeUserSession,
 } from "./auth.service";
-import type { ChangePasswordInput, ForgotPasswordInput, LoginInput, ResetPasswordInput } from "./auth.types";
+import type {
+  AcceptAccountInvitationInput,
+  ChangePasswordInput,
+  ForgotPasswordInput,
+  LoginInput,
+  ResetPasswordInput,
+} from "./auth.types";
 
 const isObjectRecord = (value: unknown): value is Record<string, unknown> => {
   return Boolean(value) && typeof value === "object";
@@ -105,6 +112,37 @@ const parseResetPasswordBody = (body: unknown): ResetPasswordInput => {
     confirmPassword: typeof body.confirmPassword === "string" ? body.confirmPassword : "",
   };
 };
+
+const parseAcceptInvitationBody = (body: unknown): AcceptAccountInvitationInput => {
+  if (!isObjectRecord(body)) {
+    throw new AppError({
+      statusCode: 400,
+      code: "INVALID_REQUEST_BODY",
+      message: "Envie um corpo JSON válido.",
+    });
+  }
+
+  return {
+    token: typeof body.token === "string" ? body.token : "",
+    password: typeof body.password === "string" ? body.password : "",
+    confirmPassword: typeof body.confirmPassword === "string" ? body.confirmPassword : "",
+  };
+};
+
+authRouter.post(
+  "/accept-invitation",
+  asyncHandler(async (request, response) => {
+    const result = await acceptAccountInvitation(parseAcceptInvitationBody(request.body), {
+      ipAddress: request.ip,
+    });
+
+    return sendSuccess(response, {
+      status: 200,
+      message: result.message,
+      data: result,
+    });
+  }),
+);
 
 authRouter.post(
   "/login",

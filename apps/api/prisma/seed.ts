@@ -12,6 +12,7 @@ const hashPassword = async (password: string) => bcrypt.hash(password, 10);
 
 async function main() {
   await prisma.auditLog.deleteMany();
+  await prisma.accountInvitation.deleteMany();
   await prisma.authSession.deleteMany();
   await prisma.enrollment.deleteMany();
   await prisma.studyGroup.deleteMany();
@@ -30,6 +31,7 @@ async function main() {
         fullName: "Admin Demonstrativo",
         email: "admin.demo@example.com",
         passwordHash: adminPasswordHash,
+        accountActivatedAt: new Date("2026-07-12T09:00:00.000Z"),
         whatsapp: "+55 00 90000-0100",
         role: UserRole.ADMIN,
         status: UserStatus.ACTIVE,
@@ -41,6 +43,7 @@ async function main() {
         fullName: "Professor Demonstrativo",
         email: "professor.demo@example.com",
         passwordHash: teacherPasswordHash,
+        accountActivatedAt: new Date("2026-07-12T09:00:00.000Z"),
         whatsapp: "+55 00 90000-0101",
         role: UserRole.TEACHER,
         status: UserStatus.ACTIVE,
@@ -54,6 +57,7 @@ async function main() {
         fullName: "Aluno Demonstrativo",
         email: "aluno.demo@example.com",
         passwordHash: studentPasswordHash,
+        accountActivatedAt: new Date("2026-07-12T09:00:00.000Z"),
         whatsapp: "+55 00 90000-0102",
         role: UserRole.STUDENT,
         status: UserStatus.ACTIVE,

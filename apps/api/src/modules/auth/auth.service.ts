@@ -5,6 +5,14 @@ import { createHash, createHmac, randomBytes, randomUUID } from "node:crypto";
 import { buildTemporaryPassword } from "../enrollments/student-access.service";
 import { buildSessionDeviceLabel } from "./session-device";
 import {
+  createAccountInvitationNotifier,
+  getAccountInvitationNotifier,
+  listAccountInvitationPreviews,
+  registerAccountInvitationPreview,
+  resetAccountInvitationNotifier,
+  setAccountInvitationNotifierForTesting,
+} from "./account-invitation.notifier";
+import {
   createPasswordRecoveryNotifier,
   getPasswordRecoveryNotifier,
   listPasswordRecoveryPreviews,
@@ -13,6 +21,8 @@ import {
   setPasswordRecoveryNotifierForTesting,
 } from "./password-recovery.notifier";
 import {
+  assertAccountInvitationAcceptRateLimit,
+  assertAdminInvitationRateLimit,
   assertAdminPasswordResetRateLimit,
   assertLoginRateLimit,
   assertPasswordRecoveryRateLimit,
@@ -21,6 +31,8 @@ import {
   clearLoginRateLimit,
   clearPasswordChangeRateLimit,
   normalizeEmailForRateLimit,
+  recordAccountInvitationAcceptAttempt,
+  recordAdminInvitationAttempt,
   recordPasswordRecoveryAttempt,
   recordPasswordResetAttempt,
   recordAdminPasswordResetAttempt,
@@ -39,6 +51,9 @@ import {
   type AuthRepository,
 } from "./auth.repository";
 import type {
+  AcceptAccountInvitationInput,
+  AccountInvitationPreview,
+  AccountInvitationType,
   AdminResetPasswordPersistenceInput,
   AuthSessionListItem,
   AuthSessionStatus,
@@ -64,7 +79,9 @@ const PASSWORD_RECOVERY_SUCCESS_MESSAGE =
   "Se o e-mail estiver cadastrado, você receberá instruções para recuperar o acesso.";
 export const PASSWORD_MAX_LENGTH = 128;
 const PASSWORD_RESET_TOKEN_MAX_LENGTH = 512;
+const ACCOUNT_INVITATION_TOKEN_MAX_LENGTH = 512;
 const AUTH_TOKEN_TTL_SECONDS = 8 * 60 * 60;
+const ACCOUNT_INVITATION_TTL_HOURS = 48;
 const PASSWORD_POLICY_MESSAGE =
   "Use pelo menos 8 caracteres, com letra maiúscula, letra minúscula e número.";
 
@@ -111,14 +128,28 @@ const hashPasswordResetToken = (token: string) => {
   return createHmac("sha256", env.jwtSecret).update(token).digest("hex");
 };
 
+const hashAccountInvitationToken = (token: string) => {
+  return createHmac("sha256", env.jwtSecret).update(token).digest("hex");
+};
+
 const buildPasswordResetExpiry = () => {
   return new Date(Date.now() + env.passwordRecoveryTtlMinutes * 60 * 1000).toISOString();
+};
+
+const buildAccountInvitationExpiry = () => {
+  return new Date(Date.now() + ACCOUNT_INVITATION_TTL_HOURS * 60 * 60 * 1000).toISOString();
 };
 
 export const buildPasswordResetUrl = (token: string) => {
   const baseUrl = env.appPublicUrl.replace(/\/+$/u, "");
 
   return `${baseUrl}/redefinir-senha?token=${encodeURIComponent(token)}`;
+};
+
+export const buildAccountInvitationUrl = (token: string) => {
+  const baseUrl = env.appPublicUrl.replace(/\/+$/u, "");
+
+  return `${baseUrl}/ativar-conta?token=${encodeURIComponent(token)}`;
 };
 
 const logPasswordRecoveryEvent = (
@@ -144,6 +175,39 @@ const logPasswordRecoveryEvent = (
     correlationId: details.correlationId,
     notifierKind: details.notifierKind,
     tokenInvalidated: details.tokenInvalidated ?? false,
+  });
+
+  if (event === "delivery_failed" || event === "delivery_unavailable") {
+    console.warn(`[api] ${message}`);
+    return;
+  }
+
+  console.info(`[api] ${message}`);
+};
+
+const logAccountInvitationEvent = (
+  event:
+    | "delivery_started"
+    | "delivery_completed"
+    | "delivery_failed"
+    | "delivery_preview_only"
+    | "delivery_unavailable",
+  details: {
+    correlationId: string;
+    notifierKind: string;
+    invitationInvalidated?: boolean;
+  },
+) => {
+  if (env.nodeEnv === "test") {
+    return;
+  }
+
+  const message = JSON.stringify({
+    scope: "account-invitation",
+    event,
+    correlationId: details.correlationId,
+    notifierKind: details.notifierKind,
+    invitationInvalidated: details.invitationInvalidated ?? false,
   });
 
   if (event === "delivery_failed" || event === "delivery_unavailable") {
@@ -256,6 +320,15 @@ export const loginUser = async (
     });
   }
 
+  if (!storedUser.accountActivatedAt) {
+    recordFailedLoginAttempt(ipAddress, normalizedInput.email);
+    throw new AppError({
+      statusCode: 401,
+      code: "INVALID_CREDENTIALS",
+      message: INVALID_LOGIN_MESSAGE,
+    });
+  }
+
   if (storedUser.status !== "active") {
     throw new AppError({
       statusCode: 403,
@@ -286,7 +359,7 @@ export const loginUser = async (
 export const getAuthenticatedUser = async (userId: string): Promise<AuthUser | null> => {
   const storedUser = await authRepository.getById(userId);
 
-  if (!storedUser || storedUser.status !== "active") {
+  if (!storedUser || storedUser.status !== "active" || !storedUser.accountActivatedAt) {
     return null;
   }
 
@@ -319,7 +392,7 @@ export const getAuthenticatedUserFromTokenPayload = async (
 
   const storedUser = await authRepository.getById(payload.sub);
 
-  if (!storedUser || storedUser.status !== "active") {
+  if (!storedUser || storedUser.status !== "active" || !storedUser.accountActivatedAt) {
     return null;
   }
 
@@ -347,6 +420,185 @@ const validatePasswordPolicy = (password: string) => {
   const hasDigit = /\d/u.test(password);
 
   return hasMinLength && hasUppercase && hasLowercase && hasDigit;
+};
+
+export const buildInviteOnlyPasswordHash = async () => {
+  return bcrypt.hash(randomBytes(32).toString("base64url"), 10);
+};
+
+export const prepareInvitedEnrollmentUser = async (input: {
+  enrollmentId: string;
+  fullName: string;
+  email: string;
+  whatsapp: string;
+  groupName: string | null;
+  groupSlug: string | null;
+  actorName: string;
+  actorRole: UserRole;
+}) => {
+  const passwordHash = await buildInviteOnlyPasswordHash();
+
+  return authRepository.prepareInvitedEnrollmentUser({
+    ...input,
+    passwordHash,
+  });
+};
+
+export const processAccountInvitationDelivery = async (input: {
+  invitationId: string;
+  rawToken: string;
+  recipientEmail: string;
+  recipientName: string;
+  invitationType: AccountInvitationType;
+  expiresAt: string;
+  actorName: string;
+  actorRole: UserRole;
+  strict?: boolean;
+}) => {
+  const notifier = getAccountInvitationNotifier();
+  const correlationId = randomUUID();
+  const invitationUrl = buildAccountInvitationUrl(input.rawToken);
+  const createdAt = new Date().toISOString();
+  const previewStored = registerAccountInvitationPreview({
+    email: input.recipientEmail,
+    fullName: input.recipientName,
+    token: input.rawToken,
+    invitationUrl,
+    createdAt,
+    expiresAt: input.expiresAt,
+    invitationType: input.invitationType,
+  });
+
+  logAccountInvitationEvent("delivery_started", {
+    correlationId,
+    notifierKind: notifier.kind,
+  });
+
+  try {
+    if (notifier.kind === "null") {
+      if (previewStored) {
+        logAccountInvitationEvent("delivery_preview_only", {
+          correlationId,
+          notifierKind: notifier.kind,
+        });
+      } else {
+        const invalidated = await authRepository.markAccountInvitationFailed({
+          invitationId: input.invitationId,
+          failedAt: new Date().toISOString(),
+          invalidatedAt: new Date().toISOString(),
+          actorName: input.actorName,
+          actorRole: input.actorRole,
+          note: "O convite foi invalidado porque não havia entrega SMTP nem prévia local habilitada.",
+        });
+
+        logAccountInvitationEvent("delivery_unavailable", {
+          correlationId,
+          notifierKind: notifier.kind,
+          invitationInvalidated: invalidated,
+        });
+      }
+
+      return {
+        deliveryStatus: previewStored ? ("not_configured" as const) : ("failed" as const),
+      };
+    }
+
+    await notifier.sendAccountInvitation({
+      recipientEmail: input.recipientEmail,
+      recipientName: input.recipientName,
+      invitationUrl,
+      expiresAt: input.expiresAt,
+      invitationType: input.invitationType,
+    });
+
+    await authRepository.markAccountInvitationDelivered({
+      invitationId: input.invitationId,
+      deliveredAt: new Date().toISOString(),
+      actorName: input.actorName,
+      actorRole: input.actorRole,
+      note: "Convite de ativação processado com sucesso pelo provedor configurado.",
+    });
+
+    logAccountInvitationEvent("delivery_completed", {
+      correlationId,
+      notifierKind: notifier.kind,
+    });
+
+    return {
+      deliveryStatus: "sent" as const,
+    };
+  } catch (_error) {
+    const invalidated = await authRepository.markAccountInvitationFailed({
+      invitationId: input.invitationId,
+      failedAt: new Date().toISOString(),
+      invalidatedAt: new Date().toISOString(),
+      actorName: input.actorName,
+      actorRole: input.actorRole,
+      note: "O convite foi invalidado após falha segura no envio do e-mail transacional.",
+    });
+
+    logAccountInvitationEvent("delivery_failed", {
+      correlationId,
+      notifierKind: notifier.kind,
+      invitationInvalidated: invalidated,
+    });
+
+    if (input.strict) {
+      throw new AppError({
+        statusCode: 502,
+        code: "INVITATION_DELIVERY_FAILED",
+        message: "O convite foi registrado, mas o envio do e-mail não pôde ser concluído agora.",
+      });
+    }
+
+    return {
+      deliveryStatus: "failed" as const,
+    };
+  }
+};
+
+export const createAndDeliverAccountInvitation = async (input: {
+  userId: string;
+  recipientEmail: string;
+  recipientName: string;
+  invitationType: AccountInvitationType;
+  actorName: string;
+  actorRole: UserRole;
+  invitedByUserId?: string | null;
+  strictDelivery?: boolean;
+}) => {
+  const rawToken = randomBytes(32).toString("base64url");
+  const tokenHash = hashAccountInvitationToken(rawToken);
+  const expiresAt = buildAccountInvitationExpiry();
+
+  const invitation = await authRepository.replaceAccountInvitation({
+    userId: input.userId,
+    tokenHash,
+    expiresAt,
+    invitedByUserId: input.invitedByUserId ?? null,
+    invitationType: input.invitationType,
+    recipientEmailSnapshot: input.recipientEmail.trim().toLowerCase(),
+    actorName: input.actorName,
+    actorRole: input.actorRole,
+  });
+
+  const delivery = await processAccountInvitationDelivery({
+    invitationId: invitation.id,
+    rawToken,
+    recipientEmail: input.recipientEmail,
+    recipientName: input.recipientName,
+    invitationType: input.invitationType,
+    expiresAt,
+    actorName: input.actorName,
+    actorRole: input.actorRole,
+    strict: input.strictDelivery,
+  });
+
+  return {
+    invitationId: invitation.id,
+    expiresAt,
+    deliveryStatus: delivery.deliveryStatus,
+  };
 };
 
 export const requestPasswordRecovery = async (
@@ -831,6 +1083,129 @@ export const resetPasswordByAdmin = async (
   };
 };
 
+export const acceptAccountInvitation = async (
+  input: AcceptAccountInvitationInput,
+  options?: {
+    ipAddress?: string;
+  },
+) => {
+  const token = input.token;
+  const password = input.password;
+  const confirmPassword = input.confirmPassword;
+
+  if (!token || !password || !confirmPassword) {
+    throw new AppError({
+      statusCode: 400,
+      code: "INVALID_ACCOUNT_INVITATION",
+      message: "Convite inválido ou expirado. Solicite um novo acesso para continuar.",
+    });
+  }
+
+  if (
+    token.length > ACCOUNT_INVITATION_TOKEN_MAX_LENGTH ||
+    password.length > PASSWORD_MAX_LENGTH ||
+    confirmPassword.length > PASSWORD_MAX_LENGTH
+  ) {
+    throw new AppError({
+      statusCode: 400,
+      code: "INVALID_ACCOUNT_INVITATION",
+      message: "Convite inválido ou expirado. Solicite um novo acesso para continuar.",
+    });
+  }
+
+  if (password !== confirmPassword) {
+    throw new AppError({
+      statusCode: 400,
+      code: "PASSWORD_CONFIRMATION_MISMATCH",
+      message: "A confirmação da nova senha não confere.",
+    });
+  }
+
+  if (!validatePasswordPolicy(password)) {
+    throw new AppError({
+      statusCode: 400,
+      code: "WEAK_PASSWORD",
+      message: PASSWORD_POLICY_MESSAGE,
+    });
+  }
+
+  const tokenHash = hashAccountInvitationToken(token);
+  const ipAddress = options?.ipAddress ?? "unknown";
+
+  assertAccountInvitationAcceptRateLimit(ipAddress, tokenHash);
+  recordAccountInvitationAcceptAttempt(ipAddress, tokenHash);
+
+  const passwordHash = await bcrypt.hash(password, 10);
+  const passwordChangedAt = new Date().toISOString();
+  const result = await authRepository.acceptAccountInvitation({
+    tokenHash,
+    passwordHash,
+    passwordChangedAt,
+    actorName: "Convite de acesso",
+    actorRole: "visitor",
+  });
+
+  if (result.status !== "updated") {
+    throw new AppError({
+      statusCode: 400,
+      code: "INVALID_ACCOUNT_INVITATION",
+      message: "Convite inválido ou expirado. Solicite um novo acesso para continuar.",
+    });
+  }
+
+  return {
+    success: true as const,
+    message: "Conta ativada com sucesso. Faça login para continuar.",
+  };
+};
+
+export const sendAccountInvitationByAdmin = async (authUser: AuthUser, targetUserId: string) => {
+  if (authUser.role !== "admin") {
+    throw new AppError({
+      statusCode: 403,
+      code: "FORBIDDEN",
+      message: "Seu perfil não tem acesso a este recurso.",
+    });
+  }
+
+  assertAdminInvitationRateLimit(authUser.id, targetUserId);
+  recordAdminInvitationAttempt(authUser.id, targetUserId);
+
+  const storedUser = await authRepository.getById(targetUserId);
+
+  if (!storedUser) {
+    throw new AppError({
+      statusCode: 404,
+      code: "USER_NOT_FOUND",
+      message: "Usuário não encontrado para envio do convite.",
+    });
+  }
+
+  const result = await createAndDeliverAccountInvitation({
+    userId: storedUser.id,
+    recipientEmail: storedUser.email,
+    recipientName: storedUser.fullName,
+    invitationType: "admin_reinvite",
+    actorName: authUser.fullName,
+    actorRole: authUser.role,
+    invitedByUserId: authUser.id,
+    strictDelivery: true,
+  });
+
+  return {
+    user: {
+      id: storedUser.id,
+      fullName: storedUser.fullName,
+      email: storedUser.email,
+    },
+    invitation: {
+      expiresAt: result.expiresAt,
+      deliveryStatus: result.deliveryStatus,
+      invitationType: "admin_reinvite" as const,
+    },
+  };
+};
+
 export const getPasswordRecoveryPreviewList = async (authUser: AuthUser): Promise<PasswordRecoveryPreview[]> => {
   if (authUser.role !== "admin") {
     throw new AppError({
@@ -861,9 +1236,46 @@ export const provisionStudentAccess = (
   return authRepository.provisionStudentAccess(input);
 };
 
+export const getInvitedEnrollmentUserByEmail = async (email: string) => {
+  const storedUser = await authRepository.getByEmail(email.trim().toLowerCase());
+
+  if (!storedUser) {
+    return null;
+  }
+
+  return {
+    id: storedUser.id,
+    fullName: storedUser.fullName,
+    email: storedUser.email,
+    role: storedUser.role,
+    status: storedUser.status,
+  };
+};
+
+export const getAccountInvitationPreviewList = async (authUser: AuthUser): Promise<AccountInvitationPreview[]> => {
+  if (authUser.role !== "admin") {
+    throw new AppError({
+      statusCode: 403,
+      code: "FORBIDDEN",
+      message: "Seu perfil não tem acesso a este recurso.",
+    });
+  }
+
+  if (env.nodeEnv === "production" || !env.passwordRecoveryPreviewEnabled) {
+    throw new AppError({
+      statusCode: 404,
+      code: "ACCOUNT_INVITATION_PREVIEW_DISABLED",
+      message: "A prévia local do convite de acesso não está disponível neste ambiente.",
+    });
+  }
+
+  return listAccountInvitationPreviews();
+};
+
 export const resetAuthStore = () => {
   resetMemoryAuthRepositoryStore();
   resetAuthRateLimitStore();
+  resetAccountInvitationNotifier();
   resetPasswordRecoveryNotifier();
   authRepository = createMemoryAuthRepository();
 };
@@ -878,4 +1290,12 @@ export const resetPasswordRecoveryNotifierFactory = () => {
 
 export const setDefaultPasswordRecoveryNotifierForTesting = () => {
   setPasswordRecoveryNotifierForTesting(createPasswordRecoveryNotifier(env));
+};
+
+export const resetAccountInvitationNotifierFactory = () => {
+  resetAccountInvitationNotifier();
+};
+
+export const setDefaultAccountInvitationNotifierForTesting = () => {
+  setAccountInvitationNotifierForTesting(createAccountInvitationNotifier(env));
 };

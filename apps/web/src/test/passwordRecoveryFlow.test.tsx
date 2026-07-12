@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 
 import { AuthProvider } from "../auth/AuthProvider";
+import { ActivateAccountPage } from "../pages/ActivateAccountPage";
 import { ForgotPasswordPage } from "../pages/ForgotPasswordPage";
 import { LoginPage } from "../pages/LoginPage";
 import { ResetPasswordPage } from "../pages/ResetPasswordPage";
@@ -21,6 +22,7 @@ const renderPasswordRecoveryRoutes = (initialEntry: string) => {
           <Route element={<LoginPage />} path="/login" />
           <Route element={<ForgotPasswordPage />} path="/esqueci-minha-senha" />
           <Route element={<ResetPasswordPage />} path="/redefinir-senha" />
+          <Route element={<ActivateAccountPage />} path="/ativar-conta" />
         </Routes>
       </MemoryRouter>
     </AuthProvider>,
@@ -136,6 +138,39 @@ describe("password recovery pages", () => {
     fireEvent.click(screen.getByRole("button", { name: "Redefinir senha" }));
 
     expect(await screen.findByText("Senha redefinida com sucesso. Faça login novamente.")).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Entrar no portal" })).toBeInTheDocument();
+    });
+  });
+
+  it("ativa a conta com sucesso e volta ao login", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({
+          success: true,
+          message: "Conta ativada com sucesso.",
+          data: {
+            success: true,
+            message: "Conta ativada com sucesso. Faça login para continuar.",
+          },
+        }),
+      })),
+    );
+
+    renderPasswordRecoveryRoutes("/ativar-conta?token=convite-demo");
+
+    fireEvent.change(screen.getByLabelText("Nova senha"), {
+      target: { value: "NovaSenha@123" },
+    });
+    fireEvent.change(screen.getByLabelText("Confirmar nova senha"), {
+      target: { value: "NovaSenha@123" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Ativar conta" }));
+
+    expect(await screen.findByText("Conta ativada com sucesso. Faça login para continuar.")).toBeInTheDocument();
 
     await waitFor(() => {
       expect(screen.getByRole("heading", { name: "Entrar no portal" })).toBeInTheDocument();

@@ -4,13 +4,37 @@ import { AppError } from "../../lib/app-error";
 import { sendSuccess } from "../../lib/api-response";
 import { asyncHandler } from "../../lib/async-handler";
 import { requireRole } from "../auth/auth.middleware";
-import { resetPasswordByAdmin } from "../auth/auth.service";
+import { resetPasswordByAdmin, sendAccountInvitationByAdmin } from "../auth/auth.service";
 
 const getRouteParam = (value: string | string[] | undefined): string => {
   return Array.isArray(value) ? value[0] ?? "" : (value ?? "");
 };
 
 export const adminRouter = Router();
+
+adminRouter.post(
+  "/users/:userId/send-invitation",
+  ...requireRole(["admin"]),
+  asyncHandler(async (request, response) => {
+    if (!request.authUser) {
+      throw new AppError({
+        statusCode: 401,
+        code: "AUTH_REQUIRED",
+        message: "Faça login no ambiente local para continuar.",
+      });
+    }
+
+    const result = await sendAccountInvitationByAdmin(
+      request.authUser,
+      getRouteParam(request.params.userId),
+    );
+
+    return sendSuccess(response, {
+      message: "Convite de acesso processado.",
+      data: result,
+    });
+  }),
+);
 
 adminRouter.post(
   "/users/:userId/reset-password",

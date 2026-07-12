@@ -38,8 +38,10 @@ export interface Enrollment {
 
 export interface StudentAccessInfo {
   email: string;
-  temporaryPassword: string;
-  mustChangePassword: boolean;
+  invitationType: "enrollment_approval";
+  deliveryStatus: "pending" | "sent" | "failed" | "not_configured";
+  expiresAt: string;
+  mustCreatePassword: true;
 }
 
 export interface EnrollmentStatusUpdateResult {
