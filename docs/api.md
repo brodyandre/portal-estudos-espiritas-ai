@@ -221,9 +221,70 @@ Rate limit:
 - a chave usa e-mail normalizado apenas em memória interna
 - login bem-sucedido limpa o contador dessa identidade
 
+Sessão local:
+
+- cada login cria uma sessão individual com `jti`
+- o backend armazena apenas metadados da sessão
+- o JWT completo nunca é persistido
+
 ### `GET /api/auth/me`
 
 Retorna o usuario autenticado com base no token local.
+
+### `GET /api/auth/sessions`
+
+Lista as sessões do usuário autenticado.
+
+Retorna apenas dados seguros:
+
+- `id`
+- `createdAt`
+- `expiresAt`
+- `lastSeenAt`
+- `revokedAt`
+- `isCurrent`
+- `status`
+- `device.label`
+- `device.userAgentSummary`
+
+Observações:
+
+- não retorna JWT
+- não retorna `ipHash`
+- não retorna `userId`
+- por padrão lista apenas sessões ativas
+- aceita `includeInactive=true` para incluir revogadas ou expiradas
+
+### `DELETE /api/auth/sessions/:sessionId`
+
+Encerra uma sessão específica do próprio usuário.
+
+Regras:
+
+- exige token Bearer valido
+- não permite encerrar a sessão atual por este endpoint
+- ao tentar encerrar a sessão atual, retorna `CURRENT_SESSION_REVOCATION_NOT_ALLOWED`
+- se a sessão não existir ou não pertencer ao usuário, retorna `404` com `AUTH_SESSION_NOT_FOUND`
+
+### `POST /api/auth/logout`
+
+Revoga apenas a sessão atual autenticada.
+
+### `POST /api/auth/logout-others`
+
+Revoga todas as outras sessões ativas do usuário autenticado, preservando a atual.
+
+Resposta:
+
+- `revokedSessions`
+
+### `POST /api/auth/logout-all`
+
+Revoga todas as sessões ativas do usuário autenticado, inclusive a atual.
+
+Resposta:
+
+- `revokedSessions`
 
 ### `PATCH /api/auth/change-password`
 
@@ -248,7 +309,8 @@ Regras:
 - a nova senha deve ter pelo menos 8 caracteres, com letra maiuscula, letra minuscula e numero
 - atualiza `mustChangePassword` para `false`
 - atualiza `passwordChangedAt`
-- invalida tokens antigos com base na data da ultima troca
+- revoga as sessões antigas
+- cria uma nova sessão válida para o novo token
 - nunca retorna `passwordHash`
 
 Enquanto `mustChangePassword` estiver `true`, a API bloqueia as demais rotas autenticadas com:

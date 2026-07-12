@@ -2240,6 +2240,95 @@ img {
   color: var(--color-warning-700);
 }
 
+.session-security-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.session-card {
+  display: grid;
+  gap: 1rem;
+}
+
+.session-card--current {
+  border-color: var(--color-border-strong);
+}
+
+.session-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.session-card__eyebrow {
+  margin: 0 0 0.35rem;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.session-card__header h2 {
+  margin: 0;
+}
+
+.session-card__status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--color-border-default);
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.session-card__status--active {
+  background: rgba(47, 122, 89, 0.16);
+  color: var(--color-positive-700);
+}
+
+.session-card__status--revoked,
+.session-card__status--expired {
+  background: rgba(135, 142, 137, 0.16);
+  color: var(--color-text-muted);
+}
+
+.session-card__meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.85rem;
+  margin: 0;
+}
+
+.session-card__meta div {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.session-card__meta dt {
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
+.session-card__meta dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+.session-card__summary,
+.session-card__current-note {
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
+.session-card__actions {
+  display: flex;
+  justify-content: flex-start;
+}
+
 .stack-list {
   display: grid;
   gap: var(--space-4);

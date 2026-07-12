@@ -12,6 +12,7 @@ const hashPassword = async (password: string) => bcrypt.hash(password, 10);
 
 async function main() {
   await prisma.auditLog.deleteMany();
+  await prisma.authSession.deleteMany();
   await prisma.enrollment.deleteMany();
   await prisma.studyGroup.deleteMany();
   await prisma.user.deleteMany();

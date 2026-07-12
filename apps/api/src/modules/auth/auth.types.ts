@@ -5,6 +5,33 @@ export interface AuthUser extends AppUser {
   passwordChangedAt?: string | null;
 }
 
+export interface StoredAuthSession {
+  id: string;
+  userId: string;
+  createdAt: string;
+  expiresAt: string;
+  revokedAt?: string | null;
+  lastSeenAt?: string | null;
+  userAgentSummary?: string | null;
+  ipHash?: string | null;
+}
+
+export type AuthSessionStatus = "active" | "revoked" | "expired";
+
+export interface AuthSessionListItem {
+  id: string;
+  createdAt: string;
+  expiresAt: string;
+  lastSeenAt?: string | null;
+  revokedAt?: string | null;
+  isCurrent: boolean;
+  status: AuthSessionStatus;
+  device: {
+    label: string;
+    userAgentSummary?: string | null;
+  };
+}
+
 export interface LoginInput {
   email: string;
   password: string;
@@ -23,6 +50,7 @@ export interface LoginResponse {
 
 export interface AuthTokenPayload {
   sub: string;
+  jti?: string;
   email: string;
   fullName: string;
   role: UserRole;
@@ -68,11 +96,46 @@ export interface StudentAccessProvisionResult {
   mustChangePassword: boolean;
 }
 
+export interface CreateAuthSessionInput {
+  sessionId: string;
+  userId: string;
+  expiresAt: string;
+  userAgentSummary?: string | null;
+  ipHash?: string | null;
+}
+
+export interface RevokeAuthSessionInput {
+  sessionId: string;
+  actorName: string;
+  actorRole: UserRole;
+  action: string;
+  note: string;
+}
+
+export interface RevokeAllAuthSessionsInput {
+  userId: string;
+  actorName: string;
+  actorRole: UserRole;
+  action: string;
+  note: string;
+}
+
+export interface ChangePasswordPersistenceResult {
+  user: StoredAuthUser;
+  session: StoredAuthSession;
+}
+
 export interface ChangePasswordPersistenceInput {
   userId: string;
   passwordHash: string;
+  passwordChangedAt: string;
   actorName: string;
   actorRole: UserRole;
+  currentSessionId: string;
+  newSessionId: string;
+  newSessionExpiresAt: string;
+  newSessionUserAgentSummary?: string | null;
+  newSessionIpHash?: string | null;
 }
 
 export interface AdminResetPasswordPersistenceInput {
@@ -80,6 +143,26 @@ export interface AdminResetPasswordPersistenceInput {
   passwordHash: string;
   temporaryPasswordGeneratedAt: string;
   passwordChangedAt: string;
+  actorName: string;
+  actorRole: UserRole;
+}
+
+export interface ListAuthSessionsInput {
+  userId: string;
+  currentSessionId: string;
+  includeInactive?: boolean;
+}
+
+export interface RevokeSessionForUserInput {
+  userId: string;
+  sessionId: string;
+  actorName: string;
+  actorRole: UserRole;
+}
+
+export interface RevokeOtherSessionsForUserInput {
+  userId: string;
+  currentSessionId: string;
   actorName: string;
   actorRole: UserRole;
 }

@@ -64,6 +64,7 @@ Comportamento esperado:
 
 - visitante nao aprovado nao deve ver o link da aula
 - aluno aprovado pode ver materiais e link do Meet
+- aluno autenticado pode revisar suas sessoes em `/minha-conta/seguranca`
 - no GitHub Pages, a experiencia pode existir apenas como demonstracao visual
 - no modo local, a experiencia pode usar backend e aprovacao do professor
 - no modo local, a rota `/aluno` exige login ou perfil demo quando o backend nao existir
@@ -89,6 +90,7 @@ Comportamento esperado:
 - professor organiza aula, materiais e rascunhos
 - professor aprova ou marca para conversar
 - professor revisa conteudos antes de publicar
+- professor autenticado pode revisar suas sessoes em `/minha-conta/seguranca`
 - sem backend local, a experiencia continua apenas em modo demonstrativo
 - com backend local, a rota `/professor` passa a respeitar login de `Professor` ou `Admin`
 
@@ -112,6 +114,7 @@ Comportamento esperado:
 - admin gerencia grupos
 - admin cuida de configuracoes
 - admin acompanha trilha de auditoria
+- admin autenticado pode revisar suas sessoes em `/minha-conta/seguranca`
 - no MVP atual, essa area ainda e conceitual e demonstrativa
 - a operacao real dessa area depende de backend autenticado
 - no ambiente local, a rota `/admin` passa a exigir login de `Admin`
@@ -173,6 +176,7 @@ No ambiente local/private do owner:
 - frontend roda localmente
 - backend roda em `http://localhost:3333`
 - login local usa JWT assinado por `JWT_SECRET`
+- cada login cria uma sessao local individual que pode ser revogada depois
 - o primeiro acesso do aluno aprovado exige troca da senha temporaria
 - endpoints de credenciais usam rate limiting em memória com `429` e `Retry-After`
 - professor pode revisar interessados

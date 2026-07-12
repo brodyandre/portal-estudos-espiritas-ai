@@ -91,12 +91,114 @@ const createCustomAdminRepository = (): AuthRepository => {
     },
   ];
 
+  const sessions: Array<{
+    id: string;
+    userId: string;
+    createdAt: string;
+    expiresAt: string;
+    revokedAt: string | null;
+    lastSeenAt: string | null;
+    userAgentSummary: string | null;
+    ipHash: string | null;
+  }> = [];
+
   return {
     async getByEmail(email) {
       return users.find((user) => user.email === email.trim().toLowerCase()) ?? null;
     },
     async getById(id) {
       return users.find((user) => user.id === id) ?? null;
+    },
+    async getSessionById(sessionId) {
+      return sessions.find((session) => session.id === sessionId) ?? null;
+    },
+    async createSession(input) {
+      const session = {
+        id: input.sessionId,
+        userId: input.userId,
+        createdAt: new Date().toISOString(),
+        expiresAt: input.expiresAt,
+        revokedAt: null,
+        lastSeenAt: new Date().toISOString(),
+        userAgentSummary: input.userAgentSummary ?? null,
+        ipHash: input.ipHash ?? null,
+      };
+
+      sessions.unshift(session);
+      return session;
+    },
+    async touchSession(sessionId) {
+      const session = sessions.find((item) => item.id === sessionId);
+
+      if (session && !session.revokedAt) {
+        session.lastSeenAt = new Date().toISOString();
+      }
+    },
+    async revokeSession(input) {
+      const session = sessions.find((item) => item.id === input.sessionId);
+
+      if (!session) {
+        return false;
+      }
+
+      if (!session.revokedAt) {
+        session.revokedAt = new Date().toISOString();
+      }
+
+      return true;
+    },
+    async revokeAllSessionsForUser(input) {
+      let revokedCount = 0;
+      const revokedAt = new Date().toISOString();
+
+      for (const session of sessions) {
+        if (session.userId === input.userId && !session.revokedAt) {
+          session.revokedAt = revokedAt;
+          revokedCount += 1;
+        }
+      }
+
+      return revokedCount;
+    },
+    async listSessionsForUser(input) {
+      return sessions.filter((session) => {
+        if (session.userId !== input.userId) {
+          return false;
+        }
+
+        if (input.includeInactive) {
+          return true;
+        }
+
+        return !session.revokedAt && new Date(session.expiresAt).getTime() > Date.now();
+      });
+    },
+    async revokeSessionForUser(input) {
+      const session = sessions.find((item) => item.id === input.sessionId && item.userId === input.userId);
+
+      if (!session) {
+        return "not_found";
+      }
+
+      if (session.revokedAt) {
+        return "already_revoked";
+      }
+
+      session.revokedAt = new Date().toISOString();
+      return "revoked";
+    },
+    async revokeOtherSessionsForUser(input) {
+      let revokedCount = 0;
+      const revokedAt = new Date().toISOString();
+
+      for (const session of sessions) {
+        if (session.userId === input.userId && !session.revokedAt && session.id !== input.currentSessionId) {
+          session.revokedAt = revokedAt;
+          revokedCount += 1;
+        }
+      }
+
+      return revokedCount;
     },
     async provisionStudentAccess() {
       throw new Error("Nao utilizado neste teste.");
@@ -109,10 +211,26 @@ const createCustomAdminRepository = (): AuthRepository => {
       }
 
       user.passwordHash = input.passwordHash;
-      user.passwordChangedAt = new Date().toISOString();
+      user.passwordChangedAt = input.passwordChangedAt;
       user.mustChangePassword = false;
+      user.temporaryPasswordGeneratedAt = null;
+      await this.revokeAllSessionsForUser({
+        userId: user.id,
+        actorName: input.actorName,
+        actorRole: input.actorRole,
+        action: "Senha alterada",
+        note: "Sessões anteriores encerradas.",
+      });
 
-      return user;
+      const session = await this.createSession({
+        sessionId: input.newSessionId,
+        userId: user.id,
+        expiresAt: input.newSessionExpiresAt,
+        userAgentSummary: input.newSessionUserAgentSummary,
+        ipHash: input.newSessionIpHash,
+      });
+
+      return { user, session };
     },
     async resetPasswordByAdmin(input) {
       const user = users.find((item) => item.id === input.userId);
@@ -125,6 +243,13 @@ const createCustomAdminRepository = (): AuthRepository => {
       user.mustChangePassword = true;
       user.temporaryPasswordGeneratedAt = input.temporaryPasswordGeneratedAt;
       user.passwordChangedAt = input.passwordChangedAt;
+      await this.revokeAllSessionsForUser({
+        userId: user.id,
+        actorName: input.actorName,
+        actorRole: input.actorRole,
+        action: "Senha redefinida por admin",
+        note: "Sessões anteriores encerradas.",
+      });
 
       return user;
     },
@@ -307,6 +432,30 @@ describe("admin password reset endpoint", () => {
       },
       async getById(id) {
         return baseRepository.getById(id);
+      },
+      async getSessionById(sessionId) {
+        return baseRepository.getSessionById(sessionId);
+      },
+      async createSession(input) {
+        return baseRepository.createSession(input);
+      },
+      async touchSession(sessionId) {
+        return baseRepository.touchSession(sessionId);
+      },
+      async revokeSession(input) {
+        return baseRepository.revokeSession(input);
+      },
+      async revokeAllSessionsForUser(input) {
+        return baseRepository.revokeAllSessionsForUser(input);
+      },
+      async listSessionsForUser(input) {
+        return baseRepository.listSessionsForUser(input);
+      },
+      async revokeSessionForUser(input) {
+        return baseRepository.revokeSessionForUser(input);
+      },
+      async revokeOtherSessionsForUser(input) {
+        return baseRepository.revokeOtherSessionsForUser(input);
       },
       async provisionStudentAccess(input) {
         return baseRepository.provisionStudentAccess(input);

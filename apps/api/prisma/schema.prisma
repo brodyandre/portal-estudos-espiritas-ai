@@ -51,6 +51,24 @@ model User {
   createdAt                    DateTime    @default(now())
   updatedAt                    DateTime    @updatedAt
   enrollment                   Enrollment? @relation(fields: [enrollmentId], references: [id], onDelete: SetNull)
+  authSessions                 AuthSession[]
+}
+
+model AuthSession {
+  id               String   @id
+  userId           String
+  createdAt        DateTime @default(now())
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  lastSeenAt       DateTime?
+  userAgentSummary String?
+  ipHash           String?
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([revokedAt])
+  @@index([userId, revokedAt])
 }
 
 model Enrollment {

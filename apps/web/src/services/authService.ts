@@ -33,6 +33,28 @@ interface ChangePasswordInput {
   confirmPassword: string;
 }
 
+interface LogoutResponse {
+  revokedCurrentSession?: boolean;
+}
+
+interface LogoutAllResponse {
+  revokedSessions: number;
+}
+
+export interface AuthSessionView {
+  id: string;
+  createdAt: string;
+  expiresAt: string;
+  lastSeenAt?: string | null;
+  revokedAt?: string | null;
+  isCurrent: boolean;
+  status: "active" | "revoked" | "expired";
+  device: {
+    label: string;
+    userAgentSummary?: string | null;
+  };
+}
+
 const getAuthApiBaseUrl = () => {
   return (appConfig.apiUrl ?? (appConfig.appMode === "local" ? DEFAULT_LOCAL_API_URL : "")).trim();
 };
@@ -111,12 +133,18 @@ export const loadAuthenticatedUser = async () => {
   return payload.data;
 };
 
-export const changePasswordWithSession = async (input: ChangePasswordInput) => {
+const getStoredTokenOrThrow = () => {
   const token = readStoredAuthToken();
 
   if (!token) {
     throw new Error("Faça login no ambiente local para continuar.");
   }
+
+  return token;
+};
+
+export const changePasswordWithSession = async (input: ChangePasswordInput) => {
+  const token = getStoredTokenOrThrow();
 
   const response = await fetch(buildAuthUrl("/api/auth/change-password"), {
     method: "PATCH",
@@ -134,6 +162,80 @@ export const changePasswordWithSession = async (input: ChangePasswordInput) => {
   return payload.data;
 };
 
-export const logoutLocalAuth = () => {
+export const loadAuthSessions = async (includeInactive = false) => {
+  const token = getStoredTokenOrThrow();
+  const url = buildAuthUrl(`/api/auth/sessions?includeInactive=${includeInactive ? "true" : "false"}`);
+
+  const response = await fetch(url, {
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  const payload = await parseSuccess<AuthSessionView[]>(response);
+  return payload.data;
+};
+
+export const revokeAuthSession = async (sessionId: string) => {
+  const token = getStoredTokenOrThrow();
+  const response = await fetch(buildAuthUrl(`/api/auth/sessions/${sessionId}`), {
+    method: "DELETE",
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  const payload = await parseSuccess<{ revoked: boolean; alreadyRevoked: boolean }>(response);
+  return payload.data;
+};
+
+export const logoutWithSession = async () => {
+  const token = getStoredTokenOrThrow();
+
+  const response = await fetch(buildAuthUrl("/api/auth/logout"), {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  const payload = await parseSuccess<LogoutResponse>(response);
+  return payload.data;
+};
+
+export const logoutOtherSessionsWithSession = async () => {
+  const token = getStoredTokenOrThrow();
+
+  const response = await fetch(buildAuthUrl("/api/auth/logout-others"), {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  const payload = await parseSuccess<LogoutAllResponse>(response);
+  return payload.data;
+};
+
+export const logoutAllWithSession = async () => {
+  const token = getStoredTokenOrThrow();
+
+  const response = await fetch(buildAuthUrl("/api/auth/logout-all"), {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  const payload = await parseSuccess<LogoutAllResponse>(response);
+  return payload.data;
+};
+
+export const clearLocalAuthSession = () => {
   clearStoredAuthSession();
 };
