@@ -1,8 +1,10 @@
 import type {
+  Enrollment,
   EnrollmentGroupInterest,
   EnrollmentInput,
   EnrollmentStatus,
 } from "../../types/enrollment";
+import type { UserRole } from "../../auth/types";
 import type { EnrollmentsRepository } from "./enrollments.repository";
 import {
   createEnrollmentRepository,
@@ -10,8 +12,17 @@ import {
   type EnrollmentFilters,
   type UpdateEnrollmentStatusInput,
 } from "./enrollments.repository";
+import {
+  ensureStudentAccessForEnrollment,
+  type StudentAccessPayload,
+} from "./student-access.service";
 
 export interface CreateEnrollmentInput extends EnrollmentInput {}
+export interface UpdateEnrollmentStatusResult {
+  enrollment: Enrollment;
+  studentAccess: StudentAccessPayload | null;
+}
+
 let enrollmentsRepository: EnrollmentsRepository = createEnrollmentRepository();
 
 export const isEnrollmentStatus = (value: string): value is EnrollmentStatus => {
@@ -41,6 +52,34 @@ export const createEnrollment = (input: CreateEnrollmentInput) => {
 
 export const updateEnrollmentStatus = (id: string, input: UpdateEnrollmentStatusInput) => {
   return enrollmentsRepository.updateStatus(id, input);
+};
+
+export const updateEnrollmentStatusWithStudentAccess = async (
+  id: string,
+  input: UpdateEnrollmentStatusInput & {
+    actorName: string;
+    authRole: UserRole;
+  },
+): Promise<UpdateEnrollmentStatusResult | null> => {
+  const updatedEnrollment = await enrollmentsRepository.updateStatus(id, input);
+
+  if (!updatedEnrollment) {
+    return null;
+  }
+
+  const studentAccess =
+    input.status === "approved"
+      ? await ensureStudentAccessForEnrollment({
+          enrollment: updatedEnrollment,
+          actorName: input.actorName,
+          actorRole: input.authRole,
+        })
+      : null;
+
+  return {
+    enrollment: updatedEnrollment,
+    studentAccess,
+  };
 };
 
 export const resetEnrollmentStore = (): void => {

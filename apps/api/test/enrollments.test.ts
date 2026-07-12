@@ -14,6 +14,15 @@ const loginAsTeacher = async () => {
   return response.body.data.token as string;
 };
 
+const loginAsAdmin = async () => {
+  const response = await request(app).post("/api/auth/login").send({
+    email: "admin.demo@example.com",
+    password: "AdminDemo@123",
+  });
+
+  return response.body.data.token as string;
+};
+
 describe("enrollments endpoints", () => {
   beforeEach(() => {
     resetAuthStore();
@@ -163,7 +172,7 @@ describe("enrollments endpoints", () => {
   });
 
   describe("PATCH /api/enrollments/:id/status", () => {
-    it("atualiza o status e preenche reviewedAt e reviewedBy", async () => {
+    it("aprova a inscricao e cria acesso de aluno com senha temporaria", async () => {
       const token = await loginAsTeacher();
       const response = await request(app)
         .patch("/api/enrollments/enrollment-001/status")
@@ -177,13 +186,87 @@ describe("enrollments endpoints", () => {
       expect(response.body.success).toBe(true);
       expect(response.body.data).toEqual(
         expect.objectContaining({
-          id: "enrollment-001",
-          status: "approved",
-          teacherNote: "Aprovado para acompanhar o proximo encontro.",
-          reviewedBy: "Professor Demonstrativo",
+          enrollment: expect.objectContaining({
+            id: "enrollment-001",
+            status: "approved",
+            teacherNote: "Aprovado para acompanhar o proximo encontro.",
+            reviewedBy: "Professor Demonstrativo",
+          }),
+          studentAccess: expect.objectContaining({
+            email: "mariana.souza.demo@example.com",
+            temporaryPassword: expect.any(String),
+            mustChangePassword: true,
+          }),
         }),
       );
-      expect(typeof response.body.data.reviewedAt).toBe("string");
+      expect(typeof response.body.data.enrollment.reviewedAt).toBe("string");
+
+      const loginResponse = await request(app).post("/api/auth/login").send({
+        email: response.body.data.studentAccess.email,
+        password: response.body.data.studentAccess.temporaryPassword,
+      });
+
+      expect(loginResponse.status).toBe(200);
+      expect(loginResponse.body.data.user.role).toBe("student");
+    });
+
+    it("aprovar novamente o mesmo interessado nao duplica o acesso e renova a senha", async () => {
+      const token = await loginAsTeacher();
+      const firstApproval = await request(app)
+        .patch("/api/enrollments/enrollment-001/status")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+          status: "approved",
+        });
+
+      const secondApproval = await request(app)
+        .patch("/api/enrollments/enrollment-001/status")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+          status: "approved",
+        });
+
+      expect(firstApproval.status).toBe(200);
+      expect(secondApproval.status).toBe(200);
+      expect(secondApproval.body.data.studentAccess.email).toBe(
+        firstApproval.body.data.studentAccess.email,
+      );
+      expect(secondApproval.body.data.studentAccess.temporaryPassword).not.toBe(
+        firstApproval.body.data.studentAccess.temporaryPassword,
+      );
+
+      const loginResponse = await request(app).post("/api/auth/login").send({
+        email: secondApproval.body.data.studentAccess.email,
+        password: secondApproval.body.data.studentAccess.temporaryPassword,
+      });
+
+      expect(loginResponse.status).toBe(200);
+    });
+
+    it("rejected nao cria acesso de aluno", async () => {
+      const token = await loginAsTeacher();
+      const response = await request(app)
+        .patch("/api/enrollments/enrollment-001/status")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+          status: "rejected",
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.data.studentAccess).toBeNull();
+    });
+
+    it("needs_contact nao cria acesso de aluno", async () => {
+      const token = await loginAsTeacher();
+      const response = await request(app)
+        .patch("/api/enrollments/enrollment-001/status")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+          status: "needs_contact",
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.data.studentAccess).toBeNull();
     });
 
     it("retorna erro amigavel para status invalido", async () => {
@@ -214,6 +297,17 @@ describe("enrollments endpoints", () => {
       expect(response.body.error.code).toBe("ENROLLMENT_NOT_FOUND");
     });
 
+    it("falha sem token de autenticacao", async () => {
+      const response = await request(app)
+        .patch("/api/enrollments/enrollment-001/status")
+        .send({
+          status: "approved",
+        });
+
+      expect(response.status).toBe(401);
+      expect(response.body.error.code).toBe("AUTH_REQUIRED");
+    });
+
     it("bloqueia visitante autenticado sem papel permitido", async () => {
       const visitorLogin = await request(app).post("/api/auth/login").send({
         email: "aluno.demo@example.com",
@@ -229,6 +323,24 @@ describe("enrollments endpoints", () => {
 
       expect(response.status).toBe(403);
       expect(response.body.error.code).toBe("FORBIDDEN");
+    });
+
+    it("permite aprovacao por admin", async () => {
+      const token = await loginAsAdmin();
+      const response = await request(app)
+        .patch("/api/enrollments/enrollment-001/status")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+          status: "approved",
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.data.enrollment.reviewedBy).toBe("Admin Demonstrativo");
+      expect(response.body.data.studentAccess).toEqual(
+        expect.objectContaining({
+          email: "mariana.souza.demo@example.com",
+        }),
+      );
     });
   });
 });

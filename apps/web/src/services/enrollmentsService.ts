@@ -3,6 +3,8 @@ import type {
   EnrollmentAlreadyParticipates,
   EnrollmentGroupInterest,
   EnrollmentInput,
+  EnrollmentStatusUpdateResult,
+  StudentAccessInfo,
 } from "../types/enrollment";
 import {
   createMockEnrollment,
@@ -25,6 +27,11 @@ interface ApiEnrollment {
   reviewedAt: string | null;
   reviewedBy: string | null;
   teacherNote: string;
+}
+
+interface ApiEnrollmentStatusUpdateResult {
+  enrollment: ApiEnrollment;
+  studentAccess: StudentAccessInfo | null;
 }
 
 export interface CreateEnrollmentInput extends EnrollmentInput {
@@ -87,6 +94,15 @@ const mapEnrollment = (item: ApiEnrollment): Enrollment => {
   };
 };
 
+const mapStatusUpdateResult = (
+  item: ApiEnrollmentStatusUpdateResult,
+): EnrollmentStatusUpdateResult => {
+  return {
+    enrollment: sanitizeEnrollment(mapEnrollment(item.enrollment)),
+    studentAccess: item.studentAccess,
+  };
+};
+
 export const createEnrollment = (input: CreateEnrollmentInput) => {
   const { consentAccepted: _consentAccepted, ...payload } = input;
 
@@ -139,13 +155,18 @@ export const updateEnrollmentStatus = (id: string, input: UpdateEnrollmentStatus
     const updatedEnrollment = updateMockEnrollmentStatus(id, input);
 
     return Promise.resolve({
-      data: updatedEnrollment ? sanitizeEnrollment(updatedEnrollment) : null,
+      data: updatedEnrollment
+        ? {
+            enrollment: sanitizeEnrollment(updatedEnrollment.enrollment),
+            studentAccess: updatedEnrollment.studentAccess,
+          }
+        : null,
       source: "mock" as const,
       notice: DEMO_MODE_NOTICE,
     });
   }
 
-  return loadWithFallback<ApiEnrollment, Enrollment | null>({
+  return loadWithFallback<ApiEnrollmentStatusUpdateResult, EnrollmentStatusUpdateResult | null>({
     path: `/api/enrollments/${id}/status`,
     init: {
       method: "PATCH",
@@ -153,9 +174,14 @@ export const updateEnrollmentStatus = (id: string, input: UpdateEnrollmentStatus
     },
     fallback: () => {
       const item = updateMockEnrollmentStatus(id, input);
-      return item ? sanitizeEnrollment(item) : null;
+      return item
+        ? {
+            enrollment: sanitizeEnrollment(item.enrollment),
+            studentAccess: item.studentAccess,
+          }
+        : null;
     },
-    mapData: (item) => sanitizeEnrollment(mapEnrollment(item)),
+    mapData: (item) => mapStatusUpdateResult(item),
     friendlyMessage: FALLBACK_NOTICE,
   });
 };

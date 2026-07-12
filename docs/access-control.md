@@ -131,12 +131,14 @@ Comportamento esperado:
 - pode consultar materiais e progresso
 - pode ver o link do Meet apenas no ambiente local autorizado
 - no ambiente local, autentica pela rota `/login`
+- quando aprovado localmente, recebe acesso temporario por comunicacao manual
 
 ### Professor
 
 - pode revisar interessados
 - pode revisar e preparar conteudos
 - pode aprovar alunos
+- ao aprovar, pode criar ou reativar o acesso local do aluno
 - nao deve depender apenas do frontend publicado para operacao real
 - no ambiente local, autentica pela rota `/login`
 
@@ -144,6 +146,7 @@ Comportamento esperado:
 
 - pode gerenciar usuarios, grupos e configuracoes
 - pode acompanhar auditoria
+- pode aprovar inscricoes e ativar acesso local quando necessario
 - no ambiente local, autentica pela rota `/login`
 - no MVP atual, a tela `/admin/usuarios` usa acoes simuladas e log mockado local
 - no MVP atual, a tela `/admin/grupos` usa configuracao simulada e nunca expõe o Meet real no frontend publico
@@ -169,6 +172,7 @@ No ambiente local/private do owner:
 - login local usa JWT assinado por `JWT_SECRET`
 - professor pode revisar interessados
 - aluno aprovado pode acessar a area do aluno
+- aprovacoes locais podem criar ou reativar acesso do aluno no PostgreSQL
 - link real do Meet pode aparecer apenas para perfil autorizado
 - dados reais devem ficar fora do GitHub Pages e fora do frontend publico
 - gestao real de usuarios e auditoria administrativa exigem backend autenticado

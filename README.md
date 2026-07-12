@@ -161,6 +161,13 @@ Para autenticação local, use também:
 # aluno.demo@example.com / AlunoDemo@123
 ```
 
+Ao aprovar uma inscrição no ambiente local:
+
+- o backend cria ou reativa o acesso do aluno no PostgreSQL
+- a resposta retorna e-mail e senha temporária de forma segura
+- `passwordHash` nunca é exposto
+- o envio ao aluno continua manual no MVP
+
 Atalhos com Makefile:
 
 ```bash
@@ -445,6 +452,12 @@ Exemplo de fluxo:
 - preenche a inscricao
 - professor aprova
 - aluno acessa materiais e link da aula
+
+No ambiente local/private:
+
+- `PATCH /api/enrollments/:id/status` pode criar ou reativar o acesso do aluno
+- o painel do professor mostra o e-mail e a senha temporária apenas após a aprovação
+- a mensagem para o aluno continua sendo copiada e enviada manualmente
 
 ## Uso sem Ollama
 

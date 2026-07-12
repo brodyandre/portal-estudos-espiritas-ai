@@ -7,10 +7,18 @@ import type { UserRole } from "../../auth/types";
 import {
   createAuthRepository,
   createMemoryAuthRepository,
+  resetMemoryAuthRepositoryStore,
   toAuthUser,
   type AuthRepository,
 } from "./auth.repository";
-import type { AuthTokenPayload, AuthUser, LoginInput, LoginResponse } from "./auth.types";
+import type {
+  AuthTokenPayload,
+  AuthUser,
+  LoginInput,
+  LoginResponse,
+  StudentAccessProvisionInput,
+  StudentAccessProvisionResult,
+} from "./auth.types";
 
 let authRepository: AuthRepository = createAuthRepository();
 
@@ -96,7 +104,14 @@ export const userHasAnyRole = (user: AuthUser, roles: UserRole[]) => {
   return roles.includes(user.role);
 };
 
+export const provisionStudentAccess = (
+  input: StudentAccessProvisionInput,
+): Promise<StudentAccessProvisionResult> => {
+  return authRepository.provisionStudentAccess(input);
+};
+
 export const resetAuthStore = () => {
+  resetMemoryAuthRepositoryStore();
   authRepository = createMemoryAuthRepository();
 };
 

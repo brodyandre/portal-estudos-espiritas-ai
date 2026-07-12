@@ -36,6 +36,17 @@ export interface Enrollment {
   teacherNote: string;
 }
 
+export interface StudentAccessInfo {
+  email: string;
+  temporaryPassword: string;
+  mustChangePassword: boolean;
+}
+
+export interface EnrollmentStatusUpdateResult {
+  enrollment: Enrollment;
+  studentAccess: StudentAccessInfo | null;
+}
+
 export interface EnrollmentInput {
   fullName: string;
   email: string;

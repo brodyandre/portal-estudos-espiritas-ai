@@ -34,18 +34,22 @@ enum GroupStatus {
 }
 
 model User {
-  id         String     @id @default(cuid())
-  fullName   String
-  email      String     @unique
-  passwordHash String
-  whatsapp   String?
-  role       UserRole
-  status     UserStatus
-  groupName  String?
-  groupSlug  String?
-  adminNote  String     @default("")
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
+  id                           String      @id @default(cuid())
+  fullName                     String
+  email                        String      @unique
+  passwordHash                 String
+  whatsapp                     String?
+  role                         UserRole
+  status                       UserStatus
+  groupName                    String?
+  groupSlug                    String?
+  adminNote                    String      @default("")
+  enrollmentId                 String?     @unique
+  temporaryPasswordGeneratedAt DateTime?
+  mustChangePassword           Boolean     @default(false)
+  createdAt                    DateTime    @default(now())
+  updatedAt                    DateTime    @updatedAt
+  enrollment                   Enrollment? @relation(fields: [enrollmentId], references: [id], onDelete: SetNull)
 }
 
 model Enrollment {
@@ -61,6 +65,7 @@ model Enrollment {
   reviewedAt          DateTime?
   reviewedBy          String?
   teacherNote         String           @default("")
+  user                User?
 
   @@index([status])
   @@index([groupInterest])
