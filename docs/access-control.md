@@ -173,6 +173,7 @@ No ambiente local/private do owner:
 - frontend roda localmente
 - backend roda em `http://localhost:3333`
 - login local usa JWT assinado por `JWT_SECRET`
+- cada login cria uma sessão local individual que pode ser revogada
 - o primeiro acesso do aluno aprovado exige troca da senha temporaria
 - endpoints de credenciais usam rate limiting em memória com `429` e `Retry-After`
 - professor pode revisar interessados
@@ -186,6 +187,7 @@ No ambiente local/private do owner:
 
 - com autenticacao local simples, mas ainda sem hardening de producao
 - sem refresh token
+- sem gerenciamento visual detalhado de múltiplas sessões, além de logout atual e logout-all
 - sem backend hospedado
 - sem autorizacao fina por recurso
 - sem auditoria real persistente

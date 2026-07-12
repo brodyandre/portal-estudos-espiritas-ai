@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { createHash, randomUUID } from "node:crypto";
 
 import { buildTemporaryPassword } from "../enrollments/student-access.service";
 import {
@@ -32,6 +33,7 @@ import type {
   LoginInput,
   LoginResponse,
   StoredAuthUser,
+  StoredAuthSession,
   StudentAccessProvisionInput,
   StudentAccessProvisionResult,
 } from "./auth.types";
@@ -40,6 +42,7 @@ let authRepository: AuthRepository = createAuthRepository();
 
 const INVALID_LOGIN_MESSAGE = "E-mail ou senha inválidos.";
 export const PASSWORD_MAX_LENGTH = 128;
+const AUTH_TOKEN_TTL_SECONDS = 8 * 60 * 60;
 const PASSWORD_POLICY_MESSAGE =
   "Use pelo menos 8 caracteres, com letra maiúscula, letra minúscula e número.";
 
@@ -50,7 +53,7 @@ const normalizeLoginInput = (input: LoginInput): LoginInput => {
   };
 };
 
-const buildTokenPayload = (user: AuthUser): AuthTokenPayload => {
+const buildTokenPayload = (user: AuthUser): Omit<AuthTokenPayload, "jti" | "iat"> => {
   return {
     sub: user.id,
     email: user.email,
@@ -62,10 +65,41 @@ const buildTokenPayload = (user: AuthUser): AuthTokenPayload => {
   };
 };
 
-export const signAuthToken = (user: AuthUser) => {
+const buildSessionExpiry = () => {
+  return new Date(Date.now() + AUTH_TOKEN_TTL_SECONDS * 1000).toISOString();
+};
+
+const summarizeUserAgent = (userAgent?: string) => {
+  if (!userAgent) {
+    return null;
+  }
+
+  return userAgent.replace(/\s+/gu, " ").trim().slice(0, 160) || null;
+};
+
+const hashIpAddress = (ipAddress?: string) => {
+  if (!ipAddress || ipAddress === "unknown") {
+    return null;
+  }
+
+  return createHash("sha256").update(`${env.jwtSecret}:${ipAddress}`).digest("hex");
+};
+
+const buildSessionMetadata = (options?: {
+  ipAddress?: string;
+  userAgent?: string;
+}) => {
+  return {
+    userAgentSummary: summarizeUserAgent(options?.userAgent),
+    ipHash: hashIpAddress(options?.ipAddress),
+  };
+};
+
+export const signAuthToken = (user: AuthUser, sessionId: string) => {
   return jwt.sign(buildTokenPayload(user), env.jwtSecret, {
     algorithm: "HS256",
     expiresIn: "8h",
+    jwtid: sessionId,
   });
 };
 
@@ -73,10 +107,19 @@ export const verifyAuthToken = (token: string): AuthTokenPayload => {
   return jwt.verify(token, env.jwtSecret) as AuthTokenPayload;
 };
 
+const buildSessionContext = (options?: { ipAddress?: string; userAgent?: string }) => {
+  return {
+    sessionId: randomUUID(),
+    expiresAt: buildSessionExpiry(),
+    ...buildSessionMetadata(options),
+  };
+};
+
 export const loginUser = async (
   input: LoginInput,
   options?: {
     ipAddress?: string;
+    userAgent?: string;
   },
 ): Promise<LoginResponse> => {
   const normalizedInput = normalizeLoginInput(input);
@@ -115,9 +158,19 @@ export const loginUser = async (
 
   const user = toAuthUser(storedUser);
   clearLoginRateLimit(ipAddress, normalizedInput.email);
+  const sessionContext = buildSessionContext(options);
+  const token = signAuthToken(user, sessionContext.sessionId);
+
+  await authRepository.createSession({
+    sessionId: sessionContext.sessionId,
+    userId: user.id,
+    expiresAt: sessionContext.expiresAt,
+    userAgentSummary: sessionContext.userAgentSummary,
+    ipHash: sessionContext.ipHash,
+  });
 
   return {
-    token: signAuthToken(user),
+    token,
     user,
   };
 };
@@ -134,7 +187,28 @@ export const getAuthenticatedUser = async (userId: string): Promise<AuthUser | n
 
 export const getAuthenticatedUserFromTokenPayload = async (
   payload: AuthTokenPayload,
-): Promise<AuthUser | null> => {
+  options?: {
+    allowRevokedSession?: boolean;
+  },
+): Promise<{ user: AuthUser; session: StoredAuthSession } | null> => {
+  if (!payload.jti) {
+    return null;
+  }
+
+  const session = await authRepository.getSessionById(payload.jti);
+
+  if (
+    !session ||
+    session.userId !== payload.sub ||
+    (session.revokedAt && !options?.allowRevokedSession)
+  ) {
+    return null;
+  }
+
+  if (new Date(session.expiresAt).getTime() <= Date.now()) {
+    return null;
+  }
+
   const storedUser = await authRepository.getById(payload.sub);
 
   if (!storedUser || storedUser.status !== "active") {
@@ -148,7 +222,14 @@ export const getAuthenticatedUserFromTokenPayload = async (
     return null;
   }
 
-  return toAuthUser(storedUser);
+  if (!session.revokedAt) {
+    await authRepository.touchSession(session.id);
+  }
+
+  return {
+    user: toAuthUser(storedUser),
+    session,
+  };
 };
 
 const validatePasswordPolicy = (password: string) => {
@@ -162,7 +243,12 @@ const validatePasswordPolicy = (password: string) => {
 
 export const changePassword = async (
   authUser: AuthUser,
+  currentSession: StoredAuthSession,
   input: ChangePasswordInput,
+  options?: {
+    ipAddress?: string;
+    userAgent?: string;
+  },
 ): Promise<LoginResponse> => {
   assertPasswordChangeRateLimit(authUser.id);
   const storedUser = await authRepository.getById(authUser.id);
@@ -237,14 +323,28 @@ export const changePassword = async (
   }
 
   const passwordHash = await bcrypt.hash(newPassword, 10);
-  const persistedUser = await authRepository.changePassword({
+  const passwordChangedAt = new Date().toISOString();
+  const nextSession = buildSessionContext(options);
+  const nextUser: AuthUser = {
+    ...toAuthUser(storedUser),
+    mustChangePassword: false,
+    passwordChangedAt,
+  };
+  const token = signAuthToken(nextUser, nextSession.sessionId);
+  const persistedResult = await authRepository.changePassword({
     userId: storedUser.id,
     passwordHash,
+    passwordChangedAt,
     actorName: storedUser.fullName,
     actorRole: storedUser.role,
+    currentSessionId: currentSession.id,
+    newSessionId: nextSession.sessionId,
+    newSessionExpiresAt: nextSession.expiresAt,
+    newSessionUserAgentSummary: nextSession.userAgentSummary,
+    newSessionIpHash: nextSession.ipHash,
   } satisfies ChangePasswordPersistenceInput);
 
-  if (!persistedUser) {
+  if (!persistedResult) {
     throw new AppError({
       statusCode: 404,
       code: "USER_NOT_FOUND",
@@ -252,11 +352,11 @@ export const changePassword = async (
     });
   }
 
-  const user = toAuthUser(persistedUser);
+  const user = toAuthUser(persistedResult.user);
   clearPasswordChangeRateLimit(authUser.id);
 
   return {
-    token: signAuthToken(user),
+    token,
     user,
   };
 };
@@ -337,6 +437,26 @@ export const resetPasswordByAdmin = async (
 
 export const userHasAnyRole = (user: AuthUser, roles: UserRole[]) => {
   return roles.includes(user.role);
+};
+
+export const logoutCurrentSession = async (authUser: AuthUser, sessionId: string) => {
+  await authRepository.revokeSession({
+    sessionId,
+    actorName: authUser.fullName,
+    actorRole: authUser.role,
+    action: "Sessão encerrada",
+    note: "Sessão local encerrada pelo usuário.",
+  });
+};
+
+export const logoutAllSessions = async (authUser: AuthUser) => {
+  return authRepository.revokeAllSessionsForUser({
+    userId: authUser.id,
+    actorName: authUser.fullName,
+    actorRole: authUser.role,
+    action: "Sessões encerradas",
+    note: "Todas as sessões ativas foram encerradas pelo usuário.",
+  });
 };
 
 export const provisionStudentAccess = (

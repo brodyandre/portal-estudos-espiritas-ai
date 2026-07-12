@@ -38,6 +38,8 @@ Essas credenciais existem apenas para ambiente local controlado.
 
 - `POST /api/auth/login`
 - `GET /api/auth/me`
+- `POST /api/auth/logout`
+- `POST /api/auth/logout-all`
 - `PATCH /api/auth/change-password`
 
 ## Regras principais
@@ -47,9 +49,19 @@ Essas credenciais existem apenas para ambiente local controlado.
 - usuário inativo não autentica
 - `passwordHash` nunca retorna na resposta
 - o token JWT é assinado com `JWT_SECRET`
+- cada login bem-sucedido cria uma sessão local individual com `jti`
+- o backend salva apenas metadados da sessão, nunca o JWT completo
 - no primeiro acesso do aluno aprovado, `mustChangePassword` exige troca da senha temporária
 - a nova senha deve ter pelo menos 8 caracteres, com letra maiúscula, letra minúscula e número
 - `passwordChangedAt` representa a última alteração de credencial, incluindo troca de senha e redefinição de senha temporária
+
+## Sessões locais
+
+- `POST /api/auth/logout` revoga somente a sessão atual
+- `POST /api/auth/logout-all` encerra todas as sessões ativas do mesmo usuário
+- trocar a senha revoga as sessões antigas e cria uma nova sessão válida no mesmo fluxo
+- redefinir a senha de outro usuário também revoga as sessões antigas desse alvo
+- em memória de teste, as sessões são resetadas entre execuções; no PostgreSQL local, elas ficam persistidas até expiração ou revogação
 
 ## Rate limiting local
 
@@ -94,6 +106,8 @@ Fluxo local:
 - enquanto `mustChangePassword` estiver `true`, o backend libera apenas:
   - `POST /api/auth/login`
   - `GET /api/auth/me`
+  - `POST /api/auth/logout`
+  - `POST /api/auth/logout-all`
   - `PATCH /api/auth/change-password`
 - após a troca de senha:
   - `mustChangePassword` passa para `false`

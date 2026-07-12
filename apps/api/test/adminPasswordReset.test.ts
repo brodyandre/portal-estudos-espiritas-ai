@@ -9,6 +9,7 @@ import {
   type AuthRepository,
 } from "../src/modules/auth/auth.repository";
 import { resetAuthStore, setAuthRepositoryForTesting } from "../src/modules/auth/auth.service";
+import type { StoredAuthSession, StoredAuthUser } from "../src/modules/auth/auth.types";
 import { resetEnrollmentStore } from "../src/modules/enrollments/enrollments.service";
 import { setAuthRateLimitNowProviderForTesting } from "../src/security/auth-rate-limit";
 
@@ -22,7 +23,7 @@ const loginAsAdmin = async () => {
 };
 
 const createCustomAdminRepository = (): AuthRepository => {
-  const users = [
+  const users: StoredAuthUser[] = [
     {
       id: "user-admin-demo",
       fullName: "Admin Demonstrativo",
@@ -91,12 +92,65 @@ const createCustomAdminRepository = (): AuthRepository => {
     },
   ];
 
+  const sessions: StoredAuthSession[] = [];
+
   return {
     async getByEmail(email) {
       return users.find((user) => user.email === email.trim().toLowerCase()) ?? null;
     },
     async getById(id) {
       return users.find((user) => user.id === id) ?? null;
+    },
+    async getSessionById(sessionId) {
+      return sessions.find((session) => session.id === sessionId) ?? null;
+    },
+    async createSession(input) {
+      const session: StoredAuthSession = {
+        id: input.sessionId,
+        userId: input.userId,
+        createdAt: new Date().toISOString(),
+        expiresAt: input.expiresAt,
+        revokedAt: null,
+        lastSeenAt: new Date().toISOString(),
+        userAgentSummary: input.userAgentSummary ?? null,
+        ipHash: input.ipHash ?? null,
+      };
+
+      sessions.unshift(session);
+      return session;
+    },
+    async touchSession(sessionId) {
+      const session = sessions.find((item) => item.id === sessionId);
+
+      if (session && !session.revokedAt) {
+        session.lastSeenAt = new Date().toISOString();
+      }
+    },
+    async revokeSession(input) {
+      const session = sessions.find((item) => item.id === input.sessionId);
+
+      if (!session) {
+        return false;
+      }
+
+      if (!session.revokedAt) {
+        session.revokedAt = new Date().toISOString();
+      }
+
+      return true;
+    },
+    async revokeAllSessionsForUser(input) {
+      const revokedAt = new Date().toISOString();
+      let revokedCount = 0;
+
+      for (const session of sessions) {
+        if (session.userId === input.userId && !session.revokedAt) {
+          session.revokedAt = revokedAt;
+          revokedCount += 1;
+        }
+      }
+
+      return revokedCount;
     },
     async provisionStudentAccess() {
       throw new Error("Nao utilizado neste teste.");
@@ -109,10 +163,26 @@ const createCustomAdminRepository = (): AuthRepository => {
       }
 
       user.passwordHash = input.passwordHash;
-      user.passwordChangedAt = new Date().toISOString();
+      user.passwordChangedAt = input.passwordChangedAt;
       user.mustChangePassword = false;
+      user.temporaryPasswordGeneratedAt = null;
+      await this.revokeAllSessionsForUser({
+        userId: user.id,
+        actorName: input.actorName,
+        actorRole: input.actorRole,
+        action: "Senha alterada",
+        note: "Sessões anteriores encerradas.",
+      });
 
-      return user;
+      const session = await this.createSession({
+        sessionId: input.newSessionId,
+        userId: user.id,
+        expiresAt: input.newSessionExpiresAt,
+        userAgentSummary: input.newSessionUserAgentSummary,
+        ipHash: input.newSessionIpHash,
+      });
+
+      return { user, session };
     },
     async resetPasswordByAdmin(input) {
       const user = users.find((item) => item.id === input.userId);
@@ -125,6 +195,13 @@ const createCustomAdminRepository = (): AuthRepository => {
       user.mustChangePassword = true;
       user.temporaryPasswordGeneratedAt = input.temporaryPasswordGeneratedAt;
       user.passwordChangedAt = input.passwordChangedAt;
+      await this.revokeAllSessionsForUser({
+        userId: user.id,
+        actorName: input.actorName,
+        actorRole: input.actorRole,
+        action: "Senha redefinida por admin",
+        note: "Sessões anteriores encerradas.",
+      });
 
       return user;
     },
@@ -144,7 +221,9 @@ describe("admin password reset endpoint", () => {
   it("admin redefine a senha de um usuario existente", async () => {
     const adminToken = await loginAsAdmin();
     const previousLogin = await loginAs("aluno.demo@example.com", "AlunoDemo@123");
+    const secondPreviousLogin = await loginAs("aluno.demo@example.com", "AlunoDemo@123");
     const previousToken = previousLogin.body.data.token as string;
+    const secondPreviousToken = secondPreviousLogin.body.data.token as string;
 
     const response = await request(app)
       .post("/api/admin/users/user-aluno-demo/reset-password")
@@ -171,9 +250,14 @@ describe("admin password reset endpoint", () => {
     const staleTokenResponse = await request(app)
       .get("/api/auth/me")
       .set("Authorization", `Bearer ${previousToken}`);
+    const secondStaleTokenResponse = await request(app)
+      .get("/api/auth/me")
+      .set("Authorization", `Bearer ${secondPreviousToken}`);
 
     expect(staleTokenResponse.status).toBe(401);
     expect(staleTokenResponse.body.error.code).toBe("AUTH_REQUIRED");
+    expect(secondStaleTokenResponse.status).toBe(401);
+    expect(secondStaleTokenResponse.body.error.code).toBe("AUTH_REQUIRED");
 
     const oldPasswordLogin = await loginAs("aluno.demo@example.com", "AlunoDemo@123");
     expect(oldPasswordLogin.status).toBe(401);
@@ -307,6 +391,21 @@ describe("admin password reset endpoint", () => {
       },
       async getById(id) {
         return baseRepository.getById(id);
+      },
+      async getSessionById(sessionId) {
+        return baseRepository.getSessionById(sessionId);
+      },
+      async createSession(input) {
+        return baseRepository.createSession(input);
+      },
+      async touchSession(sessionId) {
+        return baseRepository.touchSession(sessionId);
+      },
+      async revokeSession(input) {
+        return baseRepository.revokeSession(input);
+      },
+      async revokeAllSessionsForUser(input) {
+        return baseRepository.revokeAllSessionsForUser(input);
       },
       async provisionStudentAccess(input) {
         return baseRepository.provisionStudentAccess(input);

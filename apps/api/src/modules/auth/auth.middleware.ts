@@ -7,11 +7,13 @@ import {
   userHasAnyRole,
   verifyAuthToken,
 } from "./auth.service";
-import type { AuthUser } from "./auth.types";
+import type { AuthTokenPayload, AuthUser, StoredAuthSession } from "./auth.types";
 
 declare module "express-serve-static-core" {
   interface Request {
     authUser?: AuthUser;
+    authSession?: StoredAuthSession;
+    authTokenPayload?: AuthTokenPayload;
   }
 }
 
@@ -20,6 +22,8 @@ const PASSWORD_CHANGE_MESSAGE = "Troque sua senha temporária para continuar.";
 const passwordChangeAllowedRoutes = new Set([
   "GET:/api/auth/me",
   "PATCH:/api/auth/change-password",
+  "POST:/api/auth/logout",
+  "POST:/api/auth/logout-all",
 ]);
 
 const getBearerToken = (request: Request) => {
@@ -53,9 +57,12 @@ export const requireAuth = async (request: Request, _response: Response, next: N
 
   try {
     const payload = verifyAuthToken(token);
-    const user = await getAuthenticatedUserFromTokenPayload(payload);
+    const routeKey = `${request.method.toUpperCase()}:${request.baseUrl}${request.path}`;
+    const authenticatedContext = await getAuthenticatedUserFromTokenPayload(payload, {
+      allowRevokedSession: routeKey === "POST:/api/auth/logout",
+    });
 
-    if (!user) {
+    if (!authenticatedContext) {
       return next(
         new AppError({
           statusCode: 401,
@@ -65,8 +72,7 @@ export const requireAuth = async (request: Request, _response: Response, next: N
       );
     }
 
-    const routeKey = `${request.method.toUpperCase()}:${request.baseUrl}${request.path}`;
-
+    const { user, session } = authenticatedContext;
     if (user.mustChangePassword && !passwordChangeAllowedRoutes.has(routeKey)) {
       return next(
         new AppError({
@@ -78,6 +84,8 @@ export const requireAuth = async (request: Request, _response: Response, next: N
     }
 
     request.authUser = user;
+    request.authSession = session;
+    request.authTokenPayload = payload;
     return next();
   } catch (_error) {
     return next(

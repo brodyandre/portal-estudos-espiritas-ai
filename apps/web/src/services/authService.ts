@@ -33,6 +33,14 @@ interface ChangePasswordInput {
   confirmPassword: string;
 }
 
+interface LogoutResponse {
+  revokedCurrentSession?: boolean;
+}
+
+interface LogoutAllResponse {
+  revokedSessions: number;
+}
+
 const getAuthApiBaseUrl = () => {
   return (appConfig.apiUrl ?? (appConfig.appMode === "local" ? DEFAULT_LOCAL_API_URL : "")).trim();
 };
@@ -111,12 +119,18 @@ export const loadAuthenticatedUser = async () => {
   return payload.data;
 };
 
-export const changePasswordWithSession = async (input: ChangePasswordInput) => {
+const getStoredTokenOrThrow = () => {
   const token = readStoredAuthToken();
 
   if (!token) {
     throw new Error("Faça login no ambiente local para continuar.");
   }
+
+  return token;
+};
+
+export const changePasswordWithSession = async (input: ChangePasswordInput) => {
+  const token = getStoredTokenOrThrow();
 
   const response = await fetch(buildAuthUrl("/api/auth/change-password"), {
     method: "PATCH",
@@ -134,6 +148,36 @@ export const changePasswordWithSession = async (input: ChangePasswordInput) => {
   return payload.data;
 };
 
-export const logoutLocalAuth = () => {
+export const logoutWithSession = async () => {
+  const token = getStoredTokenOrThrow();
+
+  const response = await fetch(buildAuthUrl("/api/auth/logout"), {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  const payload = await parseSuccess<LogoutResponse>(response);
+  return payload.data;
+};
+
+export const logoutAllWithSession = async () => {
+  const token = getStoredTokenOrThrow();
+
+  const response = await fetch(buildAuthUrl("/api/auth/logout-all"), {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  const payload = await parseSuccess<LogoutAllResponse>(response);
+  return payload.data;
+};
+
+export const clearLocalAuthSession = () => {
   clearStoredAuthSession();
 };

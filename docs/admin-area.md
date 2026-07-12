@@ -91,6 +91,7 @@ Regras da redefinicao de senha:
 - o endpoint possui limite de uso por admin e por usuario-alvo
 - o limite por usuario-alvo e compartilhado entre administradores
 - quando o limite e excedido, a interface deve orientar o admin a aguardar antes de tentar novamente
+- o JWT anterior do usuario deixa de valer assim que a redefinicao e concluida
 
 ### `/admin/grupos`
 

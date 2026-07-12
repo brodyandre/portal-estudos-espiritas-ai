@@ -319,6 +319,21 @@ describe("enrollments endpoints", () => {
         async getById(id) {
           return baseRepository.getById(id);
         },
+        async getSessionById(sessionId) {
+          return baseRepository.getSessionById(sessionId);
+        },
+        async createSession(input) {
+          return baseRepository.createSession(input);
+        },
+        async touchSession(sessionId) {
+          return baseRepository.touchSession(sessionId);
+        },
+        async revokeSession(input) {
+          return baseRepository.revokeSession(input);
+        },
+        async revokeAllSessionsForUser(input) {
+          return baseRepository.revokeAllSessionsForUser(input);
+        },
         async provisionStudentAccess() {
           throw new Error("Falha simulada no provisionamento");
         },
