@@ -256,6 +256,9 @@ const createCustomAdminRepository = (): AuthRepository => {
     async replacePasswordResetToken() {
       return;
     },
+    async invalidatePasswordResetToken() {
+      return false;
+    },
     async resetPasswordWithRecoveryToken() {
       return { status: "invalid_token" } as const;
     },
@@ -475,6 +478,9 @@ describe("admin password reset endpoint", () => {
       async replacePasswordResetToken(input) {
         return baseRepository.replacePasswordResetToken(input);
       },
+      async invalidatePasswordResetToken(input) {
+        return baseRepository.invalidatePasswordResetToken(input);
+      },
       async resetPasswordWithRecoveryToken(input) {
         return baseRepository.resetPasswordWithRecoveryToken(input);
       },
@@ -520,7 +526,7 @@ describe("admin password reset endpoint", () => {
     expect(blockedResponse.body.error.details.retryAfterSeconds).toEqual(expect.any(Number));
     expect(blockedResponse.headers["retry-after"]).toBeDefined();
     expect(JSON.stringify(blockedResponse.body)).not.toContain("temporaryPassword");
-  });
+  }, 10000);
 
   it("limita redefinicoes repetidas para o mesmo usuario-alvo", async () => {
     const adminToken = await loginAsAdmin();

@@ -34,6 +34,7 @@ Grupos de estudo online costumam espalhar informacoes entre links, mensagens, re
 - gerenciamento local de sessões ativas em `/minha-conta/seguranca`
 - troca obrigatória da senha temporária no primeiro acesso do aluno aprovado
 - recuperação local de senha com token temporário de uso único
+- entrega transacional local de recuperação de senha via SMTP com Mailpit para desenvolvimento
 - redefinição administrativa de senha por admin, com encerramento imediato das sessões anteriores
 - proteção contra força bruta e excesso de tentativas em login, troca de senha e reset administrativo
 - Integracao opcional com Ollama, com fallback claro quando o modelo nao estiver disponivel
@@ -94,6 +95,7 @@ Documentacao complementar:
 - [docs/rag.md](docs/rag.md)
 - [docs/agent-flow.md](docs/agent-flow.md)
 - [docs/admin-area.md](docs/admin-area.md)
+- [docs/password-recovery.md](docs/password-recovery.md)
 - [docs/user-guide-student.md](docs/user-guide-student.md)
 - [docs/user-guide-teacher.md](docs/user-guide-teacher.md)
 - [docs/responsible-ai.md](docs/responsible-ai.md)
@@ -228,12 +230,16 @@ Recuperação local de senha:
 
 - a rota pública `/esqueci-minha-senha` solicita a recuperação por e-mail
 - a rota pública `/redefinir-senha` consome um token temporário de uso único
+- quando `SMTP_ENABLED=true`, a API envia o e-mail transacional pelo SMTP configurado
+- no Docker Compose local, o Mailpit recebe as mensagens em `http://localhost:8025`
 - o backend armazena apenas o hash do token, nunca o valor bruto
 - o token expira em 30 minutos por padrão
 - um novo pedido invalida tokens anteriores ainda ativos do mesmo usuário
+- se a entrega falhar, o token recém-gerado é invalidado de forma compensatória
 - após a redefinição, todas as sessões anteriores do usuário são revogadas
 - o login precisa ser feito novamente depois da redefinição
 - a prévia local do link só deve ser usada quando `PASSWORD_RECOVERY_PREVIEW_ENABLED=true`
+- a resposta pública continua genérica, sem expor existência da conta nem status do provedor
 
 Atalhos com Makefile:
 
@@ -270,6 +276,7 @@ Servicos locais:
 - frontend em `http://localhost:5173`
 - API em `http://localhost:3333`
 - PostgreSQL em `localhost:5435`
+- Mailpit em `http://localhost:8025`, com SMTP local na porta `1025`, quando usar Docker Compose
 
 Para subir apenas a API:
 

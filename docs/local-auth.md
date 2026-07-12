@@ -22,6 +22,15 @@ DATABASE_URL=postgresql://postgres:postgres@localhost:5435/portal_estudos_espiri
 JWT_SECRET=jwt-secret-demo-local-only
 PASSWORD_RECOVERY_PREVIEW_ENABLED=false
 PASSWORD_RECOVERY_TTL_MINUTES=30
+APP_PUBLIC_URL=http://localhost:5173
+SMTP_ENABLED=false
+SMTP_HOST=localhost
+SMTP_PORT=1025
+SMTP_SECURE=false
+SMTP_USER=
+SMTP_PASSWORD=
+SMTP_FROM_NAME=Portal de Estudos Espiritas
+SMTP_FROM_EMAIL=no-reply@example.local
 ```
 
 O `.env` real continua fora do Git.
@@ -62,6 +71,8 @@ Essas credenciais existem apenas para ambiente local controlado.
 - a nova senha deve ter pelo menos 8 caracteres, com letra maiúscula, letra minúscula e número
 - `passwordChangedAt` representa a última alteração de credencial, incluindo troca de senha e redefinição de senha temporária
 - a recuperação de senha usa token temporário de uso único e armazena apenas o hash desse token
+- quando `SMTP_ENABLED=true`, a recuperação envia e-mail transacional pelo SMTP configurado
+- em falha de entrega, o token recém-gerado é invalidado sem alterar a resposta pública
 
 ## Sessões locais
 
@@ -165,6 +176,7 @@ Campos extras do usuário local nesta fase:
 - a rota `/login` usa e-mail e senha reais da seed
 - a rota `/esqueci-minha-senha` inicia a recuperação com resposta pública genérica
 - a rota `/redefinir-senha` consome o token do link temporário sem salvar esse valor no navegador
+- o Mailpit pode ser usado localmente em `http://localhost:8025` para inspecionar o e-mail recebido
 - se o backend indicar `mustChangePassword`, o frontend redireciona para `/primeiro-acesso`
 - a rota `/primeiro-acesso` exige a senha temporária atual, a nova senha e a confirmação
 - o token fica apenas no navegador local

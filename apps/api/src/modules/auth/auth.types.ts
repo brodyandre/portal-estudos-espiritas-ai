@@ -177,6 +177,14 @@ export interface PasswordResetRequestPersistenceInput {
   actorRole: UserRole;
 }
 
+export interface InvalidatePasswordResetTokenInput {
+  tokenHash: string;
+  invalidatedAt: string;
+  actorName: string;
+  actorRole: UserRole;
+  note: string;
+}
+
 export interface PasswordResetPersistenceInput {
   tokenHash: string;
   newPassword: string;

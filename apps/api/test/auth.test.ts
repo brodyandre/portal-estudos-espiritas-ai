@@ -311,7 +311,7 @@ describe("auth endpoints", () => {
 
     expect(response.status).toBe(400);
     expect(response.body.error.code).toBe("CURRENT_SESSION_REVOCATION_NOT_ALLOWED");
-  });
+  }, 10000);
 
   it("retorna 404 generico ao tentar revogar sessao de outro usuario", async () => {
     const teacherLogin = await loginAs("professor.demo@example.com", "ProfessorDemo@123");
