@@ -14,6 +14,8 @@ import {
 import type {
   AuthTokenPayload,
   AuthUser,
+  ChangePasswordInput,
+  ChangePasswordPersistenceInput,
   LoginInput,
   LoginResponse,
   StudentAccessProvisionInput,
@@ -23,6 +25,9 @@ import type {
 let authRepository: AuthRepository = createAuthRepository();
 
 const INVALID_LOGIN_MESSAGE = "E-mail ou senha inválidos.";
+export const PASSWORD_MAX_LENGTH = 128;
+const PASSWORD_POLICY_MESSAGE =
+  "Use pelo menos 8 caracteres, com letra maiúscula, letra minúscula e número.";
 
 const normalizeLoginInput = (input: LoginInput): LoginInput => {
   return {
@@ -38,6 +43,8 @@ const buildTokenPayload = (user: AuthUser): AuthTokenPayload => {
     fullName: user.fullName,
     role: user.role,
     status: user.status,
+    mustChangePassword: user.mustChangePassword,
+    passwordChangedAt: user.passwordChangedAt ?? null,
   };
 };
 
@@ -98,6 +105,132 @@ export const getAuthenticatedUser = async (userId: string): Promise<AuthUser | n
   }
 
   return toAuthUser(storedUser);
+};
+
+export const getAuthenticatedUserFromTokenPayload = async (
+  payload: AuthTokenPayload,
+): Promise<AuthUser | null> => {
+  const storedUser = await authRepository.getById(payload.sub);
+
+  if (!storedUser || storedUser.status !== "active") {
+    return null;
+  }
+
+  const currentPasswordChangedAt = storedUser.passwordChangedAt ?? null;
+  const tokenPasswordChangedAt = payload.passwordChangedAt ?? null;
+
+  if (currentPasswordChangedAt !== tokenPasswordChangedAt) {
+    return null;
+  }
+
+  return toAuthUser(storedUser);
+};
+
+const validatePasswordPolicy = (password: string) => {
+  const hasMinLength = password.length >= 8;
+  const hasUppercase = /[A-Z]/u.test(password);
+  const hasLowercase = /[a-z]/u.test(password);
+  const hasDigit = /\d/u.test(password);
+
+  return hasMinLength && hasUppercase && hasLowercase && hasDigit;
+};
+
+export const changePassword = async (
+  authUser: AuthUser,
+  input: ChangePasswordInput,
+): Promise<LoginResponse> => {
+  const storedUser = await authRepository.getById(authUser.id);
+
+  if (!storedUser || storedUser.status !== "active") {
+    throw new AppError({
+      statusCode: 401,
+      code: "AUTH_REQUIRED",
+      message: "Faça login no ambiente local para continuar.",
+    });
+  }
+
+  const currentPassword = input.currentPassword;
+  const newPassword = input.newPassword;
+  const confirmPassword = input.confirmPassword;
+
+  if (!currentPassword || !newPassword || !confirmPassword) {
+    throw new AppError({
+      statusCode: 400,
+      code: "INVALID_PASSWORD_CHANGE_INPUT",
+      message: "Preencha a senha atual, a nova senha e a confirmação.",
+    });
+  }
+
+  if (
+    currentPassword.length > PASSWORD_MAX_LENGTH ||
+    newPassword.length > PASSWORD_MAX_LENGTH ||
+    confirmPassword.length > PASSWORD_MAX_LENGTH
+  ) {
+    throw new AppError({
+      statusCode: 400,
+      code: "INVALID_PASSWORD_CHANGE_INPUT",
+      message: `Cada senha deve ter no máximo ${PASSWORD_MAX_LENGTH} caracteres.`,
+    });
+  }
+
+  if (newPassword !== confirmPassword) {
+    throw new AppError({
+      statusCode: 400,
+      code: "PASSWORD_CONFIRMATION_MISMATCH",
+      message: "A confirmação da nova senha não confere.",
+    });
+  }
+
+  const isValidCurrentPassword = await bcrypt.compare(currentPassword, storedUser.passwordHash);
+
+  if (!isValidCurrentPassword) {
+    throw new AppError({
+      statusCode: 401,
+      code: "CURRENT_PASSWORD_INVALID",
+      message: "A senha atual informada não confere.",
+    });
+  }
+
+  const isReusedPassword = await bcrypt.compare(newPassword, storedUser.passwordHash);
+
+  if (isReusedPassword) {
+    throw new AppError({
+      statusCode: 400,
+      code: "PASSWORD_REUSE_NOT_ALLOWED",
+      message: "Escolha uma nova senha diferente da atual.",
+    });
+  }
+
+  if (!validatePasswordPolicy(newPassword)) {
+    throw new AppError({
+      statusCode: 400,
+      code: "WEAK_PASSWORD",
+      message: PASSWORD_POLICY_MESSAGE,
+    });
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, 10);
+  const persistedUser = await authRepository.changePassword({
+    userId: storedUser.id,
+    passwordHash,
+    actorName: storedUser.fullName,
+    actorRole: storedUser.role,
+  } satisfies ChangePasswordPersistenceInput);
+
+  if (!persistedUser) {
+    throw new AppError({
+      statusCode: 404,
+      code: "USER_NOT_FOUND",
+      message: "Não foi possível localizar este usuário no ambiente local.",
+    });
+  }
+
+  const user = toAuthUser(persistedUser);
+
+  return {
+    token: signAuthToken(user),
+    user,
+  };
 };
 
 export const userHasAnyRole = (user: AuthUser, roles: UserRole[]) => {

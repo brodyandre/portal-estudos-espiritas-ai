@@ -47,6 +47,7 @@ model User {
   enrollmentId                 String?     @unique
   temporaryPasswordGeneratedAt DateTime?
   mustChangePassword           Boolean     @default(false)
+  passwordChangedAt            DateTime?
   createdAt                    DateTime    @default(now())
   updatedAt                    DateTime    @updatedAt
   enrollment                   Enrollment? @relation(fields: [enrollmentId], references: [id], onDelete: SetNull)

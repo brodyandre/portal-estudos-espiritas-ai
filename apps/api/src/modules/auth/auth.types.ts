@@ -2,11 +2,18 @@ import type { AppUser, UserRole, UserStatus } from "../../auth/types";
 
 export interface AuthUser extends AppUser {
   email: string;
+  passwordChangedAt?: string | null;
 }
 
 export interface LoginInput {
   email: string;
   password: string;
+}
+
+export interface ChangePasswordInput {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
 }
 
 export interface LoginResponse {
@@ -20,6 +27,9 @@ export interface AuthTokenPayload {
   fullName: string;
   role: UserRole;
   status: UserStatus;
+  passwordChangedAt?: string | null;
+  mustChangePassword?: boolean;
+  iat?: number;
 }
 
 export interface StoredAuthUser {
@@ -35,6 +45,7 @@ export interface StoredAuthUser {
   enrollmentId?: string | null;
   mustChangePassword?: boolean;
   temporaryPasswordGeneratedAt?: string | null;
+  passwordChangedAt?: string | null;
 }
 
 export interface StudentAccessProvisionInput {
@@ -55,4 +66,11 @@ export interface StudentAccessProvisionResult {
   user: AuthUser;
   action: "created" | "activated" | "updated";
   mustChangePassword: boolean;
+}
+
+export interface ChangePasswordPersistenceInput {
+  userId: string;
+  passwordHash: string;
+  actorName: string;
+  actorRole: UserRole;
 }

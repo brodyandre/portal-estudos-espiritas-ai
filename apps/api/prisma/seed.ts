@@ -32,6 +32,7 @@ async function main() {
         whatsapp: "+55 00 90000-0100",
         role: UserRole.ADMIN,
         status: UserStatus.ACTIVE,
+        mustChangePassword: false,
         adminNote: "Perfil administrativo demonstrativo para uso local.",
       },
       {
@@ -42,6 +43,7 @@ async function main() {
         whatsapp: "+55 00 90000-0101",
         role: UserRole.TEACHER,
         status: UserStatus.ACTIVE,
+        mustChangePassword: false,
         groupName: "Emmanuel",
         groupSlug: "emmanuel",
         adminNote: "Perfil de professor demonstrativo para uso local.",
@@ -54,6 +56,7 @@ async function main() {
         whatsapp: "+55 00 90000-0102",
         role: UserRole.STUDENT,
         status: UserStatus.ACTIVE,
+        mustChangePassword: false,
         groupName: "Emmanuel",
         groupSlug: "emmanuel",
         adminNote: "Aluno demonstrativo aprovado para testes locais.",

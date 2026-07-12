@@ -15,6 +15,12 @@ interface LoginResponse {
   user: AppUser;
 }
 
+interface ChangePasswordInput {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
 const getAuthApiBaseUrl = () => {
   return (appConfig.apiUrl ?? (appConfig.appMode === "local" ? DEFAULT_LOCAL_API_URL : "")).trim();
 };
@@ -83,6 +89,29 @@ export const loadAuthenticatedUser = async () => {
     token,
     user: payload.data,
   });
+
+  return payload.data;
+};
+
+export const changePasswordWithSession = async (input: ChangePasswordInput) => {
+  const token = readStoredAuthToken();
+
+  if (!token) {
+    throw new Error("Faça login no ambiente local para continuar.");
+  }
+
+  const response = await fetch(buildAuthUrl("/api/auth/change-password"), {
+    method: "PATCH",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(input),
+  });
+
+  const payload = await parseSuccess<LoginResponse>(response);
+  writeStoredAuthSession(payload.data);
 
   return payload.data;
 };

@@ -22,13 +22,17 @@ const routeLabels: Record<Exclude<RouteType, "public">, string> = {
 
 export const ProtectedRoute = ({ routeType, redirectTo }: ProtectedRouteProps) => {
   const location = useLocation();
-  const { isAuthenticated, isDemoMode, isLoading, user } = useAuth();
+  const { isAuthenticated, isDemoMode, isLoading, requiresPasswordChange, user } = useAuth();
 
   if (isLoading) {
     return <LoadingState description="Estamos verificando seu acesso local." title="Conferindo login" />;
   }
 
   if (canAccessRoute(user, routeType)) {
+    if (!isDemoMode && requiresPasswordChange) {
+      return <Navigate replace state={{ from: location }} to="/primeiro-acesso" />;
+    }
+
     return <Outlet />;
   }
 

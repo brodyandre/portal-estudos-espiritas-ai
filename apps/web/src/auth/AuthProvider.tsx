@@ -3,7 +3,12 @@ import { createContext, useEffect, useMemo, useState } from "react";
 
 import { appConfig } from "../config/appMode";
 import { clearCurrentUserRole, useCurrentUserMock } from "../mocks/currentUser";
-import { loadAuthenticatedUser, loginWithPassword, logoutLocalAuth } from "../services/authService";
+import {
+  changePasswordWithSession,
+  loadAuthenticatedUser,
+  loginWithPassword,
+  logoutLocalAuth,
+} from "../services/authService";
 import { writeStudentAccessStatus } from "../services/studentAccessService";
 import { clearStoredAuthSession, readStoredAuthSession, writeStoredAuthSession } from "./storage";
 import type { AppUser } from "./types";
@@ -14,8 +19,14 @@ interface AuthContextValue {
   isAuthenticated: boolean;
   isLoading: boolean;
   isDemoMode: boolean;
+  requiresPasswordChange: boolean;
   notice: string | null;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<AppUser>;
+  changePassword: (
+    currentPassword: string,
+    newPassword: string,
+    confirmPassword: string,
+  ) => Promise<AppUser>;
   logout: () => void;
 }
 
@@ -117,6 +128,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
       isAuthenticated: Boolean(user && user.status === "active" && user.role !== "visitor"),
       isLoading,
       isDemoMode: appConfig.appMode === "demo",
+      requiresPasswordChange: Boolean(user?.mustChangePassword),
       notice,
       async login(email, password) {
         const session = await loginWithPassword(email, password);
@@ -125,6 +137,19 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
         setUser(session.user);
         syncStudentAccessFromUser(session.user);
         setNotice(null);
+        return session.user;
+      },
+      async changePassword(currentPassword, newPassword, confirmPassword) {
+        const session = await changePasswordWithSession({
+          currentPassword,
+          newPassword,
+          confirmPassword,
+        });
+        setToken(session.token);
+        setUser(session.user);
+        syncStudentAccessFromUser(session.user);
+        setNotice(null);
+        return session.user;
       },
       logout() {
         if (appConfig.appMode === "demo") {

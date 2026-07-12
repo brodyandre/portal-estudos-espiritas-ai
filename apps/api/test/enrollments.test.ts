@@ -226,6 +226,17 @@ describe("enrollments endpoints", () => {
           status: "approved",
         });
 
+      const firstLoginResponse = await request(app).post("/api/auth/login").send({
+        email: firstApproval.body.data.studentAccess.email,
+        password: firstApproval.body.data.studentAccess.temporaryPassword,
+      });
+
+      expect(firstLoginResponse.status).toBe(200);
+
+      const previousToken = firstLoginResponse.body.data.token as string;
+      const previousCredentialTimestamp =
+        firstLoginResponse.body.data.user.passwordChangedAt;
+
       const secondApproval = await request(app)
         .patch("/api/enrollments/enrollment-001/status")
         .set("Authorization", `Bearer ${token}`)
@@ -238,9 +249,17 @@ describe("enrollments endpoints", () => {
       expect(secondApproval.body.data.studentAccess.email).toBe(
         firstApproval.body.data.studentAccess.email,
       );
+      expect(secondApproval.body.data.studentAccess.mustChangePassword).toBe(true);
       expect(secondApproval.body.data.studentAccess.temporaryPassword).not.toBe(
         firstApproval.body.data.studentAccess.temporaryPassword,
       );
+
+      const staleTokenResponse = await request(app)
+        .get("/api/auth/me")
+        .set("Authorization", `Bearer ${previousToken}`);
+
+      expect(staleTokenResponse.status).toBe(401);
+      expect(staleTokenResponse.body.error.code).toBe("AUTH_REQUIRED");
 
       const loginResponse = await request(app).post("/api/auth/login").send({
         email: secondApproval.body.data.studentAccess.email,
@@ -248,6 +267,11 @@ describe("enrollments endpoints", () => {
       });
 
       expect(loginResponse.status).toBe(200);
+      expect(loginResponse.body.data.user.mustChangePassword).toBe(true);
+      expect(loginResponse.body.data.user.passwordChangedAt).toEqual(expect.any(String));
+      expect(loginResponse.body.data.user.passwordChangedAt).not.toBe(
+        previousCredentialTimestamp,
+      );
     });
 
     it("reativa usuario inativo existente ao aprovar a inscricao", async () => {

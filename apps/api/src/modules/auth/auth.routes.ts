@@ -4,8 +4,8 @@ import { AppError } from "../../lib/app-error";
 import { sendSuccess } from "../../lib/api-response";
 import { asyncHandler } from "../../lib/async-handler";
 import { requireAuth } from "./auth.middleware";
-import { getAuthenticatedUser, loginUser } from "./auth.service";
-import type { LoginInput } from "./auth.types";
+import { changePassword, getAuthenticatedUser, loginUser } from "./auth.service";
+import type { ChangePasswordInput, LoginInput } from "./auth.types";
 
 const isObjectRecord = (value: unknown): value is Record<string, unknown> => {
   return Boolean(value) && typeof value === "object";
@@ -35,6 +35,22 @@ const parseLoginBody = (body: unknown): LoginInput => {
 };
 
 export const authRouter = Router();
+
+const parseChangePasswordBody = (body: unknown): ChangePasswordInput => {
+  if (!isObjectRecord(body)) {
+    throw new AppError({
+      statusCode: 400,
+      code: "INVALID_REQUEST_BODY",
+      message: "Envie um corpo JSON válido.",
+    });
+  }
+
+  return {
+    currentPassword: typeof body.currentPassword === "string" ? body.currentPassword : "",
+    newPassword: typeof body.newPassword === "string" ? body.newPassword : "",
+    confirmPassword: typeof body.confirmPassword === "string" ? body.confirmPassword : "",
+  };
+};
 
 authRouter.post(
   "/login",
@@ -76,6 +92,27 @@ authRouter.get(
     return sendSuccess(response, {
       message: "Perfil carregado com sucesso.",
       data: currentUser,
+    });
+  }),
+);
+
+authRouter.patch(
+  "/change-password",
+  requireAuth,
+  asyncHandler(async (request, response) => {
+    if (!request.authUser) {
+      throw new AppError({
+        statusCode: 401,
+        code: "AUTH_REQUIRED",
+        message: "Faça login no ambiente local para continuar.",
+      });
+    }
+
+    const result = await changePassword(request.authUser, parseChangePasswordBody(request.body));
+
+    return sendSuccess(response, {
+      message: "Senha atualizada com sucesso.",
+      data: result,
     });
   }),
 );

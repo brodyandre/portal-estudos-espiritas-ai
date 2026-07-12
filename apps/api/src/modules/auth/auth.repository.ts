@@ -12,6 +12,7 @@ import { getRolePermissions } from "../../auth/roles";
 import type { UserRole, UserStatus } from "../../auth/types";
 import type {
   AuthUser,
+  ChangePasswordPersistenceInput,
   StoredAuthUser,
   StudentAccessProvisionInput,
   StudentAccessProvisionResult,
@@ -21,6 +22,7 @@ export interface AuthRepository {
   getByEmail(email: string): Promise<StoredAuthUser | null>;
   getById(id: string): Promise<StoredAuthUser | null>;
   provisionStudentAccess(input: StudentAccessProvisionInput): Promise<StudentAccessProvisionResult>;
+  changePassword(input: ChangePasswordPersistenceInput): Promise<StoredAuthUser | null>;
 }
 
 type StudentAccessPersistenceClient = Pick<Prisma.TransactionClient, "user" | "auditLog">;
@@ -51,10 +53,11 @@ const mapPrismaUser = (user: PrismaUser): StoredAuthUser => {
     groupName: user.groupName,
     groupSlug: user.groupSlug,
     enrollmentId: user.enrollmentId,
-    mustChangePassword: user.mustChangePassword,
+    mustChangePassword: user.mustChangePassword ?? false,
     temporaryPasswordGeneratedAt: user.temporaryPasswordGeneratedAt
       ? user.temporaryPasswordGeneratedAt.toISOString()
       : null,
+    passwordChangedAt: user.passwordChangedAt ? user.passwordChangedAt.toISOString() : null,
   };
 };
 
@@ -65,6 +68,8 @@ const buildAuthUser = (user: StoredAuthUser): AuthUser => {
     email: user.email,
     role: user.role,
     status: user.status,
+    mustChangePassword: user.mustChangePassword ?? false,
+    passwordChangedAt: user.passwordChangedAt ?? null,
     permissions: getRolePermissions(user.role),
   };
 };
@@ -92,6 +97,7 @@ export const provisionStudentAccessWithPrisma = async (
   input: StudentAccessProvisionInput,
 ): Promise<StudentAccessProvisionResult> => {
   const normalizedEmail = input.email.trim().toLowerCase();
+  const credentialChangedAt = new Date(input.temporaryPasswordGeneratedAt);
   const existingUser = await transaction.user.findUnique({
     where: {
       email: normalizedEmail,
@@ -113,7 +119,8 @@ export const provisionStudentAccessWithPrisma = async (
     groupName: input.groupName,
     groupSlug: input.groupSlug,
     enrollmentId: input.enrollmentId,
-    temporaryPasswordGeneratedAt: new Date(input.temporaryPasswordGeneratedAt),
+    temporaryPasswordGeneratedAt: credentialChangedAt,
+    passwordChangedAt: credentialChangedAt,
     mustChangePassword: input.mustChangePassword,
     adminNote: "Acesso de aluno criado ou atualizado a partir da aprovação local.",
   };
@@ -155,6 +162,14 @@ const cloneStoredUser = (user: StoredAuthUser): StoredAuthUser => ({
 });
 
 let memoryAuthUsers: StoredAuthUser[] = [];
+type MemoryAuthAuditEntry = {
+  actorName: string;
+  actorRole: UserRole;
+  action: string;
+  entity: string;
+  note: string;
+};
+let memoryAuthAuditLogs: MemoryAuthAuditEntry[] = [];
 
 const demoUsers: StoredAuthUser[] = [
   {
@@ -164,6 +179,8 @@ const demoUsers: StoredAuthUser[] = [
     passwordHash: createPasswordHash("AdminDemo@123"),
     role: "admin",
     status: "active",
+    mustChangePassword: false,
+    passwordChangedAt: null,
   },
   {
     id: "user-professor-demo",
@@ -172,6 +189,8 @@ const demoUsers: StoredAuthUser[] = [
     passwordHash: createPasswordHash("ProfessorDemo@123"),
     role: "teacher",
     status: "active",
+    mustChangePassword: false,
+    passwordChangedAt: null,
   },
   {
     id: "user-aluno-demo",
@@ -180,6 +199,8 @@ const demoUsers: StoredAuthUser[] = [
     passwordHash: createPasswordHash("AlunoDemo@123"),
     role: "student",
     status: "active",
+    mustChangePassword: false,
+    passwordChangedAt: null,
   },
   {
     id: "user-aluno-inativo-demo",
@@ -188,6 +209,8 @@ const demoUsers: StoredAuthUser[] = [
     passwordHash: createPasswordHash("AlunoInativo@123"),
     role: "student",
     status: "inactive",
+    mustChangePassword: false,
+    passwordChangedAt: null,
   },
 ];
 
@@ -228,6 +251,7 @@ export const createMemoryAuthRepository = (
         existingUser.enrollmentId = input.enrollmentId;
         existingUser.mustChangePassword = input.mustChangePassword;
         existingUser.temporaryPasswordGeneratedAt = input.temporaryPasswordGeneratedAt;
+        existingUser.passwordChangedAt = input.temporaryPasswordGeneratedAt;
 
         return {
           user: buildAuthUser(existingUser),
@@ -249,6 +273,7 @@ export const createMemoryAuthRepository = (
         enrollmentId: input.enrollmentId,
         mustChangePassword: input.mustChangePassword,
         temporaryPasswordGeneratedAt: input.temporaryPasswordGeneratedAt,
+        passwordChangedAt: input.temporaryPasswordGeneratedAt,
       };
 
       memoryAuthUsers.unshift(createdUser);
@@ -258,6 +283,28 @@ export const createMemoryAuthRepository = (
         action: "created",
         mustChangePassword: input.mustChangePassword,
       };
+    },
+    async changePassword(input) {
+      const existingUser = memoryAuthUsers.find((user) => user.id === input.userId);
+
+      if (!existingUser) {
+        return null;
+      }
+
+      existingUser.passwordHash = input.passwordHash;
+      existingUser.mustChangePassword = false;
+      existingUser.passwordChangedAt = new Date().toISOString();
+      existingUser.temporaryPasswordGeneratedAt = null;
+
+      memoryAuthAuditLogs.unshift({
+        actorName: input.actorName,
+        actorRole: input.actorRole,
+        action: "Senha alterada",
+        entity: `User ${existingUser.id}`,
+        note: "Senha local alterada com sucesso.",
+      });
+
+      return cloneStoredUser(existingUser);
     },
   };
 };
@@ -287,11 +334,55 @@ export const createPrismaAuthRepository = (): AuthRepository => {
         provisionStudentAccessWithPrisma(transaction, input),
       );
     },
+    async changePassword(input) {
+      const changedUser = await prisma.$transaction(async (transaction) => {
+        const existingUser = await transaction.user.findUnique({
+          where: {
+            id: input.userId,
+          },
+        });
+
+        if (!existingUser) {
+          return null;
+        }
+
+        const updatedUser = await transaction.user.update({
+          where: {
+            id: input.userId,
+          },
+          data: {
+            passwordHash: input.passwordHash,
+            mustChangePassword: false,
+            passwordChangedAt: new Date(),
+            temporaryPasswordGeneratedAt: null,
+          },
+        });
+
+        await transaction.auditLog.create({
+          data: {
+            actorName: input.actorName,
+            actorRole: toPrismaUserRole(input.actorRole),
+            action: "Senha alterada",
+            entity: `User ${updatedUser.id}`,
+            note: "Senha local alterada com sucesso.",
+          },
+        });
+
+        return updatedUser;
+      });
+
+      return changedUser ? mapPrismaUser(changedUser) : null;
+    },
   };
 };
 
 export const resetMemoryAuthRepositoryStore = () => {
   memoryAuthUsers = demoUsers.map(cloneStoredUser);
+  memoryAuthAuditLogs = [];
+};
+
+export const getMemoryAuthAuditLogs = () => {
+  return memoryAuthAuditLogs.map((entry) => ({ ...entry }));
 };
 
 export const createAuthRepository = (): AuthRepository => {

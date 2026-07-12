@@ -67,6 +67,7 @@ Comportamento esperado:
 - no GitHub Pages, a experiencia pode existir apenas como demonstracao visual
 - no modo local, a experiencia pode usar backend e aprovacao do professor
 - no modo local, a rota `/aluno` exige login ou perfil demo quando o backend nao existir
+- quando `mustChangePassword` estiver ativo no ambiente local, o aluno deve passar antes por `/primeiro-acesso`
 
 ### 3. Professor
 
@@ -170,6 +171,7 @@ No ambiente local/private do owner:
 - frontend roda localmente
 - backend roda em `http://localhost:3333`
 - login local usa JWT assinado por `JWT_SECRET`
+- o primeiro acesso do aluno aprovado exige troca da senha temporaria
 - professor pode revisar interessados
 - aluno aprovado pode acessar a area do aluno
 - aprovacoes locais podem criar ou reativar acesso do aluno no PostgreSQL
@@ -184,6 +186,7 @@ No ambiente local/private do owner:
 - sem backend hospedado
 - sem autorizacao fina por recurso
 - sem auditoria real persistente
+- sem troca forçada de senha para professores e admins criados manualmente, salvo quando configurado no backend
 
 Esses limites sao aceitaveis nesta fase porque o foco ainda e demonstrar produto, UX e separacao basica de experiencias.
 
