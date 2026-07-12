@@ -37,5 +37,7 @@ export interface AppUser {
   email: string;
   role: UserRole;
   status: UserStatus;
+  mustChangePassword: boolean;
+  passwordChangedAt?: string | null;
   permissions: AppPermission[];
 }

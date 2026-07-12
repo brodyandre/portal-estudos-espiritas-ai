@@ -31,6 +31,7 @@ Grupos de estudo online costumam espalhar informacoes entre links, mensagens, re
 - Paginas de materiais com navegacao para os livros `Emmanuel` e `A Caminho da Luz`
 - API local em Express com dados mockados, base de conhecimento em Markdown e respostas JSON padronizadas
 - autenticação local simples com JWT para Admin, Professor e Aluno no ambiente privado
+- troca obrigatória da senha temporária no primeiro acesso do aluno aprovado
 - Integracao opcional com Ollama, com fallback claro quando o modelo nao estiver disponivel
 - Funcionamento da interface mesmo com backend desligado, usando mocks e respostas demonstrativas no frontend
 
@@ -184,6 +185,10 @@ Ao aprovar uma inscrição no ambiente local:
 
 - o backend cria ou reativa o acesso do aluno no PostgreSQL
 - a resposta retorna e-mail e senha temporária de forma segura
+- o primeiro login do aluno redireciona para `/primeiro-acesso`
+- a nova senha precisa ter 8 caracteres ou mais, com letra maiúscula, letra minúscula e número
+- após a troca, `mustChangePassword` passa para `false` e o token anterior deixa de valer
+- `passwordChangedAt` registra a última alteração de credencial, inclusive quando uma nova senha temporária é emitida
 - `passwordHash` nunca é exposto
 - o envio ao aluno continua manual no MVP
 

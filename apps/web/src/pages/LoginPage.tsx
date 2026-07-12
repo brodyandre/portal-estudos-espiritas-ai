@@ -59,7 +59,7 @@ export const LoginPage = () => {
   }, [location.state, user?.role]);
 
   if (isAuthenticated && !isLoading) {
-    return <Navigate replace to={redirectTarget} />;
+    return <Navigate replace to={user?.mustChangePassword ? "/primeiro-acesso" : redirectTarget} />;
   }
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -74,8 +74,8 @@ export const LoginPage = () => {
     setErrorMessage(null);
 
     try {
-      await login(email, password);
-      navigate(redirectTarget, { replace: true });
+      const loggedUser = await login(email, password);
+      navigate(loggedUser.mustChangePassword ? "/primeiro-acesso" : redirectTarget, { replace: true });
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Não foi possível concluir o login local.");
     } finally {

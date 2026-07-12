@@ -9,7 +9,10 @@ const CURRENT_USER_STORAGE_KEY = "portal-estudos-espiritas-ai:current-user-role"
 const AUTH_TOKEN_STORAGE_KEY = "portal-estudos-espiritas-ai:auth-token";
 const AUTH_USER_STORAGE_KEY = "portal-estudos-espiritas-ai:auth-user";
 
-const storeAuthenticatedUser = (role: "student" | "teacher" | "admin") => {
+const storeAuthenticatedUser = (
+  role: "student" | "teacher" | "admin",
+  mustChangePassword = false,
+) => {
   window.localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, "token-demo-local");
   window.localStorage.setItem(
     AUTH_USER_STORAGE_KEY,
@@ -19,6 +22,8 @@ const storeAuthenticatedUser = (role: "student" | "teacher" | "admin") => {
       email: `${role}.demo@example.com`,
       role,
       status: "active",
+      mustChangePassword,
+      passwordChangedAt: mustChangePassword ? null : "2026-07-12T09:00:00.000Z",
       permissions: [],
     }),
   );
@@ -40,6 +45,7 @@ const renderProtectedRoute = (path: string, routeType: "student" | "teacher" | "
           </Route>
           <Route element={<div>Portal público</div>} path="/portal" />
           <Route element={<div>Tela de login</div>} path="/login" />
+          <Route element={<div>Primeiro acesso</div>} path="/primeiro-acesso" />
           <Route element={<div>Entrada pública</div>} path="/educacao-continuada" />
         </Routes>
       </MemoryRouter>
@@ -86,5 +92,12 @@ describe("ProtectedRoute", () => {
     renderProtectedRoute("/aluno", "student");
 
     expect(screen.getByText("Área protegida")).toBeInTheDocument();
+  });
+
+  it("redireciona para primeiro acesso quando a troca obrigatória de senha está pendente", async () => {
+    storeAuthenticatedUser("student", true);
+    renderProtectedRoute("/aluno", "student");
+
+    expect(screen.getByText("Primeiro acesso")).toBeInTheDocument();
   });
 });

@@ -2,7 +2,11 @@ import type { NextFunction, Request, Response } from "express";
 
 import { AppError } from "../../lib/app-error";
 import type { UserRole } from "../../auth/types";
-import { getAuthenticatedUser, userHasAnyRole, verifyAuthToken } from "./auth.service";
+import {
+  getAuthenticatedUserFromTokenPayload,
+  userHasAnyRole,
+  verifyAuthToken,
+} from "./auth.service";
 import type { AuthUser } from "./auth.types";
 
 declare module "express-serve-static-core" {
@@ -12,6 +16,11 @@ declare module "express-serve-static-core" {
 }
 
 const UNAUTHORIZED_MESSAGE = "Faça login no ambiente local para continuar.";
+const PASSWORD_CHANGE_MESSAGE = "Troque sua senha temporária para continuar.";
+const passwordChangeAllowedRoutes = new Set([
+  "GET:/api/auth/me",
+  "PATCH:/api/auth/change-password",
+]);
 
 const getBearerToken = (request: Request) => {
   const authorization = request.headers.authorization;
@@ -44,7 +53,7 @@ export const requireAuth = async (request: Request, _response: Response, next: N
 
   try {
     const payload = verifyAuthToken(token);
-    const user = await getAuthenticatedUser(payload.sub);
+    const user = await getAuthenticatedUserFromTokenPayload(payload);
 
     if (!user) {
       return next(
@@ -52,6 +61,18 @@ export const requireAuth = async (request: Request, _response: Response, next: N
           statusCode: 401,
           code: "AUTH_REQUIRED",
           message: UNAUTHORIZED_MESSAGE,
+        }),
+      );
+    }
+
+    const routeKey = `${request.method.toUpperCase()}:${request.baseUrl}${request.path}`;
+
+    if (user.mustChangePassword && !passwordChangeAllowedRoutes.has(routeKey)) {
+      return next(
+        new AppError({
+          statusCode: 403,
+          code: "PASSWORD_CHANGE_REQUIRED",
+          message: PASSWORD_CHANGE_MESSAGE,
         }),
       );
     }

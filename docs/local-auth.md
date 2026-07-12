@@ -38,6 +38,7 @@ Essas credenciais existem apenas para ambiente local controlado.
 
 - `POST /api/auth/login`
 - `GET /api/auth/me`
+- `PATCH /api/auth/change-password`
 
 ## Regras principais
 
@@ -46,6 +47,27 @@ Essas credenciais existem apenas para ambiente local controlado.
 - usuário inativo não autentica
 - `passwordHash` nunca retorna na resposta
 - o token JWT é assinado com `JWT_SECRET`
+- no primeiro acesso do aluno aprovado, `mustChangePassword` exige troca da senha temporária
+- a nova senha deve ter pelo menos 8 caracteres, com letra maiúscula, letra minúscula e número
+- `passwordChangedAt` representa a última alteração de credencial, incluindo troca de senha e redefinição de senha temporária
+
+## Primeiro acesso do aluno
+
+Fluxo local:
+
+- o professor ou admin aprova a inscrição
+- o backend cria ou reativa o usuário aluno com senha temporária
+- toda nova senha temporária também atualiza `passwordChangedAt`
+- o login local funciona com essa senha temporária
+- enquanto `mustChangePassword` estiver `true`, o backend libera apenas:
+  - `POST /api/auth/login`
+  - `GET /api/auth/me`
+  - `PATCH /api/auth/change-password`
+- após a troca de senha:
+  - `mustChangePassword` passa para `false`
+  - `passwordChangedAt` é atualizado
+  - o frontend redireciona o aluno para a própria área
+  - o token antigo deixa de ser aceito
 
 ## Proteção inicial
 
@@ -72,6 +94,7 @@ Campos extras do usuário local nesta fase:
 - `enrollmentId`
 - `temporaryPasswordGeneratedAt`
 - `mustChangePassword`
+- `passwordChangedAt`
 
 ## Fluxo no frontend
 
@@ -84,6 +107,8 @@ Campos extras do usuário local nesta fase:
 ### Ambiente local
 
 - a rota `/login` usa e-mail e senha reais da seed
+- se o backend indicar `mustChangePassword`, o frontend redireciona para `/primeiro-acesso`
+- a rota `/primeiro-acesso` exige a senha temporária atual, a nova senha e a confirmação
 - o token fica apenas no navegador local
 - `/aluno`, `/professor` e `/admin` passam a respeitar autenticação local
 - o Meet real continua restrito ao ambiente local autorizado

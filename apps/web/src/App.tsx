@@ -13,6 +13,7 @@ import { EnrollmentPage } from "./pages/EnrollmentPage";
 import { HomePage } from "./pages/HomePage";
 import { LoginPage } from "./pages/LoginPage";
 import { MaterialsPage } from "./pages/MaterialsPage";
+import { PasswordChangePage } from "./pages/PasswordChangePage";
 import { PortalPage } from "./pages/PortalPage";
 import { ProfessorPage } from "./pages/ProfessorPage";
 import { PromotionPage } from "./pages/PromotionPage";
@@ -28,6 +29,7 @@ export const App = () => {
             <Route element={<EducationContinuedPage />} path="/educacao-continuada" />
             <Route element={<EnrollmentPage />} path="/inscricao" />
             <Route element={<LoginPage />} path="/login" />
+            <Route element={<PasswordChangePage />} path="/primeiro-acesso" />
             <Route element={<PromotionPage />} path="/divulgacao" />
             <Route element={<MaterialsPage />} path="/materiais" />
             <Route element={<MaterialsPage />} path="/materiais/:groupSlug" />

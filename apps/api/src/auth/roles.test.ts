@@ -9,6 +9,8 @@ const makeUser = (overrides: Partial<AppUser>): AppUser => ({
   email: "pessoa.demo@example.com",
   role: "visitor",
   status: "active",
+  mustChangePassword: false,
+  passwordChangedAt: null,
   permissions: [],
   ...overrides,
 });

@@ -14,6 +14,8 @@ const createUser = (role: UserRole, fullName: string): AppUser => ({
   email: `${role}.demo@example.com`,
   role,
   status: "active",
+  mustChangePassword: false,
+  passwordChangedAt: null,
   permissions: getRolePermissions(role),
 });
 

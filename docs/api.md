@@ -164,6 +164,81 @@ Query opcionais:
 - `studentId`
 - `groupId`
 
+### `POST /api/auth/login`
+
+Autentica `Admin`, `Professor` ou `Aluno` no ambiente local.
+
+Body esperado:
+
+```json
+{
+  "email": "aluno.demo@example.com",
+  "password": "SenhaLocal@123"
+}
+```
+
+Resposta de sucesso:
+
+- `token`
+- `user`
+
+O objeto `user` pode incluir:
+
+- `mustChangePassword`
+- `passwordChangedAt`
+
+Semântica:
+
+- `passwordChangedAt` representa a última alteração de credencial
+- esse campo muda tanto na troca de senha quanto em uma nova geração de senha temporária
+
+Observacoes:
+
+- `passwordHash` nunca retorna
+- credenciais reais nao devem ser publicadas no frontend do GitHub Pages
+
+### `GET /api/auth/me`
+
+Retorna o usuario autenticado com base no token local.
+
+### `PATCH /api/auth/change-password`
+
+Troca a senha temporaria no primeiro acesso ou atualiza a senha local do usuario autenticado.
+
+Body esperado:
+
+```json
+{
+  "currentPassword": "SenhaTemporaria@123",
+  "newPassword": "NovaSenha@123",
+  "confirmPassword": "NovaSenha@123"
+}
+```
+
+Regras:
+
+- exige token Bearer valido
+- valida a senha atual
+- exige que `newPassword` e `confirmPassword` sejam iguais
+- bloqueia reutilizacao da senha atual
+- a nova senha deve ter pelo menos 8 caracteres, com letra maiuscula, letra minuscula e numero
+- atualiza `mustChangePassword` para `false`
+- atualiza `passwordChangedAt`
+- invalida tokens antigos com base na data da ultima troca
+- nunca retorna `passwordHash`
+
+Enquanto `mustChangePassword` estiver `true`, a API bloqueia as demais rotas autenticadas com:
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "PASSWORD_CHANGE_REQUIRED",
+    "message": "Troque sua senha temporária para continuar."
+  }
+}
+```
+
 ### `POST /api/enrollments`
 
 Recebe um cadastro simples de interesse vindo da pagina publica do portal.
