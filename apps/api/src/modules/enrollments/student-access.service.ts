@@ -1,13 +1,23 @@
 import bcrypt from "bcryptjs";
 
-import type { UserRole } from "../../auth/types";
 import type { Enrollment } from "../../types/enrollment";
-import { provisionStudentAccess } from "../auth/auth.service";
 
 export interface StudentAccessPayload {
   email: string;
   temporaryPassword: string;
   mustChangePassword: boolean;
+}
+
+export interface PreparedStudentAccessProvision {
+  email: string;
+  fullName: string;
+  whatsapp: string;
+  groupName: string | null;
+  groupSlug: string | null;
+  passwordHash: string;
+  temporaryPasswordGeneratedAt: string;
+  mustChangePassword: true;
+  temporaryPassword: string;
 }
 
 const groupSlugByName: Record<Enrollment["groupInterest"], string | null> = {
@@ -29,17 +39,13 @@ const buildTemporaryPassword = (fullName: string) => {
   return `${initials}@Portal${suffix}`;
 };
 
-export const ensureStudentAccessForEnrollment = async (input: {
-  enrollment: Enrollment;
-  actorName: string;
-  actorRole: UserRole;
-}): Promise<StudentAccessPayload> => {
-  const { enrollment, actorName, actorRole } = input;
+export const prepareStudentAccessForEnrollment = async (
+  enrollment: Enrollment,
+): Promise<PreparedStudentAccessProvision> => {
   const temporaryPassword = buildTemporaryPassword(enrollment.fullName);
   const passwordHash = await bcrypt.hash(temporaryPassword, 10);
 
-  await provisionStudentAccess({
-    enrollmentId: enrollment.id,
+  return {
     fullName: enrollment.fullName,
     email: enrollment.email,
     whatsapp: enrollment.whatsapp,
@@ -49,13 +55,6 @@ export const ensureStudentAccessForEnrollment = async (input: {
     passwordHash,
     temporaryPasswordGeneratedAt: new Date().toISOString(),
     mustChangePassword: true,
-    actorName,
-    actorRole,
-  });
-
-  return {
-    email: enrollment.email,
     temporaryPassword,
-    mustChangePassword: true,
   };
 };

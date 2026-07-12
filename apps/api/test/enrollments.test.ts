@@ -2,7 +2,11 @@ import request from "supertest";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { app } from "../src/app";
-import { resetAuthStore } from "../src/modules/auth/auth.service";
+import {
+  resetAuthStore,
+  setAuthRepositoryForTesting,
+} from "../src/modules/auth/auth.service";
+import { createMemoryAuthRepository } from "../src/modules/auth/auth.repository";
 import { resetEnrollmentStore } from "../src/modules/enrollments/enrollments.service";
 
 const loginAsTeacher = async () => {
@@ -200,6 +204,9 @@ describe("enrollments endpoints", () => {
         }),
       );
       expect(typeof response.body.data.enrollment.reviewedAt).toBe("string");
+      expect(response.body.data.enrollment.passwordHash).toBeUndefined();
+      expect(response.body.data.studentAccess.passwordHash).toBeUndefined();
+      expect(response.body.data.token).toBeUndefined();
 
       const loginResponse = await request(app).post("/api/auth/login").send({
         email: response.body.data.studentAccess.email,
@@ -241,6 +248,74 @@ describe("enrollments endpoints", () => {
       });
 
       expect(loginResponse.status).toBe(200);
+    });
+
+    it("reativa usuario inativo existente ao aprovar a inscricao", async () => {
+      const createdEnrollment = await request(app).post("/api/enrollments").send({
+        fullName: "Aluno Inativo Demonstrativo",
+        email: "aluno.inativo.demo@example.com",
+        whatsapp: "+55 00 90000-0111",
+        groupInterest: "Emmanuel",
+        alreadyParticipates: "Já participei antes",
+        message: "Gostaria de retomar os estudos.",
+      });
+
+      const token = await loginAsTeacher();
+      const response = await request(app)
+        .patch(`/api/enrollments/${createdEnrollment.body.data.id}/status`)
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+          status: "approved",
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.data.studentAccess).toEqual(
+        expect.objectContaining({
+          email: "aluno.inativo.demo@example.com",
+          mustChangePassword: true,
+        }),
+      );
+
+      const loginResponse = await request(app).post("/api/auth/login").send({
+        email: "aluno.inativo.demo@example.com",
+        password: response.body.data.studentAccess.temporaryPassword,
+      });
+
+      expect(loginResponse.status).toBe(200);
+      expect(loginResponse.body.data.user.status).toBe("active");
+    });
+
+    it("faz rollback da aprovacao quando o provisionamento falha", async () => {
+      const baseRepository = createMemoryAuthRepository();
+
+      setAuthRepositoryForTesting({
+        async getByEmail(email) {
+          return baseRepository.getByEmail(email);
+        },
+        async getById(id) {
+          return baseRepository.getById(id);
+        },
+        async provisionStudentAccess() {
+          throw new Error("Falha simulada no provisionamento");
+        },
+      });
+
+      const token = await loginAsTeacher();
+      const response = await request(app)
+        .patch("/api/enrollments/enrollment-001/status")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+          status: "approved",
+        });
+
+      expect(response.status).toBe(500);
+
+      const enrollmentResponse = await request(app)
+        .get("/api/enrollments/enrollment-001")
+        .set("Authorization", `Bearer ${token}`);
+
+      expect(enrollmentResponse.status).toBe(200);
+      expect(enrollmentResponse.body.data.status).toBe("pending");
     });
 
     it("rejected nao cria acesso de aluno", async () => {

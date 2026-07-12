@@ -1,8 +1,8 @@
 import bcrypt from "bcryptjs";
 import {
-  Prisma,
   UserRole as PrismaUserRole,
   UserStatus as PrismaUserStatus,
+  type Prisma,
   type User as PrismaUser,
 } from "@prisma/client";
 
@@ -22,6 +22,8 @@ export interface AuthRepository {
   getById(id: string): Promise<StoredAuthUser | null>;
   provisionStudentAccess(input: StudentAccessProvisionInput): Promise<StudentAccessProvisionResult>;
 }
+
+type StudentAccessPersistenceClient = Pick<Prisma.TransactionClient, "user" | "auditLog">;
 
 const prismaRoleToRole: Record<PrismaUserRole, UserRole> = {
   ADMIN: "admin",
@@ -68,6 +70,85 @@ const buildAuthUser = (user: StoredAuthUser): AuthUser => {
 };
 
 const createPasswordHash = (password: string) => bcrypt.hashSync(password, 10);
+
+const toPrismaUserRole = (role: UserRole): PrismaUserRole => {
+  if (role === "admin") {
+    return PrismaUserRole.ADMIN;
+  }
+
+  if (role === "teacher") {
+    return PrismaUserRole.TEACHER;
+  }
+
+  if (role === "student") {
+    return PrismaUserRole.STUDENT;
+  }
+
+  return PrismaUserRole.VISITOR;
+};
+
+export const provisionStudentAccessWithPrisma = async (
+  transaction: StudentAccessPersistenceClient,
+  input: StudentAccessProvisionInput,
+): Promise<StudentAccessProvisionResult> => {
+  const normalizedEmail = input.email.trim().toLowerCase();
+  const existingUser = await transaction.user.findUnique({
+    where: {
+      email: normalizedEmail,
+    },
+  });
+
+  const roleToPersist =
+    existingUser?.role === PrismaUserRole.ADMIN || existingUser?.role === PrismaUserRole.TEACHER
+      ? existingUser.role
+      : PrismaUserRole.STUDENT;
+
+  const userPayload = {
+    fullName: input.fullName.trim(),
+    email: normalizedEmail,
+    passwordHash: input.passwordHash,
+    whatsapp: input.whatsapp.trim(),
+    role: roleToPersist,
+    status: PrismaUserStatus.ACTIVE,
+    groupName: input.groupName,
+    groupSlug: input.groupSlug,
+    enrollmentId: input.enrollmentId,
+    temporaryPasswordGeneratedAt: new Date(input.temporaryPasswordGeneratedAt),
+    mustChangePassword: input.mustChangePassword,
+    adminNote: "Acesso de aluno criado ou atualizado a partir da aprovação local.",
+  };
+
+  let action: StudentAccessProvisionResult["action"] = "created";
+  let persistedUser: PrismaUser;
+
+  if (existingUser) {
+    action = existingUser.status === PrismaUserStatus.ACTIVE ? "updated" : "activated";
+    persistedUser = await transaction.user.update({
+      where: { id: existingUser.id },
+      data: userPayload,
+    });
+  } else {
+    persistedUser = await transaction.user.create({
+      data: userPayload,
+    });
+  }
+
+  await transaction.auditLog.create({
+    data: {
+      actorName: input.actorName,
+      actorRole: toPrismaUserRole(input.actorRole),
+      action: action === "created" ? "Acesso de aluno criado" : "Acesso de aluno atualizado",
+      entity: `User ${persistedUser.id}`,
+      note: `Acesso local ${action === "created" ? "criado" : "atualizado"} para ${normalizedEmail}.`,
+    },
+  });
+
+  return {
+    user: buildAuthUser(mapPrismaUser(persistedUser)),
+    action,
+    mustChangePassword: input.mustChangePassword,
+  };
+};
 
 const cloneStoredUser = (user: StoredAuthUser): StoredAuthUser => ({
   ...user,
@@ -202,72 +283,9 @@ export const createPrismaAuthRepository = (): AuthRepository => {
       return user ? mapPrismaUser(user) : null;
     },
     async provisionStudentAccess(input) {
-      return prisma.$transaction(async (transaction) => {
-        const normalizedEmail = input.email.trim().toLowerCase();
-        const existingUser = await transaction.user.findUnique({
-          where: {
-            email: normalizedEmail,
-          },
-        });
-
-        const roleToPersist =
-          existingUser?.role === PrismaUserRole.ADMIN || existingUser?.role === PrismaUserRole.TEACHER
-            ? existingUser.role
-            : PrismaUserRole.STUDENT;
-
-        const userPayload = {
-          fullName: input.fullName.trim(),
-          email: normalizedEmail,
-          passwordHash: input.passwordHash,
-          whatsapp: input.whatsapp.trim(),
-          role: roleToPersist,
-          status: PrismaUserStatus.ACTIVE,
-          groupName: input.groupName,
-          groupSlug: input.groupSlug,
-          enrollmentId: input.enrollmentId,
-          temporaryPasswordGeneratedAt: new Date(input.temporaryPasswordGeneratedAt),
-          mustChangePassword: input.mustChangePassword,
-          adminNote: "Acesso de aluno criado ou atualizado a partir da aprovação local.",
-        };
-
-        let action: StudentAccessProvisionResult["action"] = "created";
-        let persistedUser: PrismaUser;
-
-        if (existingUser) {
-          action = existingUser.status === PrismaUserStatus.ACTIVE ? "updated" : "activated";
-          persistedUser = await transaction.user.update({
-            where: { id: existingUser.id },
-            data: userPayload,
-          });
-        } else {
-          persistedUser = await transaction.user.create({
-            data: userPayload,
-          });
-        }
-
-        await transaction.auditLog.create({
-          data: {
-            actorName: input.actorName,
-            actorRole:
-              input.actorRole === "admin"
-                ? PrismaUserRole.ADMIN
-                : input.actorRole === "teacher"
-                  ? PrismaUserRole.TEACHER
-                  : input.actorRole === "student"
-                    ? PrismaUserRole.STUDENT
-                    : PrismaUserRole.VISITOR,
-            action: action === "created" ? "Acesso de aluno criado" : "Acesso de aluno atualizado",
-            entity: `User ${persistedUser.id}`,
-            note: `Acesso local ${action === "created" ? "criado" : "atualizado"} para ${normalizedEmail}.`,
-          },
-        });
-
-        return {
-          user: buildAuthUser(mapPrismaUser(persistedUser)),
-          action,
-          mustChangePassword: input.mustChangePassword,
-        };
-      });
+      return prisma.$transaction((transaction) =>
+        provisionStudentAccessWithPrisma(transaction, input),
+      );
     },
   };
 };

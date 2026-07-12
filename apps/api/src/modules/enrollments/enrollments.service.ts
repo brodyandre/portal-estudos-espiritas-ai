@@ -13,7 +13,7 @@ import {
   type UpdateEnrollmentStatusInput,
 } from "./enrollments.repository";
 import {
-  ensureStudentAccessForEnrollment,
+  prepareStudentAccessForEnrollment,
   type StudentAccessPayload,
 } from "./student-access.service";
 
@@ -61,24 +61,36 @@ export const updateEnrollmentStatusWithStudentAccess = async (
     authRole: UserRole;
   },
 ): Promise<UpdateEnrollmentStatusResult | null> => {
-  const updatedEnrollment = await enrollmentsRepository.updateStatus(id, input);
+  const currentEnrollment = await enrollmentsRepository.getById(id);
+
+  if (!currentEnrollment) {
+    return null;
+  }
+
+  const preparedStudentAccess =
+    input.status === "approved"
+      ? await prepareStudentAccessForEnrollment(currentEnrollment)
+      : null;
+
+  const updatedEnrollment = await enrollmentsRepository.reviewStatusWithStudentAccess(
+    id,
+    input,
+    preparedStudentAccess ?? undefined,
+  );
 
   if (!updatedEnrollment) {
     return null;
   }
 
-  const studentAccess =
-    input.status === "approved"
-      ? await ensureStudentAccessForEnrollment({
-          enrollment: updatedEnrollment,
-          actorName: input.actorName,
-          actorRole: input.authRole,
-        })
-      : null;
-
   return {
     enrollment: updatedEnrollment,
-    studentAccess,
+    studentAccess: preparedStudentAccess
+      ? {
+          email: preparedStudentAccess.email,
+          temporaryPassword: preparedStudentAccess.temporaryPassword,
+          mustChangePassword: preparedStudentAccess.mustChangePassword,
+        }
+      : null,
   };
 };
 
