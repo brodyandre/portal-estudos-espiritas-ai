@@ -1,19 +1,29 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { createHash, randomUUID } from "node:crypto";
+import { createHash, createHmac, randomBytes, randomUUID } from "node:crypto";
 
 import { buildTemporaryPassword } from "../enrollments/student-access.service";
 import { buildSessionDeviceLabel } from "./session-device";
 import {
+  getPasswordRecoveryNotifier,
+  listPasswordRecoveryPreviews,
+  resetPasswordRecoveryNotifier,
+} from "./password-recovery.notifier";
+import {
   assertAdminPasswordResetRateLimit,
   assertLoginRateLimit,
+  assertPasswordRecoveryRateLimit,
   assertPasswordChangeRateLimit,
+  assertPasswordResetRateLimit,
   clearLoginRateLimit,
   clearPasswordChangeRateLimit,
-  resetAuthRateLimitStore,
+  normalizeEmailForRateLimit,
+  recordPasswordRecoveryAttempt,
+  recordPasswordResetAttempt,
   recordAdminPasswordResetAttempt,
   recordFailedLoginAttempt,
   recordFailedPasswordChangeAttempt,
+  resetAuthRateLimitStore,
 } from "../../security/auth-rate-limit";
 import { AppError } from "../../lib/app-error";
 import { env } from "../../config/env";
@@ -33,8 +43,11 @@ import type {
   AuthUser,
   ChangePasswordInput,
   ChangePasswordPersistenceInput,
+  ForgotPasswordInput,
   LoginInput,
   LoginResponse,
+  PasswordRecoveryPreview,
+  ResetPasswordInput,
   StoredAuthSession,
   StoredAuthUser,
   StudentAccessProvisionInput,
@@ -44,7 +57,10 @@ import type {
 let authRepository: AuthRepository = createAuthRepository();
 
 const INVALID_LOGIN_MESSAGE = "E-mail ou senha inválidos.";
+const PASSWORD_RECOVERY_SUCCESS_MESSAGE =
+  "Se o e-mail estiver cadastrado, você receberá instruções para recuperar o acesso.";
 export const PASSWORD_MAX_LENGTH = 128;
+const PASSWORD_RESET_TOKEN_MAX_LENGTH = 512;
 const AUTH_TOKEN_TTL_SECONDS = 8 * 60 * 60;
 const PASSWORD_POLICY_MESSAGE =
   "Use pelo menos 8 caracteres, com letra maiúscula, letra minúscula e número.";
@@ -86,6 +102,18 @@ const hashIpAddress = (ipAddress?: string) => {
   }
 
   return createHash("sha256").update(`${env.jwtSecret}:${ipAddress}`).digest("hex");
+};
+
+const hashPasswordResetToken = (token: string) => {
+  return createHmac("sha256", env.jwtSecret).update(token).digest("hex");
+};
+
+const buildPasswordResetExpiry = () => {
+  return new Date(Date.now() + env.passwordRecoveryTtlMinutes * 60 * 1000).toISOString();
+};
+
+const buildPasswordResetUrl = (token: string) => {
+  return `/redefinir-senha?token=${encodeURIComponent(token)}`;
 };
 
 const buildSessionMetadata = (options?: {
@@ -281,6 +309,143 @@ const validatePasswordPolicy = (password: string) => {
   const hasDigit = /\d/u.test(password);
 
   return hasMinLength && hasUppercase && hasLowercase && hasDigit;
+};
+
+export const requestPasswordRecovery = async (
+  input: ForgotPasswordInput,
+  options?: {
+    ipAddress?: string;
+  },
+) => {
+  const normalizedEmail = normalizeEmailForRateLimit(input.email);
+  const ipAddress = options?.ipAddress ?? "unknown";
+
+  if (!normalizedEmail) {
+    throw new AppError({
+      statusCode: 400,
+      code: "INVALID_FORGOT_PASSWORD_INPUT",
+      message: "Informe um e-mail válido para continuar.",
+    });
+  }
+
+  assertPasswordRecoveryRateLimit(ipAddress, normalizedEmail);
+  const storedUser = await authRepository.getByEmail(normalizedEmail);
+
+  if (storedUser) {
+    const rawToken = randomBytes(32).toString("base64url");
+    const expiresAt = buildPasswordResetExpiry();
+    const createdAt = new Date().toISOString();
+
+    await authRepository.replacePasswordResetToken({
+      userId: storedUser.id,
+      tokenHash: hashPasswordResetToken(rawToken),
+      expiresAt,
+      requestedIpHash: hashIpAddress(ipAddress),
+      actorName: "Recuperação de senha",
+      actorRole: "visitor",
+    });
+
+    await getPasswordRecoveryNotifier().notify({
+      email: storedUser.email,
+      fullName: storedUser.fullName,
+      token: rawToken,
+      resetUrl: buildPasswordResetUrl(rawToken),
+      createdAt,
+      expiresAt,
+    });
+  }
+
+  recordPasswordRecoveryAttempt(ipAddress, normalizedEmail);
+
+  return {
+    success: true as const,
+    message: PASSWORD_RECOVERY_SUCCESS_MESSAGE,
+  };
+};
+
+export const resetPasswordWithRecovery = async (
+  input: ResetPasswordInput,
+  options?: {
+    ipAddress?: string;
+  },
+) => {
+  const token = input.token;
+  const newPassword = input.newPassword;
+  const confirmPassword = input.confirmPassword;
+
+  if (!token || !newPassword || !confirmPassword) {
+    throw new AppError({
+      statusCode: 400,
+      code: "INVALID_PASSWORD_RESET_INPUT",
+      message: "Informe o token, a nova senha e a confirmação.",
+    });
+  }
+
+  if (
+    token.length > PASSWORD_RESET_TOKEN_MAX_LENGTH ||
+    newPassword.length > PASSWORD_MAX_LENGTH ||
+    confirmPassword.length > PASSWORD_MAX_LENGTH
+  ) {
+    throw new AppError({
+      statusCode: 400,
+      code: "INVALID_PASSWORD_RESET_INPUT",
+      message: `Os campos enviados ultrapassam o limite permitido para este fluxo.`,
+    });
+  }
+
+  if (newPassword !== confirmPassword) {
+    throw new AppError({
+      statusCode: 400,
+      code: "PASSWORD_CONFIRMATION_MISMATCH",
+      message: "A confirmação da nova senha não confere.",
+    });
+  }
+
+  if (!validatePasswordPolicy(newPassword)) {
+    throw new AppError({
+      statusCode: 400,
+      code: "WEAK_PASSWORD",
+      message: PASSWORD_POLICY_MESSAGE,
+    });
+  }
+
+  const tokenHash = hashPasswordResetToken(token);
+  const ipAddress = options?.ipAddress ?? "unknown";
+
+  assertPasswordResetRateLimit(ipAddress, tokenHash);
+  recordPasswordResetAttempt(ipAddress, tokenHash);
+
+  const passwordHash = await bcrypt.hash(newPassword, 10);
+  const passwordChangedAt = new Date().toISOString();
+  const result = await authRepository.resetPasswordWithRecoveryToken({
+    tokenHash,
+    newPassword,
+    passwordHash,
+    passwordChangedAt,
+    actorName: "Recuperação de senha",
+    actorRole: "visitor",
+  });
+
+  if (result.status === "password_reuse") {
+    throw new AppError({
+      statusCode: 400,
+      code: "PASSWORD_REUSE_NOT_ALLOWED",
+      message: "Escolha uma nova senha diferente da atual.",
+    });
+  }
+
+  if (result.status !== "updated") {
+    throw new AppError({
+      statusCode: 400,
+      code: "INVALID_PASSWORD_RESET_TOKEN",
+      message: "O link de recuperação é inválido ou já expirou.",
+    });
+  }
+
+  return {
+    success: true as const,
+    message: "Senha redefinida com sucesso. Faça login novamente.",
+  };
 };
 
 export const listUserSessions = async (
@@ -568,6 +733,26 @@ export const resetPasswordByAdmin = async (
   };
 };
 
+export const getPasswordRecoveryPreviewList = async (authUser: AuthUser): Promise<PasswordRecoveryPreview[]> => {
+  if (authUser.role !== "admin") {
+    throw new AppError({
+      statusCode: 403,
+      code: "FORBIDDEN",
+      message: "Seu perfil não tem acesso a este recurso.",
+    });
+  }
+
+  if (env.nodeEnv === "production" || !env.passwordRecoveryPreviewEnabled) {
+    throw new AppError({
+      statusCode: 404,
+      code: "PASSWORD_RECOVERY_PREVIEW_DISABLED",
+      message: "A prévia local da recuperação de senha não está disponível neste ambiente.",
+    });
+  }
+
+  return listPasswordRecoveryPreviews();
+};
+
 export const userHasAnyRole = (user: AuthUser, roles: UserRole[]) => {
   return roles.includes(user.role);
 };
@@ -581,6 +766,7 @@ export const provisionStudentAccess = (
 export const resetAuthStore = () => {
   resetMemoryAuthRepositoryStore();
   resetAuthRateLimitStore();
+  resetPasswordRecoveryNotifier();
   authRepository = createMemoryAuthRepository();
 };
 

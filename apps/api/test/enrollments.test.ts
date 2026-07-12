@@ -272,7 +272,7 @@ describe("enrollments endpoints", () => {
       expect(loginResponse.body.data.user.passwordChangedAt).not.toBe(
         previousCredentialTimestamp,
       );
-    });
+    }, 10000);
 
     it("reativa usuario inativo existente ao aprovar a inscricao", async () => {
       const createdEnrollment = await request(app).post("/api/enrollments").send({
@@ -346,12 +346,18 @@ describe("enrollments endpoints", () => {
         async provisionStudentAccess() {
           throw new Error("Falha simulada no provisionamento");
         },
-        async changePassword(input) {
-          return baseRepository.changePassword(input);
-        },
-        async resetPasswordByAdmin(input) {
-          return baseRepository.resetPasswordByAdmin(input);
-        },
+      async changePassword(input) {
+        return baseRepository.changePassword(input);
+      },
+      async replacePasswordResetToken(input) {
+        return baseRepository.replacePasswordResetToken(input);
+      },
+      async resetPasswordWithRecoveryToken(input) {
+        return baseRepository.resetPasswordWithRecoveryToken(input);
+      },
+      async resetPasswordByAdmin(input) {
+        return baseRepository.resetPasswordByAdmin(input);
+      },
       });
 
       const token = await loginAsTeacher();

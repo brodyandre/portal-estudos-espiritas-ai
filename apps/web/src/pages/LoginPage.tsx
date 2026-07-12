@@ -147,6 +147,11 @@ export const LoginPage = () => {
                 Voltar ao portal
               </Button>
             </div>
+            <div className="button-row">
+              <Button to="/esqueci-minha-senha" variant="ghost">
+                Esqueci minha senha
+              </Button>
+            </div>
           </form>
         </Card>
 

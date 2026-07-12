@@ -52,6 +52,7 @@ model User {
   updatedAt                    DateTime    @updatedAt
   enrollment                   Enrollment? @relation(fields: [enrollmentId], references: [id], onDelete: SetNull)
   authSessions                 AuthSession[]
+  passwordResetTokens          PasswordResetToken[]
 }
 
 model AuthSession {
@@ -69,6 +70,24 @@ model AuthSession {
   @@index([expiresAt])
   @@index([revokedAt])
   @@index([userId, revokedAt])
+}
+
+model PasswordResetToken {
+  id              String   @id @default(cuid())
+  userId          String
+  tokenHash       String   @unique
+  createdAt       DateTime @default(now())
+  expiresAt       DateTime
+  usedAt          DateTime?
+  invalidatedAt   DateTime?
+  requestedIpHash String?
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([usedAt])
+  @@index([invalidatedAt])
+  @@index([userId, usedAt, invalidatedAt])
 }
 
 model Enrollment {

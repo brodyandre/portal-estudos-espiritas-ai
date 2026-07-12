@@ -325,6 +325,101 @@ Enquanto `mustChangePassword` estiver `true`, a API bloqueia as demais rotas aut
 }
 ```
 
+Enquanto `mustChangePassword` estiver `true`, apenas estas rotas autenticadas continuam liberadas:
+
+- `GET /api/auth/me`
+- `POST /api/auth/logout`
+- `PATCH /api/auth/change-password`
+
+### `POST /api/auth/forgot-password`
+
+Solicita a recuperação de acesso por e-mail, sem revelar se a conta existe.
+
+Body esperado:
+
+```json
+{
+  "email": "usuario@example.com"
+}
+```
+
+Comportamento:
+
+- normaliza o e-mail
+- responde sempre com a mesma mensagem pública
+- não informa existência, perfil ou status da conta
+- para usuário elegível, gera token temporário de 30 minutos
+- armazena apenas o hash do token
+- invalida pedidos anteriores ainda ativos do mesmo usuário
+- registra auditoria sem token bruto
+
+Exemplo de resposta:
+
+```json
+{
+  "success": true,
+  "message": "Se o e-mail estiver cadastrado, você receberá instruções para recuperar o acesso.",
+  "data": {
+    "success": true,
+    "message": "Se o e-mail estiver cadastrado, você receberá instruções para recuperar o acesso."
+  }
+}
+```
+
+Rate limit:
+
+- 5 solicitações por IP em 30 minutos
+- 5 solicitações por identidade de e-mail normalizada em 30 minutos
+- ao exceder, retorna `429` com `PASSWORD_RECOVERY_RATE_LIMITED`
+
+### `POST /api/auth/reset-password`
+
+Redefine a senha por meio de token temporário de uso único.
+
+Body esperado:
+
+```json
+{
+  "token": "token-temporario",
+  "newPassword": "NovaSenha@123",
+  "confirmPassword": "NovaSenha@123"
+}
+```
+
+Comportamento:
+
+- valida o token de forma segura
+- usa o mesmo padrão mínimo de senha do fluxo autenticado
+- bloqueia reutilização da senha atual
+- marca o token como usado
+- invalida outros tokens ainda ativos do mesmo usuário
+- define `mustChangePassword=false`
+- atualiza `passwordChangedAt`
+- limpa `temporaryPasswordGeneratedAt`
+- revoga todas as sessões existentes do usuário
+- não cria sessão automaticamente
+
+Resposta:
+
+```json
+{
+  "success": true,
+  "message": "Senha redefinida com sucesso. Faça login novamente.",
+  "data": {
+    "success": true,
+    "message": "Senha redefinida com sucesso. Faça login novamente."
+  }
+}
+```
+
+Erros estáveis:
+
+- `INVALID_PASSWORD_RESET_TOKEN`
+- `PASSWORD_CONFIRMATION_MISMATCH`
+- `WEAK_PASSWORD`
+- `PASSWORD_REUSE_NOT_ALLOWED`
+- `PASSWORD_RESET_RATE_LIMITED`
+
 Rate limit:
 
 - 5 tentativas inválidas por usuário em 15 minutos

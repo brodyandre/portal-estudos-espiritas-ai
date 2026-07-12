@@ -20,6 +20,8 @@ Use no `.env` local:
 ```env
 DATABASE_URL=postgresql://postgres:postgres@localhost:5435/portal_estudos_espiritas_ai?schema=public
 JWT_SECRET=jwt-secret-demo-local-only
+PASSWORD_RECOVERY_PREVIEW_ENABLED=false
+PASSWORD_RECOVERY_TTL_MINUTES=30
 ```
 
 O `.env` real continua fora do Git.
@@ -37,6 +39,8 @@ Essas credenciais existem apenas para ambiente local controlado.
 ## Endpoints
 
 - `POST /api/auth/login`
+- `POST /api/auth/forgot-password`
+- `POST /api/auth/reset-password`
 - `GET /api/auth/me`
 - `GET /api/auth/sessions`
 - `DELETE /api/auth/sessions/:sessionId`
@@ -57,6 +61,7 @@ Essas credenciais existem apenas para ambiente local controlado.
 - no primeiro acesso do aluno aprovado, `mustChangePassword` exige troca da senha temporária
 - a nova senha deve ter pelo menos 8 caracteres, com letra maiúscula, letra minúscula e número
 - `passwordChangedAt` representa a última alteração de credencial, incluindo troca de senha e redefinição de senha temporária
+- a recuperação de senha usa token temporário de uso único e armazena apenas o hash desse token
 
 ## Sessões locais
 
@@ -72,6 +77,8 @@ Essas credenciais existem apenas para ambiente local controlado.
 Proteções atuais em memória:
 
 - `POST /api/auth/login`: 5 tentativas inválidas por IP + e-mail em 15 minutos
+- `POST /api/auth/forgot-password`: 5 solicitações por IP e por identidade de e-mail em 30 minutos
+- `POST /api/auth/reset-password`: 5 tentativas por IP e por token protegido em 15 minutos
 - `PATCH /api/auth/change-password`: 5 tentativas inválidas por usuário em 15 minutos
 - `POST /api/admin/users/:userId/reset-password`: 10 redefinições por admin em 15 minutos
 - o reset administrativo também limita repetições globais para o mesmo usuário-alvo dentro da mesma janela
@@ -79,7 +86,7 @@ Proteções atuais em memória:
 Comportamento:
 
 - ao exceder o limite, a API responde com `429`
-- os códigos estáveis são `AUTH_RATE_LIMITED`, `PASSWORD_CHANGE_RATE_LIMITED` e `ADMIN_PASSWORD_RESET_RATE_LIMITED`
+- os códigos estáveis incluem `AUTH_RATE_LIMITED`, `PASSWORD_RECOVERY_RATE_LIMITED`, `PASSWORD_RESET_RATE_LIMITED`, `PASSWORD_CHANGE_RATE_LIMITED` e `ADMIN_PASSWORD_RESET_RATE_LIMITED`
 - a resposta inclui `details.retryAfterSeconds`
 - quando fizer sentido, a API também envia o header `Retry-After`
 - os contadores vivem apenas em memória local e são perdidos ao reiniciar a API
@@ -110,11 +117,7 @@ Fluxo local:
 - enquanto `mustChangePassword` estiver `true`, o backend libera apenas:
   - `POST /api/auth/login`
   - `GET /api/auth/me`
-  - `GET /api/auth/sessions`
-  - `DELETE /api/auth/sessions/:sessionId`
   - `POST /api/auth/logout`
-  - `POST /api/auth/logout-others`
-  - `POST /api/auth/logout-all`
   - `PATCH /api/auth/change-password`
 - após a troca de senha:
   - `mustChangePassword` passa para `false`
@@ -160,6 +163,8 @@ Campos extras do usuário local nesta fase:
 ### Ambiente local
 
 - a rota `/login` usa e-mail e senha reais da seed
+- a rota `/esqueci-minha-senha` inicia a recuperação com resposta pública genérica
+- a rota `/redefinir-senha` consome o token do link temporário sem salvar esse valor no navegador
 - se o backend indicar `mustChangePassword`, o frontend redireciona para `/primeiro-acesso`
 - a rota `/primeiro-acesso` exige a senha temporária atual, a nova senha e a confirmação
 - o token fica apenas no navegador local
@@ -170,7 +175,6 @@ Campos extras do usuário local nesta fase:
 
 ## Limites atuais
 
-- sem recuperação de senha
 - sem cadastro público com senha
 - sem OAuth
 - sem expiração com refresh token

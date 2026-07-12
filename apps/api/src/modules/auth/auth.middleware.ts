@@ -24,23 +24,7 @@ const isPasswordChangeAllowedRoute = (routeKey: string) => {
     return true;
   }
 
-  if (routeKey === "GET:/api/auth/sessions") {
-    return true;
-  }
-
-  if (routeKey.startsWith("DELETE:/api/auth/sessions/")) {
-    return true;
-  }
-
   if (routeKey === "POST:/api/auth/logout") {
-    return true;
-  }
-
-  if (routeKey === "POST:/api/auth/logout-all") {
-    return true;
-  }
-
-  if (routeKey === "POST:/api/auth/logout-others") {
     return true;
   }
 

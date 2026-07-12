@@ -5,6 +5,7 @@ import { AppError } from "../lib/app-error";
 import { MemorySlidingWindowRateLimiter, type RateLimitPolicy } from "./rate-limit";
 
 const FIFTEEN_MINUTES_MS = 15 * 60 * 1000;
+const THIRTY_MINUTES_MS = 30 * 60 * 1000;
 
 const loginPolicy: RateLimitPolicy = {
   limit: 5,
@@ -26,10 +27,24 @@ const adminPasswordResetTargetPolicy: RateLimitPolicy = {
   windowMs: FIFTEEN_MINUTES_MS,
 };
 
+const passwordRecoveryPolicy: RateLimitPolicy = {
+  limit: 5,
+  windowMs: THIRTY_MINUTES_MS,
+};
+
+const passwordResetPolicy: RateLimitPolicy = {
+  limit: 5,
+  windowMs: FIFTEEN_MINUTES_MS,
+};
+
 const loginLimiter = new MemorySlidingWindowRateLimiter();
 const passwordChangeLimiter = new MemorySlidingWindowRateLimiter();
 const adminPasswordResetLimiter = new MemorySlidingWindowRateLimiter();
 const adminPasswordResetTargetLimiter = new MemorySlidingWindowRateLimiter();
+const passwordRecoveryIpLimiter = new MemorySlidingWindowRateLimiter();
+const passwordRecoveryIdentityLimiter = new MemorySlidingWindowRateLimiter();
+const passwordResetIpLimiter = new MemorySlidingWindowRateLimiter();
+const passwordResetTokenLimiter = new MemorySlidingWindowRateLimiter();
 
 const toHashedIdentity = (value: string) => {
   return createHmac("sha256", env.jwtSecret).update(value).digest("hex");
@@ -43,7 +58,9 @@ const buildRateLimitError = (
   code:
     | "AUTH_RATE_LIMITED"
     | "PASSWORD_CHANGE_RATE_LIMITED"
-    | "ADMIN_PASSWORD_RESET_RATE_LIMITED",
+    | "ADMIN_PASSWORD_RESET_RATE_LIMITED"
+    | "PASSWORD_RECOVERY_RATE_LIMITED"
+    | "PASSWORD_RESET_RATE_LIMITED",
   retryAfterSeconds: number,
 ) => {
   return new AppError({
@@ -73,6 +90,22 @@ export const buildAdminPasswordResetActorKey = (adminUserId: string) => {
 
 export const buildAdminPasswordResetTargetKey = (targetUserId: string) => {
   return `admin-reset-target:${targetUserId}`;
+};
+
+export const buildPasswordRecoveryIpKey = (ipAddress: string) => {
+  return `password-recovery-ip:${ipAddress}`;
+};
+
+export const buildPasswordRecoveryIdentityKey = (email: string) => {
+  return `password-recovery-identity:${toHashedIdentity(normalizeEmailForRateLimit(email))}`;
+};
+
+export const buildPasswordResetIpKey = (ipAddress: string) => {
+  return `password-reset-ip:${ipAddress}`;
+};
+
+export const buildPasswordResetTokenKey = (tokenHash: string) => {
+  return `password-reset-token:${toHashedIdentity(tokenHash)}`;
 };
 
 export const assertLoginRateLimit = (ipAddress: string, email: string) => {
@@ -132,11 +165,65 @@ export const recordAdminPasswordResetAttempt = (adminUserId: string, targetUserI
   adminPasswordResetTargetLimiter.record(buildAdminPasswordResetTargetKey(targetUserId), adminPasswordResetTargetPolicy);
 };
 
+export const assertPasswordRecoveryRateLimit = (ipAddress: string, email: string) => {
+  const ipDecision = passwordRecoveryIpLimiter.peek(
+    buildPasswordRecoveryIpKey(ipAddress),
+    passwordRecoveryPolicy,
+  );
+
+  if (!ipDecision.allowed) {
+    throw buildRateLimitError("PASSWORD_RECOVERY_RATE_LIMITED", ipDecision.retryAfterSeconds);
+  }
+
+  const identityDecision = passwordRecoveryIdentityLimiter.peek(
+    buildPasswordRecoveryIdentityKey(email),
+    passwordRecoveryPolicy,
+  );
+
+  if (!identityDecision.allowed) {
+    throw buildRateLimitError("PASSWORD_RECOVERY_RATE_LIMITED", identityDecision.retryAfterSeconds);
+  }
+};
+
+export const recordPasswordRecoveryAttempt = (ipAddress: string, email: string) => {
+  passwordRecoveryIpLimiter.record(buildPasswordRecoveryIpKey(ipAddress), passwordRecoveryPolicy);
+  passwordRecoveryIdentityLimiter.record(
+    buildPasswordRecoveryIdentityKey(email),
+    passwordRecoveryPolicy,
+  );
+};
+
+export const assertPasswordResetRateLimit = (ipAddress: string, tokenHash: string) => {
+  const ipDecision = passwordResetIpLimiter.peek(buildPasswordResetIpKey(ipAddress), passwordResetPolicy);
+
+  if (!ipDecision.allowed) {
+    throw buildRateLimitError("PASSWORD_RESET_RATE_LIMITED", ipDecision.retryAfterSeconds);
+  }
+
+  const tokenDecision = passwordResetTokenLimiter.peek(
+    buildPasswordResetTokenKey(tokenHash),
+    passwordResetPolicy,
+  );
+
+  if (!tokenDecision.allowed) {
+    throw buildRateLimitError("PASSWORD_RESET_RATE_LIMITED", tokenDecision.retryAfterSeconds);
+  }
+};
+
+export const recordPasswordResetAttempt = (ipAddress: string, tokenHash: string) => {
+  passwordResetIpLimiter.record(buildPasswordResetIpKey(ipAddress), passwordResetPolicy);
+  passwordResetTokenLimiter.record(buildPasswordResetTokenKey(tokenHash), passwordResetPolicy);
+};
+
 export const resetAuthRateLimitStore = () => {
   loginLimiter.resetAll();
   passwordChangeLimiter.resetAll();
   adminPasswordResetLimiter.resetAll();
   adminPasswordResetTargetLimiter.resetAll();
+  passwordRecoveryIpLimiter.resetAll();
+  passwordRecoveryIdentityLimiter.resetAll();
+  passwordResetIpLimiter.resetAll();
+  passwordResetTokenLimiter.resetAll();
 };
 
 export const setAuthRateLimitNowProviderForTesting = (nowProvider: () => number) => {
@@ -144,6 +231,10 @@ export const setAuthRateLimitNowProviderForTesting = (nowProvider: () => number)
   passwordChangeLimiter.setNowProvider(nowProvider);
   adminPasswordResetLimiter.setNowProvider(nowProvider);
   adminPasswordResetTargetLimiter.setNowProvider(nowProvider);
+  passwordRecoveryIpLimiter.setNowProvider(nowProvider);
+  passwordRecoveryIdentityLimiter.setNowProvider(nowProvider);
+  passwordResetIpLimiter.setNowProvider(nowProvider);
+  passwordResetTokenLimiter.setNowProvider(nowProvider);
 };
 
 export const restoreAuthRateLimitNowProvider = () => {
@@ -151,6 +242,10 @@ export const restoreAuthRateLimitNowProvider = () => {
   passwordChangeLimiter.restoreDefaultNowProvider();
   adminPasswordResetLimiter.restoreDefaultNowProvider();
   adminPasswordResetTargetLimiter.restoreDefaultNowProvider();
+  passwordRecoveryIpLimiter.restoreDefaultNowProvider();
+  passwordRecoveryIdentityLimiter.restoreDefaultNowProvider();
+  passwordResetIpLimiter.restoreDefaultNowProvider();
+  passwordResetTokenLimiter.restoreDefaultNowProvider();
 };
 
 export const getAuthRateLimitEntryCounts = () => ({
@@ -158,4 +253,8 @@ export const getAuthRateLimitEntryCounts = () => ({
   passwordChange: passwordChangeLimiter.getEntryCount(),
   adminResetActor: adminPasswordResetLimiter.getEntryCount(),
   adminResetTarget: adminPasswordResetTargetLimiter.getEntryCount(),
+  passwordRecoveryIp: passwordRecoveryIpLimiter.getEntryCount(),
+  passwordRecoveryIdentity: passwordRecoveryIdentityLimiter.getEntryCount(),
+  passwordResetIp: passwordResetIpLimiter.getEntryCount(),
+  passwordResetToken: passwordResetTokenLimiter.getEntryCount(),
 });

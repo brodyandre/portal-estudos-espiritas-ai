@@ -178,6 +178,7 @@ No ambiente local/private do owner:
 - login local usa JWT assinado por `JWT_SECRET`
 - cada login cria uma sessao local individual que pode ser revogada depois
 - o primeiro acesso do aluno aprovado exige troca da senha temporaria
+- a recuperacao de senha real so funciona no ambiente local com API
 - endpoints de credenciais usam rate limiting em memória com `429` e `Retry-After`
 - professor pode revisar interessados
 - aluno aprovado pode acessar a area do aluno
@@ -194,6 +195,7 @@ No ambiente local/private do owner:
 - sem autorizacao fina por recurso
 - sem auditoria real persistente
 - sem troca forçada de senha para professores e admins criados manualmente, salvo quando configurado no backend
+- sem provedor real de e-mail nesta etapa; a entrega local usa prévia controlada
 
 Esses limites sao aceitaveis nesta fase porque o foco ainda e demonstrar produto, UX e separacao basica de experiencias.
 

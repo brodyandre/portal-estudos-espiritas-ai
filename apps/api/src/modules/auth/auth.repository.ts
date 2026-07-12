@@ -3,6 +3,7 @@ import {
   UserRole as PrismaUserRole,
   UserStatus as PrismaUserStatus,
   type AuthSession as PrismaAuthSession,
+  type PasswordResetToken as PrismaPasswordResetToken,
   type Prisma,
   type User as PrismaUser,
 } from "@prisma/client";
@@ -18,11 +19,15 @@ import type {
   ChangePasswordPersistenceResult,
   CreateAuthSessionInput,
   ListAuthSessionsInput,
+  PasswordResetPersistenceInput,
+  PasswordResetPersistenceResult,
+  PasswordResetRequestPersistenceInput,
   RevokeAllAuthSessionsInput,
   RevokeAuthSessionInput,
   RevokeOtherSessionsForUserInput,
   RevokeSessionForUserInput,
   StoredAuthSession,
+  StoredPasswordResetToken,
   StoredAuthUser,
   StudentAccessProvisionInput,
   StudentAccessProvisionResult,
@@ -42,9 +47,16 @@ export interface AuthRepository {
   provisionStudentAccess(input: StudentAccessProvisionInput): Promise<StudentAccessProvisionResult>;
   changePassword(input: ChangePasswordPersistenceInput): Promise<ChangePasswordPersistenceResult | null>;
   resetPasswordByAdmin(input: AdminResetPasswordPersistenceInput): Promise<StoredAuthUser | null>;
+  replacePasswordResetToken(input: PasswordResetRequestPersistenceInput): Promise<void>;
+  resetPasswordWithRecoveryToken(
+    input: PasswordResetPersistenceInput,
+  ): Promise<PasswordResetPersistenceResult>;
 }
 
-type AuthPersistenceClient = Pick<Prisma.TransactionClient, "user" | "auditLog" | "authSession">;
+type AuthPersistenceClient = Pick<
+  Prisma.TransactionClient,
+  "user" | "auditLog" | "authSession" | "passwordResetToken"
+>;
 
 const prismaRoleToRole: Record<PrismaUserRole, UserRole> = {
   ADMIN: "admin",
@@ -90,6 +102,19 @@ const mapPrismaSession = (session: PrismaAuthSession): StoredAuthSession => {
     lastSeenAt: session.lastSeenAt ? session.lastSeenAt.toISOString() : null,
     userAgentSummary: session.userAgentSummary ?? null,
     ipHash: session.ipHash ?? null,
+  };
+};
+
+const mapPrismaPasswordResetToken = (token: PrismaPasswordResetToken): StoredPasswordResetToken => {
+  return {
+    id: token.id,
+    userId: token.userId,
+    tokenHash: token.tokenHash,
+    createdAt: token.createdAt.toISOString(),
+    expiresAt: token.expiresAt.toISOString(),
+    usedAt: token.usedAt ? token.usedAt.toISOString() : null,
+    invalidatedAt: token.invalidatedAt ? token.invalidatedAt.toISOString() : null,
+    requestedIpHash: token.requestedIpHash ?? null,
   };
 };
 
@@ -229,8 +254,13 @@ const cloneStoredSession = (session: StoredAuthSession): StoredAuthSession => ({
   ...session,
 });
 
+const cloneStoredPasswordResetToken = (token: StoredPasswordResetToken): StoredPasswordResetToken => ({
+  ...token,
+});
+
 let memoryAuthUsers: StoredAuthUser[] = [];
 let memoryAuthSessions: StoredAuthSession[] = [];
+let memoryPasswordResetTokens: StoredPasswordResetToken[] = [];
 type MemoryAuthAuditEntry = {
   actorName: string;
   actorRole: UserRole;
@@ -546,6 +576,132 @@ export const createMemoryAuthRepository = (
 
       return cloneStoredUser(existingUser);
     },
+    async replacePasswordResetToken(input) {
+      const now = new Date().toISOString();
+
+      memoryPasswordResetTokens = memoryPasswordResetTokens.map((token) => {
+        if (
+          token.userId !== input.userId ||
+          token.usedAt ||
+          token.invalidatedAt ||
+          new Date(token.expiresAt).getTime() <= Date.now()
+        ) {
+          return token;
+        }
+
+        return {
+          ...token,
+          invalidatedAt: now,
+        };
+      });
+
+      memoryPasswordResetTokens.unshift({
+        id: `password-reset-${Date.now()}`,
+        userId: input.userId,
+        tokenHash: input.tokenHash,
+        createdAt: now,
+        expiresAt: input.expiresAt,
+        usedAt: null,
+        invalidatedAt: null,
+        requestedIpHash: input.requestedIpHash ?? null,
+      });
+
+      memoryAuthAuditLogs.unshift({
+        actorName: input.actorName,
+        actorRole: input.actorRole,
+        action: "Recuperação de senha solicitada",
+        entity: `User ${input.userId}`,
+        note: "Um novo pedido de recuperação de senha foi registrado no ambiente local.",
+      });
+    },
+    async resetPasswordWithRecoveryToken(input) {
+      const now = new Date();
+      const activeToken = memoryPasswordResetTokens.find(
+        (token) =>
+          token.tokenHash === input.tokenHash &&
+          !token.usedAt &&
+          !token.invalidatedAt &&
+          new Date(token.expiresAt).getTime() > now.getTime(),
+      );
+
+      if (!activeToken) {
+        return { status: "invalid_token" };
+      }
+
+      const existingUser = memoryAuthUsers.find((user) => user.id === activeToken.userId);
+
+      if (!existingUser) {
+        return { status: "invalid_token" };
+      }
+
+      const isReusedPassword = await bcrypt.compare(input.newPassword, existingUser.passwordHash);
+
+      if (isReusedPassword) {
+        return { status: "password_reuse" };
+      }
+
+      const nextUsers = memoryAuthUsers.map((user) =>
+        user.id === existingUser.id
+          ? {
+              ...user,
+              passwordHash: input.passwordHash,
+              mustChangePassword: false,
+              passwordChangedAt: input.passwordChangedAt,
+              temporaryPasswordGeneratedAt: null,
+            }
+          : user,
+      );
+
+      const nextTokens = memoryPasswordResetTokens.map((token) => {
+        if (token.id === activeToken.id) {
+          return {
+            ...token,
+            usedAt: input.passwordChangedAt,
+          };
+        }
+
+        if (
+          token.userId === activeToken.userId &&
+          !token.usedAt &&
+          !token.invalidatedAt &&
+          new Date(token.expiresAt).getTime() > now.getTime()
+        ) {
+          return {
+            ...token,
+            invalidatedAt: input.passwordChangedAt,
+          };
+        }
+
+        return token;
+      });
+
+      const nextSessions = memoryAuthSessions.map((session) =>
+        session.userId === activeToken.userId && !session.revokedAt
+          ? {
+              ...session,
+              revokedAt: input.passwordChangedAt,
+            }
+          : session,
+      );
+
+      memoryAuthUsers = nextUsers;
+      memoryPasswordResetTokens = nextTokens;
+      memoryAuthSessions = nextSessions;
+      memoryAuthAuditLogs = [
+        {
+          actorName: input.actorName,
+          actorRole: input.actorRole,
+          action: "Senha redefinida por recuperação",
+          entity: `User ${existingUser.id}`,
+          note: "A senha foi redefinida com token temporário e as sessões anteriores foram encerradas.",
+        },
+        ...memoryAuthAuditLogs,
+      ];
+
+      const updatedUser = nextUsers.find((user) => user.id === existingUser.id);
+
+      return updatedUser ? { status: "updated", user: cloneStoredUser(updatedUser) } : { status: "invalid_token" };
+    },
   };
 };
 
@@ -846,12 +1002,151 @@ export const createPrismaAuthRepository = (): AuthRepository => {
 
       return resetUser ? mapPrismaUser(resetUser) : null;
     },
+    async replacePasswordResetToken(input) {
+      await prisma.$transaction(async (transaction) => {
+        const now = new Date();
+
+        await transaction.passwordResetToken.updateMany({
+          where: {
+            userId: input.userId,
+            usedAt: null,
+            invalidatedAt: null,
+            expiresAt: {
+              gt: now,
+            },
+          },
+          data: {
+            invalidatedAt: now,
+          },
+        });
+
+        await transaction.passwordResetToken.create({
+          data: {
+            userId: input.userId,
+            tokenHash: input.tokenHash,
+            expiresAt: new Date(input.expiresAt),
+            requestedIpHash: input.requestedIpHash ?? null,
+          },
+        });
+
+        await transaction.auditLog.create({
+          data: {
+            actorName: input.actorName,
+            actorRole: toPrismaUserRole(input.actorRole),
+            action: "Recuperação de senha solicitada",
+            entity: `User ${input.userId}`,
+            note: "Um novo pedido de recuperação de senha foi registrado no ambiente local.",
+          },
+        });
+      });
+    },
+    async resetPasswordWithRecoveryToken(input) {
+      return prisma.$transaction(async (transaction) => {
+        const now = new Date();
+        const token = await transaction.passwordResetToken.findUnique({
+          where: {
+            tokenHash: input.tokenHash,
+          },
+        });
+
+        if (
+          !token ||
+          token.usedAt ||
+          token.invalidatedAt ||
+          token.expiresAt.getTime() <= now.getTime()
+        ) {
+          return { status: "invalid_token" } satisfies PasswordResetPersistenceResult;
+        }
+
+        const existingUser = await transaction.user.findUnique({
+          where: {
+            id: token.userId,
+          },
+        });
+
+        if (!existingUser) {
+          return { status: "invalid_token" } satisfies PasswordResetPersistenceResult;
+        }
+
+        const isReusedPassword = await bcrypt.compare(input.newPassword, existingUser.passwordHash);
+
+        if (isReusedPassword) {
+          return { status: "password_reuse" } satisfies PasswordResetPersistenceResult;
+        }
+
+        const passwordChangedAt = new Date(input.passwordChangedAt);
+        const consumeResult = await transaction.passwordResetToken.updateMany({
+          where: {
+            id: token.id,
+            usedAt: null,
+            invalidatedAt: null,
+            expiresAt: {
+              gt: now,
+            },
+          },
+          data: {
+            usedAt: passwordChangedAt,
+          },
+        });
+
+        if (consumeResult.count !== 1) {
+          return { status: "invalid_token" } satisfies PasswordResetPersistenceResult;
+        }
+
+        const updatedUser = await transaction.user.update({
+          where: {
+            id: existingUser.id,
+          },
+          data: {
+            passwordHash: input.passwordHash,
+            mustChangePassword: false,
+            passwordChangedAt,
+            temporaryPasswordGeneratedAt: null,
+          },
+        });
+
+        await transaction.passwordResetToken.updateMany({
+          where: {
+            userId: existingUser.id,
+            id: {
+              not: token.id,
+            },
+            usedAt: null,
+            invalidatedAt: null,
+            expiresAt: {
+              gt: now,
+            },
+          },
+          data: {
+            invalidatedAt: passwordChangedAt,
+          },
+        });
+
+        await revokeActiveSessionsWithPrisma(transaction, existingUser.id, passwordChangedAt);
+
+        await transaction.auditLog.create({
+          data: {
+            actorName: input.actorName,
+            actorRole: toPrismaUserRole(input.actorRole),
+            action: "Senha redefinida por recuperação",
+            entity: `User ${existingUser.id}`,
+            note: "A senha foi redefinida com token temporário e as sessões anteriores foram encerradas.",
+          },
+        });
+
+        return {
+          status: "updated",
+          user: mapPrismaUser(updatedUser),
+        } satisfies PasswordResetPersistenceResult;
+      });
+    },
   };
 };
 
 export const resetMemoryAuthRepositoryStore = () => {
   memoryAuthUsers = demoUsers.map(cloneStoredUser);
   memoryAuthSessions = [];
+  memoryPasswordResetTokens = [];
   memoryAuthAuditLogs = [];
 };
 
@@ -861,6 +1156,10 @@ export const getMemoryAuthAuditLogs = () => {
 
 export const getMemoryAuthSessions = () => {
   return memoryAuthSessions.map(cloneStoredSession);
+};
+
+export const getMemoryPasswordResetTokens = () => {
+  return memoryPasswordResetTokens.map(cloneStoredPasswordResetToken);
 };
 
 export const createAuthRepository = (): AuthRepository => {
