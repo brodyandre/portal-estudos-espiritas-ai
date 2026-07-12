@@ -322,6 +322,12 @@ describe("enrollments endpoints", () => {
         async provisionStudentAccess() {
           throw new Error("Falha simulada no provisionamento");
         },
+        async changePassword(input) {
+          return baseRepository.changePassword(input);
+        },
+        async resetPasswordByAdmin(input) {
+          return baseRepository.resetPasswordByAdmin(input);
+        },
       });
 
       const token = await loginAsTeacher();

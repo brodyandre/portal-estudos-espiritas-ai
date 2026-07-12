@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
+import { buildTemporaryPassword } from "../enrollments/student-access.service";
 import { AppError } from "../../lib/app-error";
 import { env } from "../../config/env";
 import type { UserRole } from "../../auth/types";
@@ -12,12 +13,14 @@ import {
   type AuthRepository,
 } from "./auth.repository";
 import type {
+  AdminResetPasswordPersistenceInput,
   AuthTokenPayload,
   AuthUser,
   ChangePasswordInput,
   ChangePasswordPersistenceInput,
   LoginInput,
   LoginResponse,
+  StoredAuthUser,
   StudentAccessProvisionInput,
   StudentAccessProvisionResult,
 } from "./auth.types";
@@ -230,6 +233,77 @@ export const changePassword = async (
   return {
     token: signAuthToken(user),
     user,
+  };
+};
+
+export const resetPasswordByAdmin = async (
+  authUser: AuthUser,
+  targetUserId: string,
+): Promise<{
+  user: Pick<
+    StoredAuthUser,
+    "id" | "fullName" | "email" | "role" | "status" | "mustChangePassword" | "temporaryPasswordGeneratedAt"
+  >;
+  temporaryPassword: string;
+}> => {
+  if (authUser.role !== "admin") {
+    throw new AppError({
+      statusCode: 403,
+      code: "FORBIDDEN",
+      message: "Seu perfil não tem acesso a este recurso.",
+    });
+  }
+
+  if (authUser.id === targetUserId) {
+    throw new AppError({
+      statusCode: 400,
+      code: "SELF_PASSWORD_RESET_NOT_ALLOWED",
+      message: "Use o fluxo normal de troca de senha para atualizar o próprio acesso.",
+    });
+  }
+
+  const storedUser = await authRepository.getById(targetUserId);
+
+  if (!storedUser) {
+    throw new AppError({
+      statusCode: 404,
+      code: "ADMIN_USER_NOT_FOUND",
+      message: "Usuário não encontrado para redefinição administrativa de senha.",
+    });
+  }
+
+  const temporaryPassword = buildTemporaryPassword(storedUser.fullName);
+  const passwordHash = await bcrypt.hash(temporaryPassword, 10);
+  const credentialChangedAt = new Date().toISOString();
+
+  const persistedUser = await authRepository.resetPasswordByAdmin({
+    userId: storedUser.id,
+    passwordHash,
+    temporaryPasswordGeneratedAt: credentialChangedAt,
+    passwordChangedAt: credentialChangedAt,
+    actorName: authUser.fullName,
+    actorRole: authUser.role,
+  } satisfies AdminResetPasswordPersistenceInput);
+
+  if (!persistedUser) {
+    throw new AppError({
+      statusCode: 404,
+      code: "ADMIN_USER_NOT_FOUND",
+      message: "Usuário não encontrado para redefinição administrativa de senha.",
+    });
+  }
+
+  return {
+    user: {
+      id: persistedUser.id,
+      fullName: persistedUser.fullName,
+      email: persistedUser.email,
+      role: persistedUser.role,
+      status: persistedUser.status,
+      mustChangePassword: true,
+      temporaryPasswordGeneratedAt: persistedUser.temporaryPasswordGeneratedAt ?? credentialChangedAt,
+    },
+    temporaryPassword,
   };
 };
 

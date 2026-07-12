@@ -74,3 +74,12 @@ export interface ChangePasswordPersistenceInput {
   actorName: string;
   actorRole: UserRole;
 }
+
+export interface AdminResetPasswordPersistenceInput {
+  userId: string;
+  passwordHash: string;
+  temporaryPasswordGeneratedAt: string;
+  passwordChangedAt: string;
+  actorName: string;
+  actorRole: UserRole;
+}

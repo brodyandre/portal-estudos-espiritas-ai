@@ -148,6 +148,7 @@ Comportamento esperado:
 - pode gerenciar usuarios, grupos e configuracoes
 - pode acompanhar auditoria
 - pode aprovar inscricoes e ativar acesso local quando necessario
+- pode redefinir a senha de outros usuarios no ambiente local
 - no ambiente local, autentica pela rota `/login`
 - no MVP atual, a tela `/admin/usuarios` usa acoes simuladas e log mockado local
 - no MVP atual, a tela `/admin/grupos` usa configuracao simulada e nunca expõe o Meet real no frontend publico

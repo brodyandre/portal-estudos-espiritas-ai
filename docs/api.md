@@ -239,6 +239,54 @@ Enquanto `mustChangePassword` estiver `true`, a API bloqueia as demais rotas aut
 }
 ```
 
+### `POST /api/admin/users/:userId/reset-password`
+
+Redefine administrativamente a senha de um usuário local e gera nova senha temporária.
+
+Permissão:
+
+- apenas `admin`
+
+Comportamento:
+
+- localiza o usuário pelo `userId`
+- gera nova senha temporária forte
+- grava apenas o hash
+- define `mustChangePassword` como `true`
+- atualiza `temporaryPasswordGeneratedAt`
+- atualiza `passwordChangedAt` no mesmo instante da alteração da credencial
+- invalida tokens anteriores
+- mantém status, role e demais dados do usuário
+- registra audit log sem senha nem hash
+- retorna a senha temporária apenas uma vez
+
+Exemplo de resposta:
+
+```json
+{
+  "success": true,
+  "message": "Senha temporária redefinida com sucesso.",
+  "data": {
+    "user": {
+      "id": "user-aluno-demo",
+      "fullName": "Aluno Demonstrativo",
+      "email": "aluno.demo@example.com",
+      "role": "student",
+      "status": "active",
+      "mustChangePassword": true,
+      "temporaryPasswordGeneratedAt": "2026-07-12T15:00:00.000Z"
+    },
+    "temporaryPassword": "EXEMPLO@Senha123"
+  }
+}
+```
+
+Cuidados:
+
+- a senha temporária deve ser entregue por canal seguro
+- o endpoint não deve ser usado para auto-reset administrativo
+- `passwordHash` nunca retorna
+
 ### `POST /api/enrollments`
 
 Recebe um cadastro simples de interesse vindo da pagina publica do portal.

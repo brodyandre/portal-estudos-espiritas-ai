@@ -36,6 +36,25 @@ describe("enrollmentMessages", () => {
     expect(message).not.toContain("Google Meet");
   });
 
+  it("gera mensagem de aprovacao com credencial temporaria e orientacao de nova senha", () => {
+    const message = buildEnrollmentMessage({
+      enrollment: enrollmentBase,
+      portalUrl: "https://portal-exemplo.com/#/portal",
+      status: "approved",
+      studentAccess: {
+        email: "mariana.souza.demo@example.com",
+        temporaryPassword: "TempDemo@123",
+        mustChangePassword: true,
+      },
+    });
+
+    expect(message).toContain("senha temporária");
+    expect(message).toContain("mariana.souza.demo@example.com");
+    expect(message).toContain("TempDemo@123");
+    expect(message).toContain("No primeiro acesso, o portal solicitará a criação de uma nova senha");
+    expect(message).not.toContain("troque a senha futuramente");
+  });
+
   it("usa mensagem de conversa para cadastro pendente", () => {
     expect(getEnrollmentMessageStatus("pending")).toBe("needs_contact");
   });

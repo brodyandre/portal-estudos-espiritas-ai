@@ -1,6 +1,7 @@
 import { DEMO_MODE_NOTICE, appConfig } from "../config/appMode";
 import type {
   AdminAuditLogEntry,
+  AdminPasswordResetResult,
   AdminManagedRole,
   AdminManagedUser,
   AdminUserActionInput,
@@ -8,9 +9,10 @@ import type {
 import {
   listMockAdminAuditEntries,
   listMockAdminUsers,
+  runMockAdminPasswordReset,
   runMockAdminUserAction,
 } from "../mocks/adminUsers";
-import { loadWithFallback } from "./api";
+import { ServiceRequestError, loadWithFallback, requestJson } from "./api";
 
 interface ApiAdminUser {
   id: string;
@@ -22,6 +24,8 @@ interface ApiAdminUser {
   groupSlug: AdminManagedUser["groupSlug"];
   createdAt: string;
   adminNote: string;
+  mustChangePassword?: boolean;
+  temporaryPasswordGeneratedAt?: string | null;
 }
 
 interface ApiAdminActionResponse {
@@ -43,8 +47,15 @@ const mapAdminUser = (item: ApiAdminUser): AdminManagedUser => {
     groupSlug: item.groupSlug,
     createdAt: item.createdAt,
     adminNote: item.adminNote,
+    mustChangePassword: item.mustChangePassword,
+    temporaryPasswordGeneratedAt: item.temporaryPasswordGeneratedAt ?? null,
   };
 };
+
+interface ApiAdminPasswordResetResponse {
+  user: ApiAdminUser;
+  temporaryPassword: string;
+}
 
 export const listAdminUsers = (filters?: {
   role?: AdminManagedRole;
@@ -111,4 +122,46 @@ export const runAdminUserAction = (id: string, input: AdminUserActionInput) => {
     }),
     friendlyMessage: FALLBACK_NOTICE,
   });
+};
+
+export const resetAdminUserPassword = async (id: string): Promise<{
+  data: AdminPasswordResetResult;
+  source: "api" | "mock";
+  notice: string | null;
+}> => {
+  if (!appConfig.canUseAdminFeatures) {
+    return {
+      data: runMockAdminPasswordReset(id),
+      source: "mock",
+      notice: DEMO_MODE_NOTICE,
+    };
+  }
+
+  try {
+    const payload = await requestJson<ApiAdminPasswordResetResponse>({
+      path: `/api/admin/users/${id}/reset-password`,
+      init: {
+        method: "POST",
+      },
+    });
+
+    return {
+      data: {
+        user: mapAdminUser(payload.data.user),
+        temporaryPassword: payload.data.temporaryPassword,
+      },
+      source: "api",
+      notice: null,
+    };
+  } catch (error) {
+    if (error instanceof ServiceRequestError && error.kind === "network") {
+      return {
+        data: runMockAdminPasswordReset(id),
+        source: "mock",
+        notice: DEMO_MODE_NOTICE,
+      };
+    }
+
+    throw error;
+  }
 };

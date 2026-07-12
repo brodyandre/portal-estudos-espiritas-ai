@@ -1,5 +1,6 @@
 import type {
   AdminAuditLogEntry,
+  AdminPasswordResetResult,
   AdminManagedRole,
   AdminManagedUser,
   AdminUserActionInput,
@@ -143,6 +144,26 @@ const writeStoredAuditEntries = (items: AdminAuditLogEntry[]) => {
   window.sessionStorage.setItem(AUDIT_STORAGE_KEY, JSON.stringify(items));
 };
 
+const buildMockTemporaryPassword = (fullName: string) => {
+  const initials =
+    fullName
+      .trim()
+      .split(/\s+/u)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() ?? "")
+      .join("") || "AD";
+
+  const charset = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+  const cryptoApi = globalThis.crypto;
+  const bytes = cryptoApi?.getRandomValues ? cryptoApi.getRandomValues(new Uint32Array(6)) : null;
+  const suffix = Array.from({ length: 6 }, (_, index) => {
+    const value = bytes ? bytes[index] ?? 0 : Date.now() + index * 13;
+    return charset[value % charset.length];
+  }).join("");
+
+  return `${initials}@Portal${suffix}`;
+};
+
 const getCurrentUsers = () => {
   const storedItems = readStoredUsers();
   return (storedItems ?? seededUsers).map(cloneUser);
@@ -264,6 +285,44 @@ export const runMockAdminUserAction = (id: string, input: AdminUserActionInput) 
   return {
     user: cloneUser(updatedUser),
     auditEntry: cloneAuditEntry(auditEntry),
+  };
+};
+
+export const runMockAdminPasswordReset = (id: string): AdminPasswordResetResult => {
+  const currentUsers = getCurrentUsers();
+  const targetIndex = currentUsers.findIndex((user) => user.id === id);
+
+  if (targetIndex === -1) {
+    return { user: null, temporaryPassword: null };
+  }
+
+  const temporaryPasswordGeneratedAt = new Date().toISOString();
+  const updatedUser: AdminManagedUser = {
+    ...currentUsers[targetIndex],
+    mustChangePassword: true,
+    temporaryPasswordGeneratedAt,
+  };
+  const temporaryPassword = buildMockTemporaryPassword(updatedUser.fullName);
+
+  currentUsers.splice(targetIndex, 1, updatedUser);
+  writeStoredUsers(currentUsers);
+
+  const currentAuditEntries = getCurrentAuditEntries();
+  const auditEntry: AdminAuditLogEntry = {
+    id: `admin-audit-${Date.now()}`,
+    userId: updatedUser.id,
+    userName: updatedUser.fullName,
+    actionType: "add_note",
+    summary: `Redefiniu a senha de ${updatedUser.fullName} e encerrou as sessões anteriores.`,
+    createdAt: temporaryPasswordGeneratedAt,
+    actorName: "Admin demonstrativo",
+  };
+
+  writeStoredAuditEntries([auditEntry, ...currentAuditEntries]);
+
+  return {
+    user: cloneUser(updatedUser),
+    temporaryPassword,
   };
 };
 
