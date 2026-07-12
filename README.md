@@ -31,6 +31,7 @@ Grupos de estudo online costumam espalhar informacoes entre links, mensagens, re
 - Paginas de materiais com navegacao para os livros `Emmanuel` e `A Caminho da Luz`
 - API local em Express com dados mockados, base de conhecimento em Markdown e respostas JSON padronizadas
 - autenticação local simples com JWT para Admin, Professor e Aluno no ambiente privado
+- logout local com revogação real da sessão atual e opção para encerrar todas as sessões ativas
 - troca obrigatória da senha temporária no primeiro acesso do aluno aprovado
 - redefinição administrativa de senha por admin, com encerramento imediato das sessões anteriores
 - proteção contra força bruta e excesso de tentativas em login, troca de senha e reset administrativo
@@ -201,6 +202,14 @@ Na gestão administrativa local:
 - sessões anteriores são invalidadas imediatamente
 - `mustChangePassword` volta para `true`
 - a senha temporária é exibida uma única vez e deve ser entregue por canal seguro
+
+Sessões locais autenticadas:
+
+- cada login cria uma sessão individual com `jti` próprio no backend local
+- o banco armazena apenas metadados da sessão, nunca o JWT completo
+- `POST /api/auth/logout` revoga apenas a sessão atual
+- `POST /api/auth/logout-all` encerra todas as sessões ativas do mesmo usuário
+- trocar a própria senha encerra as sessões antigas e mantém somente a nova sessão emitida
 
 Proteção de tentativas no ambiente local:
 

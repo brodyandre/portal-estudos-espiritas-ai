@@ -221,9 +221,34 @@ Rate limit:
 - a chave usa e-mail normalizado apenas em memória interna
 - login bem-sucedido limpa o contador dessa identidade
 
+Sessão local:
+
+- cada login cria uma sessão individual com `jti`
+- o backend armazena apenas metadados da sessão
+- o JWT completo nunca é persistido
+
 ### `GET /api/auth/me`
 
 Retorna o usuario autenticado com base no token local.
+
+### `POST /api/auth/logout`
+
+Revoga apenas a sessão atual autenticada.
+
+Regras:
+
+- exige token Bearer valido
+- não exige body
+- não retorna novo token
+- registra auditoria sem JWT nem credenciais
+
+### `POST /api/auth/logout-all`
+
+Revoga todas as sessões ativas do usuário autenticado.
+
+Resposta:
+
+- `revokedSessions`
 
 ### `PATCH /api/auth/change-password`
 
@@ -248,7 +273,8 @@ Regras:
 - a nova senha deve ter pelo menos 8 caracteres, com letra maiuscula, letra minuscula e numero
 - atualiza `mustChangePassword` para `false`
 - atualiza `passwordChangedAt`
-- invalida tokens antigos com base na data da ultima troca
+- revoga as sessões antigas
+- retorna um novo token já associado a uma nova sessão
 - nunca retorna `passwordHash`
 
 Enquanto `mustChangePassword` estiver `true`, a API bloqueia as demais rotas autenticadas com:

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Outlet, useLocation } from "react-router-dom";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
 
 import {
   adminSidebarConfig,
@@ -80,7 +80,8 @@ const areaLabels: Record<LayoutArea, string> = {
 
 export const AppLayout = ({ area = "public" }: AppLayoutProps) => {
   const location = useLocation();
-  const { isAuthenticated, isDemoMode, logout, user } = useAuth();
+  const navigate = useNavigate();
+  const { isAuthenticated, isDemoMode, isEndingSession, logout, logoutAll, user } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
   const [theme, setTheme] = useState<AppTheme>(() => readThemePreference());
@@ -167,6 +168,22 @@ export const AppLayout = ({ area = "public" }: AppLayoutProps) => {
   const currentSection = trackedSections.find((section) => section.targetId === activeSectionId) ?? null;
   const activeSidebarSectionTargetId = currentSection?.navTargetId ?? currentSection?.targetId ?? null;
 
+  const handleLogout = async () => {
+    await logout();
+    navigate("/login", { replace: true });
+  };
+
+  const handleLogoutAll = async () => {
+    const shouldContinue = window.confirm("Encerrar todas as sessões ativas deste perfil?");
+
+    if (!shouldContinue) {
+      return;
+    }
+
+    await logoutAll();
+    navigate("/login", { replace: true });
+  };
+
   return (
     <div className="app-shell">
       <a className="skip-link" href="#main-content">
@@ -222,9 +239,14 @@ export const AppLayout = ({ area = "public" }: AppLayoutProps) => {
                 <RoleBadge user={user} />
                 {isDemoMode ? <AreaSwitcher /> : null}
                 {isAuthenticated ? (
-                  <Button onClick={logout} type="button" variant="ghost">
-                    Sair
-                  </Button>
+                  <>
+                    <Button disabled={isEndingSession} onClick={handleLogoutAll} type="button" variant="secondary">
+                      Encerrar sessões
+                    </Button>
+                    <Button disabled={isEndingSession} onClick={handleLogout} type="button" variant="ghost">
+                      {isEndingSession ? "Encerrando..." : "Sair"}
+                    </Button>
+                  </>
                 ) : (
                   <Button to="/login" variant="ghost">
                     Entrar

@@ -4,10 +4,12 @@ import { createContext, useEffect, useMemo, useState } from "react";
 import { appConfig } from "../config/appMode";
 import { clearCurrentUserRole, useCurrentUserMock } from "../mocks/currentUser";
 import {
+  clearLocalAuthSession,
   changePasswordWithSession,
   loadAuthenticatedUser,
   loginWithPassword,
-  logoutLocalAuth,
+  logoutAllWithSession,
+  logoutWithSession,
 } from "../services/authService";
 import { writeStudentAccessStatus } from "../services/studentAccessService";
 import { clearStoredAuthSession, readStoredAuthSession, writeStoredAuthSession } from "./storage";
@@ -20,6 +22,7 @@ interface AuthContextValue {
   isLoading: boolean;
   isDemoMode: boolean;
   requiresPasswordChange: boolean;
+  isEndingSession: boolean;
   notice: string | null;
   login: (email: string, password: string) => Promise<AppUser>;
   changePassword: (
@@ -27,7 +30,8 @@ interface AuthContextValue {
     newPassword: string,
     confirmPassword: string,
   ) => Promise<AppUser>;
-  logout: () => void;
+  logout: () => Promise<void>;
+  logoutAll: () => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null);
@@ -58,6 +62,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
     appConfig.appMode === "demo" ? null : storedSession?.token ?? null,
   );
   const [isLoading, setIsLoading] = useState(appConfig.appMode === "local" && Boolean(storedSession?.token));
+  const [isEndingSession, setIsEndingSession] = useState(false);
   const [notice, setNotice] = useState<string | null>(
     appConfig.appMode === "demo"
       ? "Modo demonstrativo: o login real funciona apenas no ambiente local com backend."
@@ -122,6 +127,13 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
   }, [demoUser, storedSession?.token]);
 
   const value = useMemo<AuthContextValue>(() => {
+    const clearSessionState = () => {
+      clearLocalAuthSession();
+      setToken(null);
+      setUser(null);
+      writeStudentAccessStatus("visitor");
+    };
+
     return {
       user,
       token,
@@ -129,6 +141,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
       isLoading,
       isDemoMode: appConfig.appMode === "demo",
       requiresPasswordChange: Boolean(user?.mustChangePassword),
+      isEndingSession,
       notice,
       async login(email, password) {
         const session = await loginWithPassword(email, password);
@@ -151,21 +164,60 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
         setNotice(null);
         return session.user;
       },
-      logout() {
+      async logout() {
         if (appConfig.appMode === "demo") {
           clearCurrentUserRole();
           setUser(demoUser);
-          setNotice("Modo demonstrativo: o login real funciona apenas no ambiente local com backend.");
+          setToken(null);
+          writeStudentAccessStatus("visitor");
+          setNotice(
+            "Modo demonstrativo: o encerramento real de sessões só funciona no ambiente local com backend.",
+          );
           return;
         }
 
-        logoutLocalAuth();
-        setToken(null);
-        setUser(null);
-        writeStudentAccessStatus("visitor");
+        setIsEndingSession(true);
+
+        try {
+          await logoutWithSession();
+          setNotice("Sessão local encerrada com sucesso.");
+        } catch (_error) {
+          setNotice(
+            "A sessão local foi limpa neste navegador. Para revogação real, confirme se a API local está disponível.",
+          );
+        } finally {
+          clearSessionState();
+          setIsEndingSession(false);
+        }
+      },
+      async logoutAll() {
+        if (appConfig.appMode === "demo") {
+          clearCurrentUserRole();
+          setUser(demoUser);
+          setToken(null);
+          writeStudentAccessStatus("visitor");
+          setNotice(
+            "Modo demonstrativo: o encerramento real de todas as sessões só funciona no ambiente local com backend.",
+          );
+          return;
+        }
+
+        setIsEndingSession(true);
+
+        try {
+          await logoutAllWithSession();
+          setNotice("Todas as sessões locais foram encerradas com sucesso.");
+        } catch (_error) {
+          setNotice(
+            "A sessão local foi limpa neste navegador. Para encerrar todas as sessões reais, confirme se a API local está disponível.",
+          );
+        } finally {
+          clearSessionState();
+          setIsEndingSession(false);
+        }
       },
     };
-  }, [demoUser, isLoading, notice, token, user]);
+  }, [demoUser, isEndingSession, isLoading, notice, token, user]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

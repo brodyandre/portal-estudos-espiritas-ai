@@ -11,6 +11,7 @@ const prisma = new PrismaClient();
 const hashPassword = async (password: string) => bcrypt.hash(password, 10);
 
 async function main() {
+  await prisma.authSession.deleteMany();
   await prisma.auditLog.deleteMany();
   await prisma.enrollment.deleteMany();
   await prisma.studyGroup.deleteMany();
