@@ -18,6 +18,7 @@ import type {
   ChangePasswordPersistenceInput,
   ChangePasswordPersistenceResult,
   CreateAuthSessionInput,
+  InvalidatePasswordResetTokenInput,
   ListAuthSessionsInput,
   PasswordResetPersistenceInput,
   PasswordResetPersistenceResult,
@@ -48,6 +49,7 @@ export interface AuthRepository {
   changePassword(input: ChangePasswordPersistenceInput): Promise<ChangePasswordPersistenceResult | null>;
   resetPasswordByAdmin(input: AdminResetPasswordPersistenceInput): Promise<StoredAuthUser | null>;
   replacePasswordResetToken(input: PasswordResetRequestPersistenceInput): Promise<void>;
+  invalidatePasswordResetToken(input: InvalidatePasswordResetTokenInput): Promise<boolean>;
   resetPasswordWithRecoveryToken(
     input: PasswordResetPersistenceInput,
   ): Promise<PasswordResetPersistenceResult>;
@@ -614,6 +616,32 @@ export const createMemoryAuthRepository = (
         note: "Um novo pedido de recuperação de senha foi registrado no ambiente local.",
       });
     },
+    async invalidatePasswordResetToken(input) {
+      const tokenIndex = memoryPasswordResetTokens.findIndex(
+        (item) => item.tokenHash === input.tokenHash && !item.usedAt && !item.invalidatedAt,
+      );
+
+      if (tokenIndex === -1) {
+        return false;
+      }
+
+      const token = memoryPasswordResetTokens[tokenIndex];
+
+      memoryPasswordResetTokens[tokenIndex] = {
+        ...token,
+        invalidatedAt: input.invalidatedAt,
+      };
+
+      memoryAuthAuditLogs.unshift({
+        actorName: input.actorName,
+        actorRole: input.actorRole,
+        action: "Recuperação de senha invalidada",
+        entity: `User ${token.userId}`,
+        note: input.note,
+      });
+
+      return true;
+    },
     async resetPasswordWithRecoveryToken(input) {
       const now = new Date();
       const activeToken = memoryPasswordResetTokens.find(
@@ -1038,6 +1066,53 @@ export const createPrismaAuthRepository = (): AuthRepository => {
             note: "Um novo pedido de recuperação de senha foi registrado no ambiente local.",
           },
         });
+      });
+    },
+    async invalidatePasswordResetToken(input) {
+      const invalidatedAt = new Date(input.invalidatedAt);
+
+      return prisma.$transaction(async (transaction) => {
+        const token = await transaction.passwordResetToken.findUnique({
+          where: {
+            tokenHash: input.tokenHash,
+          },
+          select: {
+            userId: true,
+            usedAt: true,
+            invalidatedAt: true,
+          },
+        });
+
+        if (!token || token.usedAt || token.invalidatedAt) {
+          return false;
+        }
+
+        const updateResult = await transaction.passwordResetToken.updateMany({
+          where: {
+            tokenHash: input.tokenHash,
+            usedAt: null,
+            invalidatedAt: null,
+          },
+          data: {
+            invalidatedAt,
+          },
+        });
+
+        if (updateResult.count !== 1) {
+          return false;
+        }
+
+        await transaction.auditLog.create({
+          data: {
+            actorName: input.actorName,
+            actorRole: toPrismaUserRole(input.actorRole),
+            action: "Recuperação de senha invalidada",
+            entity: `User ${token.userId}`,
+            note: input.note,
+          },
+        });
+
+        return true;
       });
     },
     async resetPasswordWithRecoveryToken(input) {

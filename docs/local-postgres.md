@@ -48,6 +48,17 @@ Ou:
 make db-up
 ```
 
+Se quiser subir também o SMTP local de desenvolvimento:
+
+```bash
+docker compose up -d postgres mailpit
+```
+
+Mailpit fica disponível em:
+
+- SMTP: `localhost:1025`
+- interface web: `http://localhost:8025`
+
 Se o comando `docker` nao existir no WSL, habilite a integracao da distribuicao no Docker Desktop antes de repetir o fluxo local.
 
 ## Como aplicar migration

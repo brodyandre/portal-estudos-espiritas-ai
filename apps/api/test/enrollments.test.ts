@@ -352,6 +352,9 @@ describe("enrollments endpoints", () => {
       async replacePasswordResetToken(input) {
         return baseRepository.replacePasswordResetToken(input);
       },
+      async invalidatePasswordResetToken(input) {
+        return baseRepository.invalidatePasswordResetToken(input);
+      },
       async resetPasswordWithRecoveryToken(input) {
         return baseRepository.resetPasswordWithRecoveryToken(input);
       },

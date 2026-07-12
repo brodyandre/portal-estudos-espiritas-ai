@@ -71,6 +71,7 @@ Continuam fora do GitHub Pages:
 
 - backend em Express
 - banco PostgreSQL local via Docker Compose
+- Mailpit e qualquer outro SMTP local ou privado
 - acesso operacional real das experiencias `Aluno`, `Professor` e `Admin`
 - endpoints da base de conhecimento
 - assistente completo

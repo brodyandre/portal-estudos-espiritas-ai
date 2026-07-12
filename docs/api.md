@@ -352,6 +352,9 @@ Comportamento:
 - armazena apenas o hash do token
 - invalida pedidos anteriores ainda ativos do mesmo usuário
 - registra auditoria sem token bruto
+- monta o link com `APP_PUBLIC_URL`
+- tenta entregar o e-mail por SMTP quando `SMTP_ENABLED=true`
+- se a entrega falhar, invalida o token recém-gerado e mantém a mesma resposta pública
 
 Exemplo de resposta:
 
@@ -371,6 +374,12 @@ Rate limit:
 - 5 solicitações por IP em 30 minutos
 - 5 solicitações por identidade de e-mail normalizada em 30 minutos
 - ao exceder, retorna `429` com `PASSWORD_RECOVERY_RATE_LIMITED`
+
+Observações operacionais:
+
+- em testes, o projeto usa notifier em memória
+- no desenvolvimento local com Docker, o Mailpit fica disponível em `http://localhost:8025`
+- exemplos de SMTP e Mailpit nesta documentação são demonstrativos e não carregam segredos reais
 
 ### `POST /api/auth/reset-password`
 

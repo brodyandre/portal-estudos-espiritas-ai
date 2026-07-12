@@ -5,9 +5,12 @@ import { createHash, createHmac, randomBytes, randomUUID } from "node:crypto";
 import { buildTemporaryPassword } from "../enrollments/student-access.service";
 import { buildSessionDeviceLabel } from "./session-device";
 import {
+  createPasswordRecoveryNotifier,
   getPasswordRecoveryNotifier,
   listPasswordRecoveryPreviews,
+  registerPasswordRecoveryPreview,
   resetPasswordRecoveryNotifier,
+  setPasswordRecoveryNotifierForTesting,
 } from "./password-recovery.notifier";
 import {
   assertAdminPasswordResetRateLimit,
@@ -112,8 +115,43 @@ const buildPasswordResetExpiry = () => {
   return new Date(Date.now() + env.passwordRecoveryTtlMinutes * 60 * 1000).toISOString();
 };
 
-const buildPasswordResetUrl = (token: string) => {
-  return `/redefinir-senha?token=${encodeURIComponent(token)}`;
+export const buildPasswordResetUrl = (token: string) => {
+  const baseUrl = env.appPublicUrl.replace(/\/+$/u, "");
+
+  return `${baseUrl}/redefinir-senha?token=${encodeURIComponent(token)}`;
+};
+
+const logPasswordRecoveryEvent = (
+  event:
+    | "delivery_started"
+    | "delivery_completed"
+    | "delivery_failed"
+    | "delivery_preview_only"
+    | "delivery_unavailable",
+  details: {
+    correlationId: string;
+    notifierKind: string;
+    tokenInvalidated?: boolean;
+  },
+) => {
+  if (env.nodeEnv === "test") {
+    return;
+  }
+
+  const message = JSON.stringify({
+    scope: "password-recovery",
+    event,
+    correlationId: details.correlationId,
+    notifierKind: details.notifierKind,
+    tokenInvalidated: details.tokenInvalidated ?? false,
+  });
+
+  if (event === "delivery_failed" || event === "delivery_unavailable") {
+    console.warn(`[api] ${message}`);
+    return;
+  }
+
+  console.info(`[api] ${message}`);
 };
 
 const buildSessionMetadata = (options?: {
@@ -332,27 +370,87 @@ export const requestPasswordRecovery = async (
   const storedUser = await authRepository.getByEmail(normalizedEmail);
 
   if (storedUser) {
+    const notifier = getPasswordRecoveryNotifier();
+    const correlationId = randomUUID();
     const rawToken = randomBytes(32).toString("base64url");
+    const tokenHash = hashPasswordResetToken(rawToken);
     const expiresAt = buildPasswordResetExpiry();
     const createdAt = new Date().toISOString();
+    const resetUrl = buildPasswordResetUrl(rawToken);
 
     await authRepository.replacePasswordResetToken({
       userId: storedUser.id,
-      tokenHash: hashPasswordResetToken(rawToken),
+      tokenHash,
       expiresAt,
       requestedIpHash: hashIpAddress(ipAddress),
       actorName: "Recuperação de senha",
       actorRole: "visitor",
     });
 
-    await getPasswordRecoveryNotifier().notify({
+    const previewStored = registerPasswordRecoveryPreview({
       email: storedUser.email,
       fullName: storedUser.fullName,
       token: rawToken,
-      resetUrl: buildPasswordResetUrl(rawToken),
+      resetUrl,
       createdAt,
       expiresAt,
     });
+
+    logPasswordRecoveryEvent("delivery_started", {
+      correlationId,
+      notifierKind: notifier.kind,
+    });
+
+    try {
+      if (notifier.kind === "null") {
+        if (previewStored) {
+          logPasswordRecoveryEvent("delivery_preview_only", {
+            correlationId,
+            notifierKind: notifier.kind,
+          });
+        } else {
+          const invalidated = await authRepository.invalidatePasswordResetToken({
+            tokenHash,
+            invalidatedAt: new Date().toISOString(),
+            actorName: "Recuperação de senha",
+            actorRole: "visitor",
+            note: "O token foi invalidado porque não havia entrega SMTP nem prévia local habilitada.",
+          });
+
+          logPasswordRecoveryEvent("delivery_unavailable", {
+            correlationId,
+            notifierKind: notifier.kind,
+            tokenInvalidated: invalidated,
+          });
+        }
+      } else {
+        await notifier.sendPasswordRecovery({
+          recipientEmail: storedUser.email,
+          recipientName: storedUser.fullName,
+          recoveryUrl: resetUrl,
+          expiresAt,
+        });
+
+        logPasswordRecoveryEvent("delivery_completed", {
+          correlationId,
+          notifierKind: notifier.kind,
+        });
+      }
+    } catch (_error) {
+      const invalidated = await authRepository.invalidatePasswordResetToken({
+        tokenHash,
+        invalidatedAt: new Date().toISOString(),
+        actorName: "Recuperação de senha",
+        actorRole: "visitor",
+        note: "O token foi invalidado após falha segura no envio do e-mail transacional.",
+      });
+
+      logPasswordRecoveryEvent("delivery_failed", {
+        correlationId,
+        notifierKind: notifier.kind,
+        tokenInvalidated: invalidated,
+      });
+    }
   }
 
   recordPasswordRecoveryAttempt(ipAddress, normalizedEmail);
@@ -772,4 +870,12 @@ export const resetAuthStore = () => {
 
 export const setAuthRepositoryForTesting = (repository: AuthRepository) => {
   authRepository = repository;
+};
+
+export const resetPasswordRecoveryNotifierFactory = () => {
+  resetPasswordRecoveryNotifier();
+};
+
+export const setDefaultPasswordRecoveryNotifierForTesting = () => {
+  setPasswordRecoveryNotifierForTesting(createPasswordRecoveryNotifier(env));
 };
