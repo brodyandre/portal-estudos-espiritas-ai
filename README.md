@@ -1,5 +1,7 @@
 # portal-estudos-espiritas-ai
 
+[![Continuous Integration](https://github.com/brodyandre/portal-estudos-espiritas-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/brodyandre/portal-estudos-espiritas-ai/actions/workflows/ci.yml)
+
 Aplicacao web demonstrativa para apoiar grupos de estudos espiritas online via Google Meet, com experiencia separada para aluno e professor, frontend publicavel no GitHub Pages e backend local com apoio opcional de Ollama.
 
 Por responsabilidade editorial e direitos autorais, o projeto nao versiona os PDFs das obras. A base de conhecimento utiliza arquivos Markdown autorais, curtos e revisaveis.
@@ -40,6 +42,23 @@ Grupos de estudo online costumam espalhar informacoes entre links, mensagens, re
 - Base de conhecimento: arquivos Markdown em `data/knowledge`
 - Testes iniciais: Vitest e Supertest
 - Publicacao estatica do frontend: GitHub Pages
+
+## CI
+
+O projeto possui uma pipeline de integração contínua no GitHub Actions para validar o monorepo sem depender de serviços externos.
+
+Comandos executados pela pipeline:
+
+- `npm run typecheck`
+- `npm run test`
+- `npm run build`
+- `make pages-check`
+
+Observações:
+
+- a instalação usa `npm ci` na raiz, com cache do `package-lock.json`
+- o Prisma Client é gerado apenas se o `postinstall` não o tiver deixado disponível
+- os testes automatizados usam repositórios em memória e não dependem de PostgreSQL, Docker, Ollama ou `.env` real
 
 ## Arquitetura
 

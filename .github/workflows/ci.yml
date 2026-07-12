@@ -1,0 +1,59 @@
+name: Continuous Integration
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality-checks:
+    name: Quality Checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NODE_ENV: test
+      JWT_SECRET: ci-only-jwt-secret-not-sensitive
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies with npm ci
+        run: npm ci
+
+      - name: Ensure Prisma Client is available
+        run: |
+          if [ -d node_modules/.prisma/client ]; then
+            echo "Prisma Client already generated during npm ci."
+          else
+            npm --workspace @portal-estudos-espiritas-ai/api run prisma:generate
+          fi
+
+      - name: Run TypeScript checks
+        run: npm run typecheck
+
+      - name: Run automated tests
+        run: npm run test
+
+      - name: Build API and frontend
+        run: npm run build
+
+      - name: Validate GitHub Pages build
+        run: make pages-check
