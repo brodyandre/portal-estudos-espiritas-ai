@@ -11,6 +11,17 @@ export interface ServiceResult<T> {
   notice: string | null;
 }
 
+export class ServiceRequestError extends Error {
+  readonly kind: "api" | "network";
+  readonly code?: string;
+
+  constructor(options: { message: string; kind: "api" | "network"; code?: string }) {
+    super(options.message);
+    this.kind = options.kind;
+    this.code = options.code;
+  }
+}
+
 interface ApiSuccessBody<T> {
   success: true;
   message: string;
@@ -89,7 +100,25 @@ const parseErrorMessage = (payload: unknown) => {
   return null;
 };
 
-const requestJson = async <T>({ path, query, init }: RequestOptions): Promise<ApiSuccessBody<T>> => {
+const parseErrorCode = (payload: unknown) => {
+  if (
+    payload &&
+    typeof payload === "object" &&
+    "success" in payload &&
+    payload.success === false &&
+    "error" in payload &&
+    payload.error &&
+    typeof payload.error === "object" &&
+    "code" in payload.error &&
+    typeof payload.error.code === "string"
+  ) {
+    return payload.error.code;
+  }
+
+  return undefined;
+};
+
+export const requestJson = async <T>({ path, query, init }: RequestOptions): Promise<ApiSuccessBody<T>> => {
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
@@ -110,10 +139,23 @@ const requestJson = async <T>({ path, query, init }: RequestOptions): Promise<Ap
     const payload = (await response.json().catch(() => null)) as ApiSuccessBody<T> | ApiErrorBody | null;
 
     if (!response.ok || !payload || payload.success !== true) {
-      throw new Error(parseErrorMessage(payload) ?? "Nao foi possivel concluir a solicitacao.");
+      throw new ServiceRequestError({
+        message: parseErrorMessage(payload) ?? "Nao foi possivel concluir a solicitacao.",
+        kind: "api",
+        code: parseErrorCode(payload),
+      });
     }
 
     return payload;
+  } catch (error) {
+    if (error instanceof ServiceRequestError) {
+      throw error;
+    }
+
+    throw new ServiceRequestError({
+      message: "Nao foi possivel conectar ao backend local agora.",
+      kind: "network",
+    });
   } finally {
     window.clearTimeout(timeout);
   }

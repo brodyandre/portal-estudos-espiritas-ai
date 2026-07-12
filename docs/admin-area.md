@@ -72,6 +72,7 @@ Escopo do MVP atual:
 - filtrar por perfil e status
 - mostrar nome, email, perfil, grupo, status e data de cadastro
 - simular ativacao, inativacao, alteracao de perfil, vinculo com grupo e observacao administrativa
+- permitir que um admin redefina a senha de outro usuario
 - registrar essas acoes em um audit log mockado local
 
 Limite importante:
@@ -79,6 +80,14 @@ Limite importante:
 - essa tela ainda nao tem autenticacao real
 - a operacao segura em producao exige backend autenticado
 - o log demonstrativo atual nao substitui auditoria persistente de producao
+
+Regras da redefinicao de senha:
+
+- apenas admin pode executar a acao
+- o proprio admin nao deve usar esse endpoint para redefinir a propria senha
+- a senha temporaria aparece uma unica vez na interface
+- sessoes anteriores do usuario sao encerradas
+- o usuario deve trocar a senha no proximo acesso
 
 ### `/admin/grupos`
 

@@ -51,6 +51,20 @@ Essas credenciais existem apenas para ambiente local controlado.
 - a nova senha deve ter pelo menos 8 caracteres, com letra maiúscula, letra minúscula e número
 - `passwordChangedAt` representa a última alteração de credencial, incluindo troca de senha e redefinição de senha temporária
 
+## Redefinição administrativa de senha
+
+No ambiente local:
+
+- apenas `Admin` pode redefinir a senha de outro usuário
+- `Professor`, `Aluno` e `Visitante` não têm acesso a esse recurso
+- o admin não usa esse endpoint para redefinir a própria senha
+- a operação cria uma nova senha temporária forte
+- `mustChangePassword` volta para `true`
+- `temporaryPasswordGeneratedAt` e `passwordChangedAt` são atualizados no mesmo instante
+- tokens anteriores deixam de valer imediatamente
+- a senha temporária aparece uma única vez na resposta e não fica registrada em log
+- a entrega da credencial deve ser feita por canal seguro
+
 ## Primeiro acesso do aluno
 
 Fluxo local:

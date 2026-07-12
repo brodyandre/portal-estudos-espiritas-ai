@@ -11,6 +11,7 @@ import { getPrismaClient } from "../../database/prisma";
 import { getRolePermissions } from "../../auth/roles";
 import type { UserRole, UserStatus } from "../../auth/types";
 import type {
+  AdminResetPasswordPersistenceInput,
   AuthUser,
   ChangePasswordPersistenceInput,
   StoredAuthUser,
@@ -23,6 +24,7 @@ export interface AuthRepository {
   getById(id: string): Promise<StoredAuthUser | null>;
   provisionStudentAccess(input: StudentAccessProvisionInput): Promise<StudentAccessProvisionResult>;
   changePassword(input: ChangePasswordPersistenceInput): Promise<StoredAuthUser | null>;
+  resetPasswordByAdmin(input: AdminResetPasswordPersistenceInput): Promise<StoredAuthUser | null>;
 }
 
 type StudentAccessPersistenceClient = Pick<Prisma.TransactionClient, "user" | "auditLog">;
@@ -306,6 +308,28 @@ export const createMemoryAuthRepository = (
 
       return cloneStoredUser(existingUser);
     },
+    async resetPasswordByAdmin(input) {
+      const existingUser = memoryAuthUsers.find((user) => user.id === input.userId);
+
+      if (!existingUser) {
+        return null;
+      }
+
+      existingUser.passwordHash = input.passwordHash;
+      existingUser.mustChangePassword = true;
+      existingUser.temporaryPasswordGeneratedAt = input.temporaryPasswordGeneratedAt;
+      existingUser.passwordChangedAt = input.passwordChangedAt;
+
+      memoryAuthAuditLogs.unshift({
+        actorName: input.actorName,
+        actorRole: input.actorRole,
+        action: "Senha redefinida por admin",
+        entity: `User ${existingUser.id}`,
+        note: `Nova credencial temporária emitida para ${existingUser.email}.`,
+      });
+
+      return cloneStoredUser(existingUser);
+    },
   };
 };
 
@@ -372,6 +396,48 @@ export const createPrismaAuthRepository = (): AuthRepository => {
       });
 
       return changedUser ? mapPrismaUser(changedUser) : null;
+    },
+    async resetPasswordByAdmin(input) {
+      const resetUser = await prisma.$transaction(async (transaction) => {
+        const existingUser = await transaction.user.findUnique({
+          where: {
+            id: input.userId,
+          },
+        });
+
+        if (!existingUser) {
+          return null;
+        }
+
+        const credentialChangedAt = new Date(input.passwordChangedAt);
+        const temporaryPasswordGeneratedAt = new Date(input.temporaryPasswordGeneratedAt);
+
+        const updatedUser = await transaction.user.update({
+          where: {
+            id: input.userId,
+          },
+          data: {
+            passwordHash: input.passwordHash,
+            mustChangePassword: true,
+            passwordChangedAt: credentialChangedAt,
+            temporaryPasswordGeneratedAt,
+          },
+        });
+
+        await transaction.auditLog.create({
+          data: {
+            actorName: input.actorName,
+            actorRole: toPrismaUserRole(input.actorRole),
+            action: "Senha redefinida por admin",
+            entity: `User ${updatedUser.id}`,
+            note: `Nova credencial temporária emitida para ${updatedUser.email}.`,
+          },
+        });
+
+        return updatedUser;
+      });
+
+      return resetUser ? mapPrismaUser(resetUser) : null;
     },
   };
 };

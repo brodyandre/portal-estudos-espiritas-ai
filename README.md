@@ -32,6 +32,7 @@ Grupos de estudo online costumam espalhar informacoes entre links, mensagens, re
 - API local em Express com dados mockados, base de conhecimento em Markdown e respostas JSON padronizadas
 - autenticação local simples com JWT para Admin, Professor e Aluno no ambiente privado
 - troca obrigatória da senha temporária no primeiro acesso do aluno aprovado
+- redefinição administrativa de senha por admin, com encerramento imediato das sessões anteriores
 - Integracao opcional com Ollama, com fallback claro quando o modelo nao estiver disponivel
 - Funcionamento da interface mesmo com backend desligado, usando mocks e respostas demonstrativas no frontend
 
@@ -191,6 +192,14 @@ Ao aprovar uma inscrição no ambiente local:
 - `passwordChangedAt` registra a última alteração de credencial, inclusive quando uma nova senha temporária é emitida
 - `passwordHash` nunca é exposto
 - o envio ao aluno continua manual no MVP
+
+Na gestão administrativa local:
+
+- apenas admin pode redefinir a senha de outro usuário
+- a operação gera uma nova senha temporária forte
+- sessões anteriores são invalidadas imediatamente
+- `mustChangePassword` volta para `true`
+- a senha temporária é exibida uma única vez e deve ser entregue por canal seguro
 
 Atalhos com Makefile:
 

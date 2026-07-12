@@ -702,6 +702,20 @@ img {
   align-items: start;
 }
 
+.admin-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: var(--space-5);
+  background: rgba(8, 15, 26, 0.64);
+}
+
+.admin-modal {
+  width: min(100%, 640px);
+}
+
 .admin-status-card__top {
   display: flex;
   align-items: start;

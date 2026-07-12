@@ -1,3 +1,4 @@
+import { randomInt } from "node:crypto";
 import bcrypt from "bcryptjs";
 
 import type { Enrollment } from "../../types/enrollment";
@@ -26,7 +27,27 @@ const groupSlugByName: Record<Enrollment["groupInterest"], string | null> = {
   "Ainda não sei": null,
 };
 
-const buildTemporaryPassword = (fullName: string) => {
+const pickSecureChar = (charset: string) => {
+  return charset[randomInt(0, charset.length)];
+};
+
+const buildSecureSuffix = () => {
+  const uppercase = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+  const lowercase = "abcdefghijkmnopqrstuvwxyz";
+  const digits = "23456789";
+  const mixed = `${uppercase}${lowercase}${digits}`;
+
+  return [
+    pickSecureChar(uppercase),
+    pickSecureChar(lowercase),
+    pickSecureChar(digits),
+    pickSecureChar(mixed),
+    pickSecureChar(mixed),
+    pickSecureChar(mixed),
+  ].join("");
+};
+
+export const buildTemporaryPassword = (fullName: string) => {
   const initials = fullName
     .trim()
     .split(/\s+/u)
@@ -34,7 +55,7 @@ const buildTemporaryPassword = (fullName: string) => {
     .map((part) => part[0]?.toUpperCase() ?? "")
     .join("") || "AL";
 
-  const suffix = Math.random().toString(36).slice(2, 8).toUpperCase();
+  const suffix = buildSecureSuffix();
 
   return `${initials}@Portal${suffix}`;
 };

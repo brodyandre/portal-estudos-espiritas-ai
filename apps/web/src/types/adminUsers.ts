@@ -13,6 +13,8 @@ export interface AdminManagedUser {
   groupSlug: GroupSlug | null;
   createdAt: string;
   adminNote: string;
+  mustChangePassword?: boolean;
+  temporaryPasswordGeneratedAt?: string | null;
 }
 
 export type AdminUserActionType =
@@ -30,6 +32,11 @@ export interface AdminAuditLogEntry {
   summary: string;
   createdAt: string;
   actorName: string;
+}
+
+export interface AdminPasswordResetResult {
+  user: AdminManagedUser | null;
+  temporaryPassword: string | null;
 }
 
 export type AdminUserActionInput =

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
+import { useAuth } from "../auth/useAuth";
 import { ProfileHeader } from "../components/display/ProfileHeader";
 import { ActionTile } from "../components/ui/ActionTile";
 import { AlertBox } from "../components/ui/AlertBox";
@@ -30,6 +31,7 @@ import {
 import {
   listAdminAuditEntries,
   listAdminUsers,
+  resetAdminUserPassword,
   runAdminUserAction,
 } from "../services/adminUsersService";
 import { listKnowledgeFilesByGroup } from "../services/knowledgeService";
@@ -46,6 +48,7 @@ import type {
 } from "../types/adminContents";
 import type {
   AdminAuditLogEntry,
+  AdminPasswordResetResult,
   AdminManagedRole,
   AdminManagedUser,
 } from "../types/adminUsers";
@@ -112,6 +115,15 @@ interface AdminAuditState {
   events: AdminAuditEvent[];
   notice: string | null;
   backendStatus: "online" | "fallback";
+}
+
+interface AdminPasswordResetModalState {
+  targetUser: AdminManagedUser | null;
+  result: AdminPasswordResetResult | null;
+  errorMessage: string | null;
+  notice: string | null;
+  copyMessage: string | null;
+  isSubmitting: boolean;
 }
 
 const sectionContent: Record<Exclude<AdminSection, "dashboard">, AdminSectionContent> = {
@@ -438,6 +450,7 @@ const copyText = async (value: string) => {
 };
 
 export const AdminPage = ({ section }: AdminPageProps) => {
+  const { user: authenticatedUser } = useAuth();
   const [dashboardData, setDashboardData] = useState<AdminDashboardData | null>(null);
   const [isLoadingDashboard, setIsLoadingDashboard] = useState(section === "dashboard");
   const [usersState, setUsersState] = useState<AdminUsersState | null>(null);
@@ -460,6 +473,14 @@ export const AdminPage = ({ section }: AdminPageProps) => {
   const [adminGroupDrafts, setAdminGroupDrafts] = useState<Record<string, AdminGroupUpdateInput>>({});
   const [adminSettingsDraft, setAdminSettingsDraft] = useState<AdminSettings | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [passwordResetModal, setPasswordResetModal] = useState<AdminPasswordResetModalState>({
+    targetUser: null,
+    result: null,
+    errorMessage: null,
+    notice: null,
+    copyMessage: null,
+    isSubmitting: false,
+  });
 
   useEffect(() => {
     if (section !== "dashboard") {
@@ -903,6 +924,100 @@ export const AdminPage = ({ section }: AdminPageProps) => {
     }
   };
 
+  const openPasswordResetModal = (targetUser: AdminManagedUser) => {
+    setPasswordResetModal({
+      targetUser,
+      result: null,
+      errorMessage: null,
+      notice: null,
+      copyMessage: null,
+      isSubmitting: false,
+    });
+  };
+
+  const closePasswordResetModal = () => {
+    setPasswordResetModal({
+      targetUser: null,
+      result: null,
+      errorMessage: null,
+      notice: null,
+      copyMessage: null,
+      isSubmitting: false,
+    });
+  };
+
+  const handleConfirmPasswordReset = async () => {
+    const targetUser = passwordResetModal.targetUser;
+
+    if (!targetUser) {
+      return;
+    }
+
+    setPasswordResetModal((current) => ({
+      ...current,
+      isSubmitting: true,
+      errorMessage: null,
+      copyMessage: null,
+    }));
+
+    try {
+      const result = await resetAdminUserPassword(targetUser.id);
+
+      setUsersState((currentState) => {
+        if (!currentState || !result.data.user) {
+          return currentState;
+        }
+
+        return {
+          ...currentState,
+          users: currentState.users.map((currentUser) =>
+            currentUser.id === targetUser.id ? result.data.user ?? currentUser : currentUser,
+          ),
+          notice: result.notice ?? currentState.notice,
+          backendStatus: result.source === "api" ? currentState.backendStatus : "fallback",
+        };
+      });
+
+      setPasswordResetModal((current) => ({
+        ...current,
+        result: result.data,
+        notice: result.notice,
+        isSubmitting: false,
+      }));
+      setActionMessage(`Senha temporária redefinida para ${targetUser.fullName}.`);
+    } catch (error) {
+      setPasswordResetModal((current) => ({
+        ...current,
+        errorMessage:
+          error instanceof Error
+            ? error.message
+            : "Nao foi possivel redefinir a senha temporaria agora.",
+        isSubmitting: false,
+      }));
+    }
+  };
+
+  const handleCopyTemporaryPassword = async () => {
+    const temporaryPassword = passwordResetModal.result?.temporaryPassword;
+
+    if (!temporaryPassword) {
+      return;
+    }
+
+    try {
+      await copyText(temporaryPassword);
+      setPasswordResetModal((current) => ({
+        ...current,
+        copyMessage: "Senha temporária copiada com sucesso.",
+      }));
+    } catch (_error) {
+      setPasswordResetModal((current) => ({
+        ...current,
+        copyMessage: "Nao foi possivel copiar a senha temporaria agora.",
+      }));
+    }
+  };
+
   const handleSaveGroup = async (group: AdminGroup) => {
     const input = adminGroupDrafts[group.id];
 
@@ -1082,6 +1197,8 @@ export const AdminPage = ({ section }: AdminPageProps) => {
       ) : section === "usuarios" ? (
         <AdminUsersSection
           actionMessage={actionMessage}
+          authenticatedAdminId={authenticatedUser?.role === "admin" ? authenticatedUser.id : null}
+          canResetPasswords={authenticatedUser?.role === "admin"}
           filteredUsers={filteredUsers}
           groupDrafts={groupDrafts}
           isLoading={isLoadingUsers}
@@ -1118,6 +1235,7 @@ export const AdminPage = ({ section }: AdminPageProps) => {
               note: noteDrafts[user.id] ?? "",
             })
           }
+          onOpenPasswordResetModal={openPasswordResetModal}
           onUpdateRole={(user) =>
             void handleAdminUserAction(user, {
               type: "change_role",
@@ -1173,6 +1291,84 @@ export const AdminPage = ({ section }: AdminPageProps) => {
       ) : (
         <AdminInfoSection content={sectionContent[section]} />
       )}
+
+      {passwordResetModal.targetUser ? (
+        <div
+          aria-label="Confirmar redefinição de senha"
+          className="admin-modal-backdrop"
+          role="dialog"
+          aria-modal="true"
+        >
+          <Card className="admin-modal" tone="soft">
+            <p className="card-eyebrow">Acesso temporário</p>
+            <h2>Redefinir senha</h2>
+            <p>
+              Confirme a redefinição da senha de <strong>{passwordResetModal.targetUser.fullName}</strong>.
+            </p>
+            <p>
+              <strong>E-mail:</strong> {passwordResetModal.targetUser.email}
+            </p>
+
+            <AlertBox title="Sessões anteriores serão encerradas" tone="warning">
+              A nova senha temporária exigirá troca obrigatória no próximo acesso. Entregue essa
+              credencial por um canal seguro.
+            </AlertBox>
+
+            {passwordResetModal.notice ? (
+              <AlertBox title="Modo demonstrativo" tone="info">
+                {passwordResetModal.notice}
+              </AlertBox>
+            ) : null}
+
+            {passwordResetModal.errorMessage ? (
+              <AlertBox title="Não foi possível redefinir a senha" tone="warning">
+                {passwordResetModal.errorMessage}
+              </AlertBox>
+            ) : null}
+
+            {passwordResetModal.result?.temporaryPassword ? (
+              <AlertBox title="Senha temporária gerada" tone="success">
+                <p>
+                  <strong>Senha temporária:</strong> {passwordResetModal.result.temporaryPassword}
+                </p>
+                <p>Compartilhe a credencial por um canal seguro e somente uma vez.</p>
+              </AlertBox>
+            ) : null}
+
+            {passwordResetModal.copyMessage ? (
+              <AlertBox title="Cópia da senha" tone="info">
+                {passwordResetModal.copyMessage}
+              </AlertBox>
+            ) : null}
+
+            <div className="button-row">
+              {!passwordResetModal.result ? (
+                <Button
+                  aria-label={`Confirmar redefinição de senha de ${passwordResetModal.targetUser.fullName}`}
+                  disabled={passwordResetModal.isSubmitting}
+                  onClick={() => void handleConfirmPasswordReset()}
+                >
+                  {passwordResetModal.isSubmitting ? "Redefinindo..." : "Confirmar redefinição"}
+                </Button>
+              ) : (
+                <Button
+                  aria-label="Copiar senha temporária"
+                  onClick={() => void handleCopyTemporaryPassword()}
+                >
+                  Copiar senha
+                </Button>
+              )}
+              <Button
+                aria-label="Fechar modal de redefinição de senha"
+                onClick={closePasswordResetModal}
+                variant="secondary"
+              >
+                Fechar
+              </Button>
+            </div>
+          </Card>
+        </div>
+      ) : null}
     </div>
   );
 };
@@ -1621,6 +1817,8 @@ interface AdminUsersSectionProps {
   usersState: AdminUsersState | null;
   filteredUsers: AdminManagedUser[];
   isLoading: boolean;
+  authenticatedAdminId: string | null;
+  canResetPasswords: boolean;
   roleFilter: (typeof userRoleOptions)[number]["value"];
   statusFilter: (typeof userStatusOptions)[number]["value"];
   setRoleFilter: (value: (typeof userRoleOptions)[number]["value"]) => void;
@@ -1636,6 +1834,7 @@ interface AdminUsersSectionProps {
   onUpdateRole: (user: AdminManagedUser) => void;
   onLinkGroup: (user: AdminManagedUser) => void;
   onSaveNote: (user: AdminManagedUser) => void;
+  onOpenPasswordResetModal: (user: AdminManagedUser) => void;
   actionMessage: string | null;
 }
 
@@ -1643,6 +1842,8 @@ const AdminUsersSection = ({
   usersState,
   filteredUsers,
   isLoading,
+  authenticatedAdminId,
+  canResetPasswords,
   roleFilter,
   statusFilter,
   setRoleFilter,
@@ -1658,6 +1859,7 @@ const AdminUsersSection = ({
   onUpdateRole,
   onLinkGroup,
   onSaveNote,
+  onOpenPasswordResetModal,
   actionMessage,
 }: AdminUsersSectionProps) => {
   if (isLoading) {
@@ -1827,6 +2029,15 @@ const AdminUsersSection = ({
                   >
                     Salvar observação
                   </Button>
+                  {canResetPasswords && user.id !== authenticatedAdminId ? (
+                    <Button
+                      aria-label={`Redefinir senha de ${user.fullName}`}
+                      onClick={() => onOpenPasswordResetModal(user)}
+                      variant="secondary"
+                    >
+                      Redefinir senha
+                    </Button>
+                  ) : null}
                 </div>
               </Card>
             ))
