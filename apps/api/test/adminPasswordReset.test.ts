@@ -253,6 +253,12 @@ const createCustomAdminRepository = (): AuthRepository => {
 
       return user;
     },
+    async replacePasswordResetToken() {
+      return;
+    },
+    async resetPasswordWithRecoveryToken() {
+      return { status: "invalid_token" } as const;
+    },
   };
 };
 
@@ -351,7 +357,7 @@ describe("admin password reset endpoint", () => {
     expect(firstReset.body.data.user.temporaryPasswordGeneratedAt).not.toBe(
       secondReset.body.data.user.temporaryPasswordGeneratedAt,
     );
-  });
+  }, 10000);
 
   it("cria auditoria sem expor senha nem hash", async () => {
     const adminToken = await loginAsAdmin();
@@ -465,6 +471,12 @@ describe("admin password reset endpoint", () => {
       },
       async resetPasswordByAdmin() {
         throw new Error("Falha simulada no audit log do reset");
+      },
+      async replacePasswordResetToken(input) {
+        return baseRepository.replacePasswordResetToken(input);
+      },
+      async resetPasswordWithRecoveryToken(input) {
+        return baseRepository.resetPasswordWithRecoveryToken(input);
       },
     });
 

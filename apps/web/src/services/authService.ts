@@ -33,6 +33,16 @@ interface ChangePasswordInput {
   confirmPassword: string;
 }
 
+interface ForgotPasswordResponse {
+  success: true;
+  message: string;
+}
+
+interface ResetPasswordResponse {
+  success: true;
+  message: string;
+}
+
 interface LogoutResponse {
   revokedCurrentSession?: boolean;
 }
@@ -80,11 +90,14 @@ const buildApiErrorMessage = (payload: ApiErrorBody | null, fallbackMessage: str
   return `${baseMessage} Tente novamente em cerca de ${formatRetryAfterLabel(retryAfterSeconds)}.`;
 };
 
-const parseSuccess = async <T>(response: Response): Promise<ApiSuccessBody<T>> => {
+const parseSuccess = async <T>(
+  response: Response,
+  fallbackMessage = "Não foi possível concluir a solicitação local agora.",
+): Promise<ApiSuccessBody<T>> => {
   const payload = (await response.json().catch(() => null)) as ApiSuccessBody<T> | ApiErrorBody | null;
 
   if (!response.ok || !payload || payload.success !== true) {
-    throw new Error(buildApiErrorMessage(payload as ApiErrorBody | null, "Não foi possível concluir o login local agora."));
+    throw new Error(buildApiErrorMessage(payload as ApiErrorBody | null, fallbackMessage));
   }
 
   return payload;
@@ -104,9 +117,55 @@ export const loginWithPassword = async (email: string, password: string) => {
     body: JSON.stringify({ email, password }),
   });
 
-  const payload = await parseSuccess<LoginResponse>(response);
+  const payload = await parseSuccess<LoginResponse>(response, "Não foi possível concluir o login local agora.");
   writeStoredAuthSession(payload.data);
 
+  return payload.data;
+};
+
+export const requestPasswordRecovery = async (email: string) => {
+  if (appConfig.appMode !== "local") {
+    throw new Error("Modo demonstrativo: a recuperação real de senha depende da API local.");
+  }
+
+  const response = await fetch(buildAuthUrl("/api/auth/forgot-password"), {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ email }),
+  });
+
+  const payload = await parseSuccess<ForgotPasswordResponse>(
+    response,
+    "Não foi possível iniciar a recuperação de senha agora.",
+  );
+  return payload.data;
+};
+
+export const resetPasswordByRecoveryToken = async (
+  token: string,
+  newPassword: string,
+  confirmPassword: string,
+) => {
+  if (appConfig.appMode !== "local") {
+    throw new Error("Modo demonstrativo: a redefinição real de senha depende da API local.");
+  }
+
+  const response = await fetch(buildAuthUrl("/api/auth/reset-password"), {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ token, newPassword, confirmPassword }),
+  });
+
+  const payload = await parseSuccess<ResetPasswordResponse>(
+    response,
+    "Não foi possível redefinir a senha agora.",
+  );
   return payload.data;
 };
 

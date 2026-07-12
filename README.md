@@ -33,6 +33,7 @@ Grupos de estudo online costumam espalhar informacoes entre links, mensagens, re
 - autenticação local simples com JWT para Admin, Professor e Aluno no ambiente privado
 - gerenciamento local de sessões ativas em `/minha-conta/seguranca`
 - troca obrigatória da senha temporária no primeiro acesso do aluno aprovado
+- recuperação local de senha com token temporário de uso único
 - redefinição administrativa de senha por admin, com encerramento imediato das sessões anteriores
 - proteção contra força bruta e excesso de tentativas em login, troca de senha e reset administrativo
 - Integracao opcional com Ollama, com fallback claro quando o modelo nao estiver disponivel
@@ -215,11 +216,24 @@ Sessões locais autenticadas:
 Proteção de tentativas no ambiente local:
 
 - `POST /api/auth/login`: até 5 tentativas inválidas por IP + e-mail em 15 minutos
+- `POST /api/auth/forgot-password`: até 5 solicitações por IP e por identidade de e-mail em 30 minutos
+- `POST /api/auth/reset-password`: até 5 tentativas por IP e por token protegido em 15 minutos
 - `PATCH /api/auth/change-password`: até 5 tentativas inválidas por usuário em 15 minutos
 - `POST /api/admin/users/:userId/reset-password`: até 10 redefinições por admin em 15 minutos
 - o reset administrativo também limita repetições globais para o mesmo usuário-alvo, mesmo entre admins diferentes
 - a API responde com `429`, código estável e `Retry-After`
 - os contadores ficam apenas em memória e são perdidos ao reiniciar a API
+
+Recuperação local de senha:
+
+- a rota pública `/esqueci-minha-senha` solicita a recuperação por e-mail
+- a rota pública `/redefinir-senha` consome um token temporário de uso único
+- o backend armazena apenas o hash do token, nunca o valor bruto
+- o token expira em 30 minutos por padrão
+- um novo pedido invalida tokens anteriores ainda ativos do mesmo usuário
+- após a redefinição, todas as sessões anteriores do usuário são revogadas
+- o login precisa ser feito novamente depois da redefinição
+- a prévia local do link só deve ser usada quando `PASSWORD_RECOVERY_PREVIEW_ENABLED=true`
 
 Atalhos com Makefile:
 

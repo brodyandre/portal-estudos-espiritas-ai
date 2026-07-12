@@ -6,15 +6,18 @@ import { asyncHandler } from "../../lib/async-handler";
 import { requireAuth } from "./auth.middleware";
 import {
   changePassword,
+  getPasswordRecoveryPreviewList,
   getAuthenticatedUser,
+  requestPasswordRecovery,
   listUserSessions,
   loginUser,
   logoutAllSessions,
   logoutCurrentSession,
   logoutOtherSessions,
+  resetPasswordWithRecovery,
   revokeUserSession,
 } from "./auth.service";
-import type { ChangePasswordInput, LoginInput } from "./auth.types";
+import type { ChangePasswordInput, ForgotPasswordInput, LoginInput, ResetPasswordInput } from "./auth.types";
 
 const isObjectRecord = (value: unknown): value is Record<string, unknown> => {
   return Boolean(value) && typeof value === "object";
@@ -73,6 +76,36 @@ const parseChangePasswordBody = (body: unknown): ChangePasswordInput => {
   };
 };
 
+const parseForgotPasswordBody = (body: unknown): ForgotPasswordInput => {
+  if (!isObjectRecord(body)) {
+    throw new AppError({
+      statusCode: 400,
+      code: "INVALID_REQUEST_BODY",
+      message: "Envie um corpo JSON válido.",
+    });
+  }
+
+  return {
+    email: typeof body.email === "string" ? body.email : "",
+  };
+};
+
+const parseResetPasswordBody = (body: unknown): ResetPasswordInput => {
+  if (!isObjectRecord(body)) {
+    throw new AppError({
+      statusCode: 400,
+      code: "INVALID_REQUEST_BODY",
+      message: "Envie um corpo JSON válido.",
+    });
+  }
+
+  return {
+    token: typeof body.token === "string" ? body.token : "",
+    newPassword: typeof body.newPassword === "string" ? body.newPassword : "",
+    confirmPassword: typeof body.confirmPassword === "string" ? body.confirmPassword : "",
+  };
+};
+
 authRouter.post(
   "/login",
   asyncHandler(async (request, response) => {
@@ -85,6 +118,42 @@ authRouter.post(
       status: 200,
       message: "Login local realizado com sucesso.",
       data: result,
+    });
+  }),
+);
+
+authRouter.post(
+  "/forgot-password",
+  asyncHandler(async (request, response) => {
+    const result = await requestPasswordRecovery(parseForgotPasswordBody(request.body), {
+      ipAddress: request.ip,
+    });
+
+    return sendSuccess(response, {
+      status: 200,
+      message: result.message,
+      data: {
+        success: result.success,
+        message: result.message,
+      },
+    });
+  }),
+);
+
+authRouter.post(
+  "/reset-password",
+  asyncHandler(async (request, response) => {
+    const result = await resetPasswordWithRecovery(parseResetPasswordBody(request.body), {
+      ipAddress: request.ip,
+    });
+
+    return sendSuccess(response, {
+      status: 200,
+      message: result.message,
+      data: {
+        success: result.success,
+        message: result.message,
+      },
     });
   }),
 );
@@ -259,6 +328,27 @@ authRouter.post(
       data: {
         revokedSessions,
       },
+    });
+  }),
+);
+
+authRouter.get(
+  "/password-recovery-previews",
+  requireAuth,
+  asyncHandler(async (request, response) => {
+    if (!request.authUser) {
+      throw new AppError({
+        statusCode: 401,
+        code: "AUTH_REQUIRED",
+        message: "Faça login no ambiente local para continuar.",
+      });
+    }
+
+    const previews = await getPasswordRecoveryPreviewList(request.authUser);
+
+    return sendSuccess(response, {
+      message: "Prévias locais de recuperação carregadas com sucesso.",
+      data: previews,
     });
   }),
 );

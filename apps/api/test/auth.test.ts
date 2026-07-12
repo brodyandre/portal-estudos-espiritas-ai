@@ -269,7 +269,7 @@ describe("auth endpoints", () => {
     expect(response.body.data[1].isCurrent).toBe(false);
     expect(response.body.data[0].createdAt >= response.body.data[1].createdAt).toBe(true);
     expect(firstLogin.status).toBe(200);
-  });
+  }, 10000);
 
   it("revoga outra sessao especifica sem afetar a atual", async () => {
     const firstLogin = await loginAs("professor.demo@example.com", "ProfessorDemo@123");

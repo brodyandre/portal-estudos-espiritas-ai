@@ -43,6 +43,16 @@ export interface ChangePasswordInput {
   confirmPassword: string;
 }
 
+export interface ForgotPasswordInput {
+  email: string;
+}
+
+export interface ResetPasswordInput {
+  token: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
 export interface LoginResponse {
   token: string;
   user: AuthUser;
@@ -74,6 +84,17 @@ export interface StoredAuthUser {
   mustChangePassword?: boolean;
   temporaryPasswordGeneratedAt?: string | null;
   passwordChangedAt?: string | null;
+}
+
+export interface StoredPasswordResetToken {
+  id: string;
+  userId: string;
+  tokenHash: string;
+  createdAt: string;
+  expiresAt: string;
+  usedAt?: string | null;
+  invalidatedAt?: string | null;
+  requestedIpHash?: string | null;
 }
 
 export interface StudentAccessProvisionInput {
@@ -147,6 +168,29 @@ export interface AdminResetPasswordPersistenceInput {
   actorRole: UserRole;
 }
 
+export interface PasswordResetRequestPersistenceInput {
+  userId: string;
+  tokenHash: string;
+  expiresAt: string;
+  requestedIpHash?: string | null;
+  actorName: string;
+  actorRole: UserRole;
+}
+
+export interface PasswordResetPersistenceInput {
+  tokenHash: string;
+  newPassword: string;
+  passwordHash: string;
+  passwordChangedAt: string;
+  actorName: string;
+  actorRole: UserRole;
+}
+
+export type PasswordResetPersistenceResult =
+  | { status: "updated"; user: StoredAuthUser }
+  | { status: "invalid_token" }
+  | { status: "password_reuse" };
+
 export interface ListAuthSessionsInput {
   userId: string;
   currentSessionId: string;
@@ -165,4 +209,14 @@ export interface RevokeOtherSessionsForUserInput {
   currentSessionId: string;
   actorName: string;
   actorRole: UserRole;
+}
+
+export interface PasswordRecoveryPreview {
+  id: string;
+  email: string;
+  fullName: string;
+  token: string;
+  resetUrl: string;
+  createdAt: string;
+  expiresAt: string;
 }
