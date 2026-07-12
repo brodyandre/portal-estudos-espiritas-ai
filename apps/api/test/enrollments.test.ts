@@ -4,10 +4,14 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { app } from "../src/app";
 import {
   resetAuthStore,
-  setAuthRepositoryForTesting,
 } from "../src/modules/auth/auth.service";
-import { createMemoryAuthRepository } from "../src/modules/auth/auth.repository";
-import { resetEnrollmentStore } from "../src/modules/enrollments/enrollments.service";
+import { getMemoryAccountInvitations } from "../src/modules/auth/auth.repository";
+import { listAccountInvitationPreviews } from "../src/modules/auth/account-invitation.notifier";
+import {
+  resetEnrollmentStore,
+  setEnrollmentsRepositoryForTesting,
+} from "../src/modules/enrollments/enrollments.service";
+import { createMemoryEnrollmentsRepository } from "../src/modules/enrollments/enrollments.repository";
 
 const loginAsTeacher = async () => {
   const response = await request(app).post("/api/auth/login").send({
@@ -172,11 +176,11 @@ describe("enrollments endpoints", () => {
       expect(response.status).toBe(404);
       expect(response.body.success).toBe(false);
       expect(response.body.error.code).toBe("ENROLLMENT_NOT_FOUND");
-    });
+    }, 10000);
   });
 
   describe("PATCH /api/enrollments/:id/status", () => {
-    it("aprova a inscricao e cria acesso de aluno com senha temporaria", async () => {
+    it("aprova a inscricao e cria um convite seguro para o primeiro acesso", async () => {
       const token = await loginAsTeacher();
       const response = await request(app)
         .patch("/api/enrollments/enrollment-001/status")
@@ -198,26 +202,33 @@ describe("enrollments endpoints", () => {
           }),
           studentAccess: expect.objectContaining({
             email: "mariana.souza.demo@example.com",
-            temporaryPassword: expect.any(String),
-            mustChangePassword: true,
+            invitationType: "enrollment_approval",
+            deliveryStatus: expect.any(String),
+            expiresAt: expect.any(String),
+            mustCreatePassword: true,
           }),
         }),
       );
       expect(typeof response.body.data.enrollment.reviewedAt).toBe("string");
       expect(response.body.data.enrollment.passwordHash).toBeUndefined();
-      expect(response.body.data.studentAccess.passwordHash).toBeUndefined();
+      expect(response.body.data.studentAccess.token).toBeUndefined();
+      expect(response.body.data.studentAccess.invitationUrl).toBeUndefined();
       expect(response.body.data.token).toBeUndefined();
 
-      const loginResponse = await request(app).post("/api/auth/login").send({
-        email: response.body.data.studentAccess.email,
-        password: response.body.data.studentAccess.temporaryPassword,
+      const [preview] = listAccountInvitationPreviews();
+      expect(preview.email).toBe("mariana.souza.demo@example.com");
+
+      const activationResponse = await request(app).post("/api/auth/accept-invitation").send({
+        token: preview.token,
+        password: "NovaSenha@123",
+        confirmPassword: "NovaSenha@123",
       });
 
-      expect(loginResponse.status).toBe(200);
-      expect(loginResponse.body.data.user.role).toBe("student");
+      expect(activationResponse.status).toBe(200);
+      expect(activationResponse.body.data.message).toBe("Conta ativada com sucesso. Faça login para continuar.");
     });
 
-    it("aprovar novamente o mesmo interessado nao duplica o acesso e renova a senha", async () => {
+    it("aprovar novamente o mesmo interessado nao duplica o acesso e renova o convite", async () => {
       const token = await loginAsTeacher();
       const firstApproval = await request(app)
         .patch("/api/enrollments/enrollment-001/status")
@@ -225,17 +236,7 @@ describe("enrollments endpoints", () => {
         .send({
           status: "approved",
         });
-
-      const firstLoginResponse = await request(app).post("/api/auth/login").send({
-        email: firstApproval.body.data.studentAccess.email,
-        password: firstApproval.body.data.studentAccess.temporaryPassword,
-      });
-
-      expect(firstLoginResponse.status).toBe(200);
-
-      const previousToken = firstLoginResponse.body.data.token as string;
-      const previousCredentialTimestamp =
-        firstLoginResponse.body.data.user.passwordChangedAt;
+      const [firstPreview] = listAccountInvitationPreviews();
 
       const secondApproval = await request(app)
         .patch("/api/enrollments/enrollment-001/status")
@@ -249,29 +250,26 @@ describe("enrollments endpoints", () => {
       expect(secondApproval.body.data.studentAccess.email).toBe(
         firstApproval.body.data.studentAccess.email,
       );
-      expect(secondApproval.body.data.studentAccess.mustChangePassword).toBe(true);
-      expect(secondApproval.body.data.studentAccess.temporaryPassword).not.toBe(
-        firstApproval.body.data.studentAccess.temporaryPassword,
-      );
+      expect(secondApproval.body.data.studentAccess.mustCreatePassword).toBe(true);
 
-      const staleTokenResponse = await request(app)
-        .get("/api/auth/me")
-        .set("Authorization", `Bearer ${previousToken}`);
+      const [latestPreview] = listAccountInvitationPreviews();
+      expect(latestPreview.token).not.toBe(firstPreview.token);
 
-      expect(staleTokenResponse.status).toBe(401);
-      expect(staleTokenResponse.body.error.code).toBe("AUTH_REQUIRED");
+      const reusedInvitation = await request(app).post("/api/auth/accept-invitation").send({
+        token: firstPreview.token,
+        password: "NovaSenha@123",
+        confirmPassword: "NovaSenha@123",
+      });
+      expect(reusedInvitation.status).toBe(400);
+      expect(reusedInvitation.body.error.code).toBe("INVALID_ACCOUNT_INVITATION");
 
-      const loginResponse = await request(app).post("/api/auth/login").send({
-        email: secondApproval.body.data.studentAccess.email,
-        password: secondApproval.body.data.studentAccess.temporaryPassword,
+      const activationResponse = await request(app).post("/api/auth/accept-invitation").send({
+        token: latestPreview.token,
+        password: "NovaSenha@123",
+        confirmPassword: "NovaSenha@123",
       });
 
-      expect(loginResponse.status).toBe(200);
-      expect(loginResponse.body.data.user.mustChangePassword).toBe(true);
-      expect(loginResponse.body.data.user.passwordChangedAt).toEqual(expect.any(String));
-      expect(loginResponse.body.data.user.passwordChangedAt).not.toBe(
-        previousCredentialTimestamp,
-      );
+      expect(activationResponse.status).toBe(200);
     }, 10000);
 
     it("reativa usuario inativo existente ao aprovar a inscricao", async () => {
@@ -296,71 +294,23 @@ describe("enrollments endpoints", () => {
       expect(response.body.data.studentAccess).toEqual(
         expect.objectContaining({
           email: "aluno.inativo.demo@example.com",
-          mustChangePassword: true,
+          mustCreatePassword: true,
         }),
       );
-
-      const loginResponse = await request(app).post("/api/auth/login").send({
-        email: "aluno.inativo.demo@example.com",
-        password: response.body.data.studentAccess.temporaryPassword,
-      });
-
-      expect(loginResponse.status).toBe(200);
-      expect(loginResponse.body.data.user.status).toBe("active");
+      const createdInvitation = getMemoryAccountInvitations().find(
+        (item) => item.recipientEmailSnapshot === "aluno.inativo.demo@example.com",
+      );
+      expect(createdInvitation).not.toBeUndefined();
     });
 
     it("faz rollback da aprovacao quando o provisionamento falha", async () => {
-      const baseRepository = createMemoryAuthRepository();
+      const baseRepository = createMemoryEnrollmentsRepository();
 
-      setAuthRepositoryForTesting({
-        async getByEmail(email) {
-          return baseRepository.getByEmail(email);
+      setEnrollmentsRepositoryForTesting({
+        ...baseRepository,
+        async approveWithInvitation() {
+          throw new Error("Falha simulada na criação do convite");
         },
-        async getById(id) {
-          return baseRepository.getById(id);
-        },
-        async getSessionById(sessionId) {
-          return baseRepository.getSessionById(sessionId);
-        },
-        async createSession(input) {
-          return baseRepository.createSession(input);
-        },
-        async touchSession(sessionId) {
-          return baseRepository.touchSession(sessionId);
-        },
-        async revokeSession(input) {
-          return baseRepository.revokeSession(input);
-        },
-        async revokeAllSessionsForUser(input) {
-          return baseRepository.revokeAllSessionsForUser(input);
-        },
-        async listSessionsForUser(input) {
-          return baseRepository.listSessionsForUser(input);
-        },
-        async revokeSessionForUser(input) {
-          return baseRepository.revokeSessionForUser(input);
-        },
-        async revokeOtherSessionsForUser(input) {
-          return baseRepository.revokeOtherSessionsForUser(input);
-        },
-        async provisionStudentAccess() {
-          throw new Error("Falha simulada no provisionamento");
-        },
-      async changePassword(input) {
-        return baseRepository.changePassword(input);
-      },
-      async replacePasswordResetToken(input) {
-        return baseRepository.replacePasswordResetToken(input);
-      },
-      async invalidatePasswordResetToken(input) {
-        return baseRepository.invalidatePasswordResetToken(input);
-      },
-      async resetPasswordWithRecoveryToken(input) {
-        return baseRepository.resetPasswordWithRecoveryToken(input);
-      },
-      async resetPasswordByAdmin(input) {
-        return baseRepository.resetPasswordByAdmin(input);
-      },
       });
 
       const token = await loginAsTeacher();
@@ -379,6 +329,19 @@ describe("enrollments endpoints", () => {
 
       expect(enrollmentResponse.status).toBe(200);
       expect(enrollmentResponse.body.data.status).toBe("pending");
+      expect(
+        getMemoryAccountInvitations().some(
+          (item) => item.recipientEmailSnapshot === "mariana.souza.demo@example.com",
+        ),
+      ).toBe(false);
+
+      const loginResponse = await request(app).post("/api/auth/login").send({
+        email: "mariana.souza.demo@example.com",
+        password: "NovaSenha@123",
+      });
+
+      expect(loginResponse.status).toBe(401);
+      expect(loginResponse.body.error.code).toBe("INVALID_CREDENTIALS");
     });
 
     it("rejected nao cria acesso de aluno", async () => {

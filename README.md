@@ -190,13 +190,14 @@ Para autenticação local, use também:
 Ao aprovar uma inscrição no ambiente local:
 
 - o backend cria ou reativa o acesso do aluno no PostgreSQL
-- a resposta retorna e-mail e senha temporária de forma segura
-- o primeiro login do aluno redireciona para `/primeiro-acesso`
+- o backend gera um convite de acesso de uso único com validade de 48 horas
+- o aluno recebe um link para `/ativar-conta` e cria a própria senha
 - a nova senha precisa ter 8 caracteres ou mais, com letra maiúscula, letra minúscula e número
-- após a troca, `mustChangePassword` passa para `false` e o token anterior deixa de valer
-- `passwordChangedAt` registra a última alteração de credencial, inclusive quando uma nova senha temporária é emitida
+- após a ativação, o login segue normalmente pelo portal
+- `passwordChangedAt` registra a última alteração de credencial, inclusive quando uma nova senha temporária é emitida em fluxos administrativos
 - `passwordHash` nunca é exposto
-- o envio ao aluno continua manual no MVP
+- o convite não expõe token na resposta da API
+- o envio ao aluno continua manual no MVP quando a equipe quiser complementar a comunicação
 
 Na gestão administrativa local:
 
@@ -219,6 +220,7 @@ Proteção de tentativas no ambiente local:
 
 - `POST /api/auth/login`: até 5 tentativas inválidas por IP + e-mail em 15 minutos
 - `POST /api/auth/forgot-password`: até 5 solicitações por IP e por identidade de e-mail em 30 minutos
+- `POST /api/auth/accept-invitation`: até 5 tentativas por IP e por token protegido em 15 minutos
 - `POST /api/auth/reset-password`: até 5 tentativas por IP e por token protegido em 15 minutos
 - `PATCH /api/auth/change-password`: até 5 tentativas inválidas por usuário em 15 minutos
 - `POST /api/admin/users/:userId/reset-password`: até 10 redefinições por admin em 15 minutos
@@ -229,6 +231,7 @@ Proteção de tentativas no ambiente local:
 Recuperação local de senha:
 
 - a rota pública `/esqueci-minha-senha` solicita a recuperação por e-mail
+- a rota pública `/ativar-conta` consome o convite do primeiro acesso sem salvar o token no frontend
 - a rota pública `/redefinir-senha` consome um token temporário de uso único
 - quando `SMTP_ENABLED=true`, a API envia o e-mail transacional pelo SMTP configurado
 - no Docker Compose local, o Mailpit recebe as mensagens em `http://localhost:8025`

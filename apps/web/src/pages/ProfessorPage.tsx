@@ -270,6 +270,22 @@ const getEnrollmentStatusLabel = (status: EnrollmentStatus) => {
   return { label: "Pendente", tone: "upcoming" as const };
 };
 
+const getInvitationDeliveryLabel = (deliveryStatus: StudentAccessInfo["deliveryStatus"]) => {
+  if (deliveryStatus === "sent") {
+    return "Convite enviado por e-mail.";
+  }
+
+  if (deliveryStatus === "failed") {
+    return "O envio do convite falhou. Vale reenviar pelo ambiente local.";
+  }
+
+  if (deliveryStatus === "not_configured") {
+    return "Modo demonstrativo: o convite real depende do backend local.";
+  }
+
+  return "Convite em preparação.";
+};
+
 const mergeWorkspace = (
   defaultWorkspace: TeacherWorkspace,
   storedWorkspace: Partial<TeacherWorkspace> | null,
@@ -1346,11 +1362,13 @@ export const ProfessorPage = () => {
                             <AlertBox title="Acesso do aluno criado" tone="info">
                               <strong>E-mail:</strong> {studentAccess.email}
                               <br />
-                              <strong>Senha temporária:</strong> {studentAccess.temporaryPassword}
+                              <strong>Entrega do convite:</strong> {getInvitationDeliveryLabel(studentAccess.deliveryStatus)}
                               <br />
-                              Seu acesso ao portal foi criado. Use este e-mail e senha temporária
-                              para entrar. Por segurança, troque a senha futuramente quando essa
-                              função estiver disponível. O envio ao aluno continua manual.
+                              <strong>Validade:</strong> {new Date(studentAccess.expiresAt).toLocaleString("pt-BR")}
+                              <br />
+                              O acesso ao portal foi criado com convite por e-mail. No primeiro acesso,
+                              o aluno receberá a solicitação para criar a própria senha. O envio da
+                              mensagem ao aluno continua manual nesta etapa.
                             </AlertBox>
                           ) : null}
 

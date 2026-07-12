@@ -51,7 +51,7 @@ export const buildEnrollmentMessage = ({
 
   if (status === "approved") {
     if (studentAccess) {
-      return `Olá, ${name}! Tudo bem? Recebemos sua inscrição para a Educação Continuada Online do Centro Espírita Ana Vieira. Sua participação foi aprovada para o grupo ${group}. Seu acesso ao portal foi criado. Use este e-mail e senha temporária para entrar: ${studentAccess.email} | ${studentAccess.temporaryPassword}. Acesse: ${portalUrl}. No primeiro acesso, o portal solicitará a criação de uma nova senha para concluir sua entrada com segurança.`;
+      return `Olá, ${name}! Tudo bem? Recebemos sua inscrição para a Educação Continuada Online do Centro Espírita Ana Vieira. Sua participação foi aprovada para o grupo ${group}. O acesso será concluído com um convite enviado para ${studentAccess.email}. Ao abrir o link recebido, você criará sua própria senha para entrar no portal: ${portalUrl}. Se precisar, responda esta mensagem para confirmarmos o reenvio do convite.`;
     }
 
     return `Olá, ${name}! Tudo bem? Recebemos sua inscrição para a Educação Continuada Online do Centro Espírita Ana Vieira. Sua participação foi aprovada para o grupo ${group}. Acesse sua área do aluno pelo portal: ${portalUrl}. Seja muito bem-vindo(a).`;

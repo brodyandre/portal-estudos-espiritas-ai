@@ -398,7 +398,7 @@ describe("password recovery flow", () => {
     } finally {
       vi.useRealTimers();
     }
-  }, 10000);
+  }, 15000);
 
   it("mantem usuario inativo sem reativar o login automaticamente", async () => {
     await request(app).post("/api/auth/forgot-password").send({

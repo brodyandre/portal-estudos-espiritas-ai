@@ -429,6 +429,54 @@ Erros estáveis:
 - `PASSWORD_REUSE_NOT_ALLOWED`
 - `PASSWORD_RESET_RATE_LIMITED`
 
+### `POST /api/auth/accept-invitation`
+
+Ativa o primeiro acesso do aluno por meio de um convite de uso único.
+
+Body esperado:
+
+```json
+{
+  "token": "convite-temporario",
+  "password": "NovaSenha@123",
+  "confirmPassword": "NovaSenha@123"
+}
+```
+
+Comportamento:
+
+- valida campos e confirmação
+- aplica a mesma política mínima de senha do portal
+- valida token ativo, não expirado e ainda não utilizado
+- consome o convite de forma atômica
+- grava apenas o hash da nova senha
+- define `mustChangePassword=false`
+- atualiza `passwordChangedAt`
+- limpa `temporaryPasswordGeneratedAt`
+- invalida outros convites ativos do mesmo usuário
+- revoga sessões anteriores do usuário
+- não cria sessão automaticamente
+
+Resposta:
+
+```json
+{
+  "success": true,
+  "message": "Conta ativada com sucesso. Faça login para continuar.",
+  "data": {
+    "success": true,
+    "message": "Conta ativada com sucesso. Faça login para continuar."
+  }
+}
+```
+
+Erros estáveis:
+
+- `INVALID_ACCOUNT_INVITATION`
+- `PASSWORD_CONFIRMATION_MISMATCH`
+- `WEAK_PASSWORD`
+- `ACCOUNT_INVITATION_RATE_LIMITED`
+
 Rate limit:
 
 - 5 tentativas inválidas por usuário em 15 minutos

@@ -1,10 +1,15 @@
 import { randomUUID } from "node:crypto";
 
-import nodemailer from "nodemailer";
-
 import type { ApiEnv } from "../../config/env";
 import { env } from "../../config/env";
 import type { PasswordRecoveryPreview } from "./auth.types";
+import {
+  escapeHtml,
+  formatEmailExpiryLabel,
+  NodemailerTransactionalEmailTransport,
+  type TransactionalEmailMessage,
+  type TransactionalEmailTransport,
+} from "./transactional-email";
 
 export interface PasswordRecoveryNotifierInput {
   recipientEmail: string;
@@ -25,20 +30,8 @@ export interface PasswordRecoveryNotifier {
   sendPasswordRecovery(input: PasswordRecoveryNotifierInput): Promise<void>;
 }
 
-export interface PasswordRecoveryTransportMessage {
-  from: {
-    name: string;
-    address: string;
-  };
-  to: string;
-  subject: string;
-  text: string;
-  html: string;
-}
-
-export interface PasswordRecoveryMailTransport {
-  sendMail(message: PasswordRecoveryTransportMessage): Promise<void>;
-}
+export type PasswordRecoveryTransportMessage = TransactionalEmailMessage;
+export type PasswordRecoveryMailTransport = TransactionalEmailTransport;
 
 const PASSWORD_RECOVERY_SUBJECT = "Recuperação de acesso — Portal de Estudos Espíritas";
 const memoryPreviews: PasswordRecoveryPreview[] = [];
@@ -52,38 +45,17 @@ const cloneMessage = (message: PasswordRecoveryMemoryMessage): PasswordRecoveryM
   ...message,
 });
 
-const escapeHtml = (value: string) => {
-  return value
-    .replace(/&/gu, "&amp;")
-    .replace(/</gu, "&lt;")
-    .replace(/>/gu, "&gt;")
-    .replace(/"/gu, "&quot;")
-    .replace(/'/gu, "&#39;");
-};
-
-const formatExpiryLabel = (expiresAt: string) => {
-  const expiresDate = new Date(expiresAt);
-
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(expiresDate);
-};
-
 export const buildPasswordRecoveryEmail = (input: PasswordRecoveryNotifierInput) => {
   const safeRecipientName = escapeHtml(input.recipientName.trim() || "participante");
   const safeRecoveryUrl = escapeHtml(input.recoveryUrl);
-  const safeExpiryLabel = escapeHtml(formatExpiryLabel(input.expiresAt));
+  const safeExpiryLabel = escapeHtml(formatEmailExpiryLabel(input.expiresAt));
 
   const text = [
     `Olá, ${input.recipientName.trim() || "participante"}.`,
     "",
     "Recebemos uma solicitação para recuperar o acesso ao Portal de Estudos Espíritas.",
     `Use este link para redefinir sua senha: ${input.recoveryUrl}`,
-    `Este link é válido até ${formatExpiryLabel(input.expiresAt)}.`,
+    `Este link é válido até ${formatEmailExpiryLabel(input.expiresAt)}.`,
     "Se você não fez esta solicitação, ignore este e-mail.",
     "Por segurança, não compartilhe este link com outras pessoas.",
   ].join("\n");
@@ -177,34 +149,7 @@ export class SmtpPasswordRecoveryNotifier implements PasswordRecoveryNotifier {
   }
 }
 
-export class NodemailerPasswordRecoveryTransport implements PasswordRecoveryMailTransport {
-  private readonly transporter;
-
-  constructor(config: Pick<ApiEnv, "smtpHost" | "smtpPort" | "smtpSecure" | "smtpUser" | "smtpPassword">) {
-    this.transporter = nodemailer.createTransport({
-      host: config.smtpHost,
-      port: config.smtpPort,
-      secure: config.smtpSecure,
-      auth:
-        config.smtpUser && config.smtpPassword
-          ? {
-              user: config.smtpUser,
-              pass: config.smtpPassword,
-            }
-          : undefined,
-    });
-  }
-
-  async sendMail(message: PasswordRecoveryTransportMessage) {
-    await this.transporter.sendMail({
-      from: `"${message.from.name}" <${message.from.address}>`,
-      to: message.to,
-      subject: message.subject,
-      text: message.text,
-      html: message.html,
-    });
-  }
-}
+export class NodemailerPasswordRecoveryTransport extends NodemailerTransactionalEmailTransport {}
 
 const shouldStorePreview = (config: ApiEnv) => {
   return config.nodeEnv === "test" || (config.nodeEnv !== "production" && config.passwordRecoveryPreviewEnabled);

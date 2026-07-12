@@ -9,6 +9,7 @@ import { PublicLayout } from "./components/layout/PublicLayout";
 import { StudentLayout } from "./components/layout/StudentLayout";
 import { TeacherLayout } from "./components/layout/TeacherLayout";
 import { AccountSecurityPage } from "./pages/AccountSecurityPage";
+import { ActivateAccountPage } from "./pages/ActivateAccountPage";
 import { AdminPage } from "./pages/AdminPage";
 import { AlunoPage } from "./pages/AlunoPage";
 import { EducationContinuedPage } from "./pages/EducationContinuedPage";
@@ -36,6 +37,7 @@ export const App = () => {
             <Route element={<LoginPage />} path="/login" />
             <Route element={<ForgotPasswordPage />} path="/esqueci-minha-senha" />
             <Route element={<ResetPasswordPage />} path="/redefinir-senha" />
+            <Route element={<ActivateAccountPage />} path="/ativar-conta" />
             <Route element={<PasswordChangePage />} path="/primeiro-acesso" />
             <Route element={<PromotionPage />} path="/divulgacao" />
             <Route element={<MaterialsPage />} path="/materiais" />

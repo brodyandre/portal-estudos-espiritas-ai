@@ -188,8 +188,10 @@ export const updateMockEnrollmentStatus = (
     input.status === "approved"
       ? {
           email: updatedEnrollment.email,
-          temporaryPassword: `DEMO@${updatedEnrollment.id.slice(-4).toUpperCase()}`,
-          mustChangePassword: true,
+          invitationType: "enrollment_approval",
+          deliveryStatus: "not_configured",
+          expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
+          mustCreatePassword: true,
         }
       : null;
 

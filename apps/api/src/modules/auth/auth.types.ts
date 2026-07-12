@@ -5,6 +5,9 @@ export interface AuthUser extends AppUser {
   passwordChangedAt?: string | null;
 }
 
+export type AccountInvitationType = "enrollment_approval" | "admin_reinvite";
+export type AccountInvitationDeliveryStatus = "pending" | "sent" | "failed" | "not_configured";
+
 export interface StoredAuthSession {
   id: string;
   userId: string;
@@ -76,11 +79,13 @@ export interface StoredAuthUser {
   email: string;
   passwordHash: string;
   whatsapp?: string | null;
+  adminNote?: string | null;
   role: UserRole;
   status: UserStatus;
   groupName?: string | null;
   groupSlug?: string | null;
   enrollmentId?: string | null;
+  accountActivatedAt?: string | null;
   mustChangePassword?: boolean;
   temporaryPasswordGeneratedAt?: string | null;
   passwordChangedAt?: string | null;
@@ -97,6 +102,22 @@ export interface StoredPasswordResetToken {
   requestedIpHash?: string | null;
 }
 
+export interface StoredAccountInvitation {
+  id: string;
+  userId: string;
+  tokenHash: string;
+  createdAt: string;
+  expiresAt: string;
+  acceptedAt?: string | null;
+  invalidatedAt?: string | null;
+  invitedByUserId?: string | null;
+  invitationType: AccountInvitationType;
+  recipientEmailSnapshot: string;
+  deliveryStatus: AccountInvitationDeliveryStatus;
+  deliveredAt?: string | null;
+  deliveryFailedAt?: string | null;
+}
+
 export interface StudentAccessProvisionInput {
   enrollmentId: string;
   fullName: string;
@@ -109,6 +130,23 @@ export interface StudentAccessProvisionInput {
   mustChangePassword: boolean;
   actorName: string;
   actorRole: UserRole;
+}
+
+export interface InvitedEnrollmentUserInput {
+  enrollmentId: string;
+  fullName: string;
+  email: string;
+  whatsapp: string;
+  groupName: string | null;
+  groupSlug: string | null;
+  actorName: string;
+  actorRole: UserRole;
+  passwordHash?: string;
+}
+
+export interface InvitedEnrollmentUserResult {
+  user: AuthUser;
+  action: "created" | "activated" | "updated";
 }
 
 export interface StudentAccessProvisionResult {
@@ -177,6 +215,55 @@ export interface PasswordResetRequestPersistenceInput {
   actorRole: UserRole;
 }
 
+export interface CreateAccountInvitationInput {
+  userId: string;
+  tokenHash: string;
+  expiresAt: string;
+  invitedByUserId?: string | null;
+  invitationType: AccountInvitationType;
+  recipientEmailSnapshot: string;
+  actorName: string;
+  actorRole: UserRole;
+}
+
+export interface EnrollmentInvitationProvisionInput {
+  enrollmentId: string;
+  fullName: string;
+  email: string;
+  whatsapp: string;
+  groupName: string | null;
+  groupSlug: string | null;
+  placeholderPasswordHash: string;
+  tokenHash: string;
+  expiresAt: string;
+  invitedByUserId?: string | null;
+  actorName: string;
+  actorRole: UserRole;
+}
+
+export interface EnrollmentInvitationProvisionResult {
+  user: AuthUser;
+  action: "created" | "activated" | "updated";
+  invitation: StoredAccountInvitation;
+}
+
+export interface MarkAccountInvitationDeliveredInput {
+  invitationId: string;
+  deliveredAt: string;
+  actorName: string;
+  actorRole: UserRole;
+  note: string;
+}
+
+export interface MarkAccountInvitationFailedInput {
+  invitationId: string;
+  failedAt: string;
+  invalidatedAt: string;
+  actorName: string;
+  actorRole: UserRole;
+  note: string;
+}
+
 export interface InvalidatePasswordResetTokenInput {
   tokenHash: string;
   invalidatedAt: string;
@@ -184,6 +271,24 @@ export interface InvalidatePasswordResetTokenInput {
   actorRole: UserRole;
   note: string;
 }
+
+export interface AcceptAccountInvitationInput {
+  token: string;
+  password: string;
+  confirmPassword: string;
+}
+
+export interface AcceptAccountInvitationPersistenceInput {
+  tokenHash: string;
+  passwordHash: string;
+  passwordChangedAt: string;
+  actorName: string;
+  actorRole: UserRole;
+}
+
+export type AcceptAccountInvitationResult =
+  | { status: "updated"; user: StoredAuthUser }
+  | { status: "invalid_invitation" };
 
 export interface PasswordResetPersistenceInput {
   tokenHash: string;
@@ -227,4 +332,15 @@ export interface PasswordRecoveryPreview {
   resetUrl: string;
   createdAt: string;
   expiresAt: string;
+}
+
+export interface AccountInvitationPreview {
+  id: string;
+  email: string;
+  fullName: string;
+  token: string;
+  invitationUrl: string;
+  createdAt: string;
+  expiresAt: string;
+  invitationType: AccountInvitationType;
 }

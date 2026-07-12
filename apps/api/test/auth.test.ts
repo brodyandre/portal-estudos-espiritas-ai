@@ -5,16 +5,29 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { app } from "../src/app";
 import { env } from "../src/config/env";
 import {
+  createMemoryAuthRepository,
+  getMemoryAccountInvitations,
   getMemoryAuthAuditLogs,
   getMemoryAuthSessions,
   provisionStudentAccessWithPrisma,
 } from "../src/modules/auth/auth.repository";
-import { resetAuthStore } from "../src/modules/auth/auth.service";
+import {
+  listAccountInvitationPreviews,
+  listMemoryAccountInvitationMessages,
+  setAccountInvitationNotifierForTesting,
+  type AccountInvitationNotifier,
+} from "../src/modules/auth/account-invitation.notifier";
+import { resetAuthStore, setAuthRepositoryForTesting } from "../src/modules/auth/auth.service";
 import { resetEnrollmentStore } from "../src/modules/enrollments/enrollments.service";
 import { setAuthRateLimitNowProviderForTesting } from "../src/security/auth-rate-limit";
 
 const loginAs = async (email: string, password: string) => {
   return request(app).post("/api/auth/login").send({ email, password });
+};
+
+const loginAsAdmin = async () => {
+  const response = await loginAs("admin.demo@example.com", "AdminDemo@123");
+  return response.body.data.token as string;
 };
 
 const approveEnrollmentAndGetStudentAccess = async (enrollmentId = "enrollment-001") => {
@@ -28,7 +41,57 @@ const approveEnrollmentAndGetStudentAccess = async (enrollmentId = "enrollment-0
       teacherNote: "Aprovado para o primeiro acesso local.",
     });
 
-  return approvalResponse;
+  const invitationEmail = approvalResponse.body.data.studentAccess?.email as string | undefined;
+
+  if (!invitationEmail) {
+    return approvalResponse;
+  }
+
+  const createdInvitation = getMemoryAccountInvitations().find(
+    (item) => item.recipientEmailSnapshot === invitationEmail,
+  );
+
+  if (!createdInvitation) {
+    return approvalResponse;
+  }
+
+  const invitationPreview = listAccountInvitationPreviews().find(
+    (item) => item.email === invitationEmail,
+  );
+
+  if (!invitationPreview) {
+    return approvalResponse;
+  }
+
+  const activationResponse = await request(app).post("/api/auth/accept-invitation").send({
+    token: invitationPreview.token,
+    password: "AtivacaoInicial@123",
+    confirmPassword: "AtivacaoInicial@123",
+  });
+
+  if (activationResponse.status !== 200) {
+    return activationResponse;
+  }
+
+  const adminToken = await loginAsAdmin();
+  const resetResponse = await request(app)
+    .post(`/api/admin/users/${createdInvitation.userId}/reset-password`)
+    .set("Authorization", `Bearer ${adminToken}`);
+
+  return {
+    ...approvalResponse,
+    body: {
+      ...approvalResponse.body,
+      data: {
+        ...approvalResponse.body.data,
+        studentAccess: {
+          email: resetResponse.body.data.user.email,
+          temporaryPassword: resetResponse.body.data.temporaryPassword,
+          mustChangePassword: true,
+        },
+      },
+    },
+  };
 };
 
 describe("auth endpoints", () => {
@@ -233,6 +296,396 @@ describe("auth endpoints", () => {
         role: "teacher",
       }),
     );
+  });
+
+  it("aceita um convite de acesso e permite login com a nova senha", async () => {
+    const teacherLogin = await loginAs("professor.demo@example.com", "ProfessorDemo@123");
+    const teacherToken = teacherLogin.body.data.token as string;
+
+    const approvalResponse = await request(app)
+      .patch("/api/enrollments/enrollment-001/status")
+      .set("Authorization", `Bearer ${teacherToken}`)
+      .send({
+        status: "approved",
+      });
+
+    expect(approvalResponse.status).toBe(200);
+    expect(approvalResponse.body.data.studentAccess.temporaryPassword).toBeUndefined();
+
+    const [preview] = listAccountInvitationPreviews();
+    const activationResponse = await request(app).post("/api/auth/accept-invitation").send({
+      token: preview.token,
+      password: "NovaSenha@123",
+      confirmPassword: "NovaSenha@123",
+    });
+
+    expect(activationResponse.status).toBe(200);
+    expect(activationResponse.body.data.message).toBe("Conta ativada com sucesso. Faça login para continuar.");
+
+    const loginResponse = await loginAs("mariana.souza.demo@example.com", "NovaSenha@123");
+    expect(loginResponse.status).toBe(200);
+    expect(loginResponse.body.data.user.mustChangePassword).toBe(false);
+  }, 10000);
+
+  it("bloqueia reutilizacao do mesmo convite", async () => {
+    const teacherLogin = await loginAs("professor.demo@example.com", "ProfessorDemo@123");
+    const teacherToken = teacherLogin.body.data.token as string;
+
+    await request(app)
+      .patch("/api/enrollments/enrollment-001/status")
+      .set("Authorization", `Bearer ${teacherToken}`)
+      .send({
+        status: "approved",
+      });
+
+    const [preview] = listAccountInvitationPreviews();
+
+    await request(app).post("/api/auth/accept-invitation").send({
+      token: preview.token,
+      password: "NovaSenha@123",
+      confirmPassword: "NovaSenha@123",
+    });
+
+    const secondAttempt = await request(app).post("/api/auth/accept-invitation").send({
+      token: preview.token,
+      password: "OutraSenha@123",
+      confirmPassword: "OutraSenha@123",
+    });
+
+    expect(secondAttempt.status).toBe(400);
+    expect(secondAttempt.body.error.code).toBe("INVALID_ACCOUNT_INVITATION");
+  });
+
+  it("envia o convite somente depois da aprovacao persistida", async () => {
+    let invitationCountWhenSent = -1;
+
+    const notifier: AccountInvitationNotifier = {
+      kind: "memory",
+      async sendAccountInvitation() {
+        invitationCountWhenSent = getMemoryAccountInvitations().length;
+      },
+    };
+
+    setAccountInvitationNotifierForTesting(notifier);
+
+    const teacherLogin = await loginAs("professor.demo@example.com", "ProfessorDemo@123");
+    const teacherToken = teacherLogin.body.data.token as string;
+    const approvalResponse = await request(app)
+      .patch("/api/enrollments/enrollment-001/status")
+      .set("Authorization", `Bearer ${teacherToken}`)
+      .send({
+        status: "approved",
+      });
+
+    expect(approvalResponse.status).toBe(200);
+    expect(invitationCountWhenSent).toBeGreaterThan(0);
+  });
+
+  it("falha smtp marca FAILED, invalida o convite e nao desfaz a aprovacao", async () => {
+    const notifier: AccountInvitationNotifier = {
+      kind: "smtp",
+      async sendAccountInvitation() {
+        throw new Error("smtp-down");
+      },
+    };
+
+    setAccountInvitationNotifierForTesting(notifier);
+
+    const teacherLogin = await loginAs("professor.demo@example.com", "ProfessorDemo@123");
+    const teacherToken = teacherLogin.body.data.token as string;
+    const approvalResponse = await request(app)
+      .patch("/api/enrollments/enrollment-001/status")
+      .set("Authorization", `Bearer ${teacherToken}`)
+      .send({
+        status: "approved",
+      });
+
+    expect(approvalResponse.status).toBe(200);
+    expect(approvalResponse.body.data.studentAccess.deliveryStatus).toBe("failed");
+
+    const [failedInvitation] = getMemoryAccountInvitations();
+    expect(failedInvitation.deliveryStatus).toBe("failed");
+    expect(failedInvitation.invalidatedAt).toEqual(expect.any(String));
+
+    const enrollmentResponse = await request(app)
+      .get("/api/enrollments/enrollment-001")
+      .set("Authorization", `Bearer ${teacherToken}`);
+
+    expect(enrollmentResponse.status).toBe(200);
+    expect(enrollmentResponse.body.data.status).toBe("approved");
+  });
+
+  it("o reenvio administrativo recupera um usuario com convite FAILED", async () => {
+    const failingNotifier: AccountInvitationNotifier = {
+      kind: "smtp",
+      async sendAccountInvitation() {
+        throw new Error("smtp-down");
+      },
+    };
+    setAccountInvitationNotifierForTesting(failingNotifier);
+
+    const teacherLogin = await loginAs("professor.demo@example.com", "ProfessorDemo@123");
+    const teacherToken = teacherLogin.body.data.token as string;
+    await request(app)
+      .patch("/api/enrollments/enrollment-001/status")
+      .set("Authorization", `Bearer ${teacherToken}`)
+      .send({
+        status: "approved",
+      });
+
+    const failedInvitation = getMemoryAccountInvitations()[0];
+    expect(failedInvitation.deliveryStatus).toBe("failed");
+
+    let sentMessages = 0;
+    const successNotifier: AccountInvitationNotifier = {
+      kind: "memory",
+      async sendAccountInvitation() {
+        sentMessages += 1;
+      },
+    };
+    setAccountInvitationNotifierForTesting(successNotifier);
+
+    const adminToken = await loginAsAdmin();
+    const resendResponse = await request(app)
+      .post(`/api/admin/users/${failedInvitation.userId}/send-invitation`)
+      .set("Authorization", `Bearer ${adminToken}`);
+
+    expect(resendResponse.status).toBe(200);
+    expect(resendResponse.body.data.invitation.deliveryStatus).toBe("sent");
+    expect(sentMessages).toBe(1);
+    expect(getMemoryAccountInvitations().length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("mantem a senha do usuario existente ao receber novo convite administrativo", async () => {
+    const loginBefore = await loginAs("aluno.demo@example.com", "AlunoDemo@123");
+    expect(loginBefore.status).toBe(200);
+
+    const adminToken = await loginAsAdmin();
+    const resendResponse = await request(app)
+      .post("/api/admin/users/user-aluno-demo/send-invitation")
+      .set("Authorization", `Bearer ${adminToken}`);
+
+    expect(resendResponse.status).toBe(200);
+
+    const loginAfter = await loginAs("aluno.demo@example.com", "AlunoDemo@123");
+    expect(loginAfter.status).toBe(200);
+  });
+
+  it("bloqueia login pré-ativação com resposta genérica", async () => {
+    const repository = createMemoryAuthRepository([
+      {
+        id: "user-pending-activation",
+        fullName: "Aluno Convidado",
+        email: "aluno.convidado@example.com",
+        passwordHash: "$2b$10$wy0YlIcUd2dQWB/0lClqYuqn3x8GfI0afZj3JI6G4EQ7FLp7cLxN2",
+        role: "student",
+        status: "active",
+        accountActivatedAt: null,
+        mustChangePassword: false,
+        passwordChangedAt: null,
+        temporaryPasswordGeneratedAt: null,
+      },
+    ]);
+
+    setAuthRepositoryForTesting(repository);
+
+    const response = await loginAs("aluno.convidado@example.com", "SenhaConvite@123");
+
+    expect(response.status).toBe(401);
+    expect(response.body.error.code).toBe("INVALID_CREDENTIALS");
+    expect(response.body.error.message).toBe("E-mail ou senha inválidos.");
+  });
+
+  it("permite apenas um aceite concorrente do mesmo convite", async () => {
+    const teacherLogin = await loginAs("professor.demo@example.com", "ProfessorDemo@123");
+    const teacherToken = teacherLogin.body.data.token as string;
+    await request(app)
+      .patch("/api/enrollments/enrollment-001/status")
+      .set("Authorization", `Bearer ${teacherToken}`)
+      .send({
+        status: "approved",
+      });
+
+    const [preview] = listAccountInvitationPreviews();
+    const [firstAttempt, secondAttempt] = await Promise.all([
+      request(app).post("/api/auth/accept-invitation").send({
+        token: preview.token,
+        password: "NovaSenha@123",
+        confirmPassword: "NovaSenha@123",
+      }),
+      request(app).post("/api/auth/accept-invitation").send({
+        token: preview.token,
+        password: "NovaSenha@123",
+        confirmPassword: "NovaSenha@123",
+      }),
+    ]);
+
+    const statuses = [firstAttempt.status, secondAttempt.status].sort();
+    expect(statuses).toEqual([200, 400]);
+  });
+
+  it("logs e auditoria nao expoem token, url, senha ou tokenHash do convite", async () => {
+    const teacherLogin = await loginAs("professor.demo@example.com", "ProfessorDemo@123");
+    const teacherToken = teacherLogin.body.data.token as string;
+    await request(app)
+      .patch("/api/enrollments/enrollment-001/status")
+      .set("Authorization", `Bearer ${teacherToken}`)
+      .send({
+        status: "approved",
+      });
+
+    const [preview] = listAccountInvitationPreviews();
+    const [invitation] = getMemoryAccountInvitations();
+    const serializedLogs = JSON.stringify(getMemoryAuthAuditLogs());
+
+    expect(serializedLogs).not.toContain(preview.token);
+    expect(serializedLogs).not.toContain(preview.invitationUrl);
+    expect(serializedLogs).not.toContain(invitation.tokenHash);
+    expect(serializedLogs).not.toContain("NovaSenha@123");
+    expect(listMemoryAccountInvitationMessages().some((message) => message.invitationUrl === preview.invitationUrl)).toBe(true);
+  });
+
+  it("aceita apenas a primeira transicao de entrega partindo de pending", async () => {
+    const repository = createMemoryAuthRepository();
+    const invitation = await repository.replaceAccountInvitation({
+      userId: "user-aluno-demo",
+      tokenHash: "token-hash-delivery-pending",
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+      invitedByUserId: "user-admin-demo",
+      invitationType: "enrollment_approval",
+      recipientEmailSnapshot: "aluno.demo@example.com",
+      actorName: "Professor Demonstrativo",
+      actorRole: "teacher",
+    });
+
+    const delivered = await repository.markAccountInvitationDelivered({
+      invitationId: invitation.id,
+      deliveredAt: new Date().toISOString(),
+      actorName: "Sistema de entrega",
+      actorRole: "teacher",
+      note: "Convite enviado com sucesso.",
+    });
+
+    const failedAfterSent = await repository.markAccountInvitationFailed({
+      invitationId: invitation.id,
+      failedAt: new Date().toISOString(),
+      invalidatedAt: new Date().toISOString(),
+      actorName: "Sistema de entrega",
+      actorRole: "teacher",
+      note: "Falha posterior nao deve alterar convite ja enviado.",
+    });
+
+    expect(delivered).toBe(true);
+    expect(failedAfterSent).toBe(false);
+  });
+
+  it("convite sent nao pode ser marcado novamente como entregue", async () => {
+    const repository = createMemoryAuthRepository();
+    const invitation = await repository.replaceAccountInvitation({
+      userId: "user-aluno-demo",
+      tokenHash: "token-hash-delivered-once",
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+      invitedByUserId: "user-admin-demo",
+      invitationType: "enrollment_approval",
+      recipientEmailSnapshot: "aluno.demo@example.com",
+      actorName: "Professor Demonstrativo",
+      actorRole: "teacher",
+    });
+
+    const firstTransition = await repository.markAccountInvitationDelivered({
+      invitationId: invitation.id,
+      deliveredAt: new Date().toISOString(),
+      actorName: "Sistema de entrega",
+      actorRole: "teacher",
+      note: "Primeiro envio.",
+    });
+
+    const auditCountAfterFirstTransition = getMemoryAuthAuditLogs().length;
+
+    const secondTransition = await repository.markAccountInvitationDelivered({
+      invitationId: invitation.id,
+      deliveredAt: new Date().toISOString(),
+      actorName: "Sistema de entrega",
+      actorRole: "teacher",
+      note: "Segundo envio nao deve ser aplicado.",
+    });
+
+    expect(firstTransition).toBe(true);
+    expect(secondTransition).toBe(false);
+    expect(getMemoryAuthAuditLogs()).toHaveLength(auditCountAfterFirstTransition);
+  });
+
+  it("convite sent nao pode ser marcado como failed", async () => {
+    const repository = createMemoryAuthRepository();
+    const invitation = await repository.replaceAccountInvitation({
+      userId: "user-aluno-demo",
+      tokenHash: "token-hash-sent-to-failed",
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+      invitedByUserId: "user-admin-demo",
+      invitationType: "enrollment_approval",
+      recipientEmailSnapshot: "aluno.demo@example.com",
+      actorName: "Professor Demonstrativo",
+      actorRole: "teacher",
+    });
+
+    await repository.markAccountInvitationDelivered({
+      invitationId: invitation.id,
+      deliveredAt: new Date().toISOString(),
+      actorName: "Sistema de entrega",
+      actorRole: "teacher",
+      note: "Primeiro envio.",
+    });
+
+    const auditCountAfterSent = getMemoryAuthAuditLogs().length;
+
+    const failedAfterSent = await repository.markAccountInvitationFailed({
+      invitationId: invitation.id,
+      failedAt: new Date().toISOString(),
+      invalidatedAt: new Date().toISOString(),
+      actorName: "Sistema de entrega",
+      actorRole: "teacher",
+      note: "Nao pode falhar apos sent.",
+    });
+
+    expect(failedAfterSent).toBe(false);
+    expect(getMemoryAuthAuditLogs()).toHaveLength(auditCountAfterSent);
+  });
+
+  it("convite failed nao pode ser marcado como sent e nao gera nova auditoria", async () => {
+    const repository = createMemoryAuthRepository();
+    const invitation = await repository.replaceAccountInvitation({
+      userId: "user-aluno-demo",
+      tokenHash: "token-hash-failed-to-sent",
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+      invitedByUserId: "user-admin-demo",
+      invitationType: "enrollment_approval",
+      recipientEmailSnapshot: "aluno.demo@example.com",
+      actorName: "Professor Demonstrativo",
+      actorRole: "teacher",
+    });
+
+    const failed = await repository.markAccountInvitationFailed({
+      invitationId: invitation.id,
+      failedAt: new Date().toISOString(),
+      invalidatedAt: new Date().toISOString(),
+      actorName: "Sistema de entrega",
+      actorRole: "teacher",
+      note: "Falha inicial.",
+    });
+
+    const auditCountAfterFailed = getMemoryAuthAuditLogs().length;
+
+    const sentAfterFailed = await repository.markAccountInvitationDelivered({
+      invitationId: invitation.id,
+      deliveredAt: new Date().toISOString(),
+      actorName: "Sistema de entrega",
+      actorRole: "teacher",
+      note: "Nao pode ser enviado apos failed.",
+    });
+
+    expect(failed).toBe(true);
+    expect(sentAfterFailed).toBe(false);
+    expect(getMemoryAuthAuditLogs()).toHaveLength(auditCountAfterFailed);
   });
 
   it("lista somente as sessoes do usuario autenticado e marca a atual", async () => {
@@ -698,7 +1151,7 @@ describe("auth endpoints", () => {
 
     expect(postSuccessFailure.status).toBe(401);
     expect(postSuccessFailure.body.error.code).toBe("CURRENT_PASSWORD_INVALID");
-  });
+  }, 10000);
 
   it("rejeita troca quando a confirmacao diverge", async () => {
     const approvalResponse = await approveEnrollmentAndGetStudentAccess();

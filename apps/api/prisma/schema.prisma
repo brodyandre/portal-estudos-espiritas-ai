@@ -33,6 +33,18 @@ enum GroupStatus {
   INACTIVE
 }
 
+enum InvitationType {
+  ENROLLMENT_APPROVAL
+  ADMIN_REINVITE
+}
+
+enum DeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+  NOT_CONFIGURED
+}
+
 model User {
   id                           String      @id @default(cuid())
   fullName                     String
@@ -45,6 +57,7 @@ model User {
   groupSlug                    String?
   adminNote                    String      @default("")
   enrollmentId                 String?     @unique
+  accountActivatedAt           DateTime?
   temporaryPasswordGeneratedAt DateTime?
   mustChangePassword           Boolean     @default(false)
   passwordChangedAt            DateTime?
@@ -53,6 +66,8 @@ model User {
   enrollment                   Enrollment? @relation(fields: [enrollmentId], references: [id], onDelete: SetNull)
   authSessions                 AuthSession[]
   passwordResetTokens          PasswordResetToken[]
+  accountInvitations           AccountInvitation[] @relation("AccountInvitationRecipient")
+  sentAccountInvitations       AccountInvitation[] @relation("AccountInvitationInviter")
 }
 
 model AuthSession {
@@ -88,6 +103,32 @@ model PasswordResetToken {
   @@index([usedAt])
   @@index([invalidatedAt])
   @@index([userId, usedAt, invalidatedAt])
+}
+
+model AccountInvitation {
+  id                     String         @id @default(cuid())
+  userId                 String
+  tokenHash              String         @unique
+  createdAt              DateTime       @default(now())
+  expiresAt              DateTime
+  acceptedAt             DateTime?
+  invalidatedAt          DateTime?
+  invitedByUserId        String?
+  invitationType         InvitationType
+  recipientEmailSnapshot String
+  deliveryStatus         DeliveryStatus @default(PENDING)
+  deliveredAt            DateTime?
+  deliveryFailedAt       DateTime?
+  user                   User           @relation("AccountInvitationRecipient", fields: [userId], references: [id], onDelete: Cascade)
+  invitedByUser          User?          @relation("AccountInvitationInviter", fields: [invitedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([acceptedAt])
+  @@index([invalidatedAt])
+  @@index([deliveryStatus])
+  @@index([invitedByUserId])
+  @@index([userId, invitationType, acceptedAt, invalidatedAt])
 }
 
 model Enrollment {

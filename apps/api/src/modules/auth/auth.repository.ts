@@ -1,7 +1,11 @@
+import { randomBytes } from "node:crypto";
 import bcrypt from "bcryptjs";
 import {
+  DeliveryStatus as PrismaDeliveryStatus,
+  InvitationType as PrismaInvitationType,
   UserRole as PrismaUserRole,
   UserStatus as PrismaUserStatus,
+  type AccountInvitation as PrismaAccountInvitation,
   type AuthSession as PrismaAuthSession,
   type PasswordResetToken as PrismaPasswordResetToken,
   type Prisma,
@@ -13,13 +17,22 @@ import { getPrismaClient } from "../../database/prisma";
 import { getRolePermissions } from "../../auth/roles";
 import type { UserRole, UserStatus } from "../../auth/types";
 import type {
+  AcceptAccountInvitationPersistenceInput,
+  AcceptAccountInvitationResult,
   AdminResetPasswordPersistenceInput,
+  CreateAccountInvitationInput,
+  EnrollmentInvitationProvisionInput,
+  EnrollmentInvitationProvisionResult,
+  InvitedEnrollmentUserInput,
+  InvitedEnrollmentUserResult,
   AuthUser,
   ChangePasswordPersistenceInput,
   ChangePasswordPersistenceResult,
   CreateAuthSessionInput,
   InvalidatePasswordResetTokenInput,
   ListAuthSessionsInput,
+  MarkAccountInvitationDeliveredInput,
+  MarkAccountInvitationFailedInput,
   PasswordResetPersistenceInput,
   PasswordResetPersistenceResult,
   PasswordResetRequestPersistenceInput,
@@ -27,6 +40,7 @@ import type {
   RevokeAuthSessionInput,
   RevokeOtherSessionsForUserInput,
   RevokeSessionForUserInput,
+  StoredAccountInvitation,
   StoredAuthSession,
   StoredPasswordResetToken,
   StoredAuthUser,
@@ -46,10 +60,15 @@ export interface AuthRepository {
   revokeSessionForUser(input: RevokeSessionForUserInput): Promise<"revoked" | "already_revoked" | "not_found">;
   revokeOtherSessionsForUser(input: RevokeOtherSessionsForUserInput): Promise<number>;
   provisionStudentAccess(input: StudentAccessProvisionInput): Promise<StudentAccessProvisionResult>;
+  prepareInvitedEnrollmentUser(input: InvitedEnrollmentUserInput): Promise<InvitedEnrollmentUserResult>;
   changePassword(input: ChangePasswordPersistenceInput): Promise<ChangePasswordPersistenceResult | null>;
   resetPasswordByAdmin(input: AdminResetPasswordPersistenceInput): Promise<StoredAuthUser | null>;
   replacePasswordResetToken(input: PasswordResetRequestPersistenceInput): Promise<void>;
+  replaceAccountInvitation(input: CreateAccountInvitationInput): Promise<StoredAccountInvitation>;
+  markAccountInvitationDelivered(input: MarkAccountInvitationDeliveredInput): Promise<boolean>;
+  markAccountInvitationFailed(input: MarkAccountInvitationFailedInput): Promise<boolean>;
   invalidatePasswordResetToken(input: InvalidatePasswordResetTokenInput): Promise<boolean>;
+  acceptAccountInvitation(input: AcceptAccountInvitationPersistenceInput): Promise<AcceptAccountInvitationResult>;
   resetPasswordWithRecoveryToken(
     input: PasswordResetPersistenceInput,
   ): Promise<PasswordResetPersistenceResult>;
@@ -57,7 +76,7 @@ export interface AuthRepository {
 
 type AuthPersistenceClient = Pick<
   Prisma.TransactionClient,
-  "user" | "auditLog" | "authSession" | "passwordResetToken"
+  "user" | "auditLog" | "authSession" | "passwordResetToken" | "accountInvitation"
 >;
 
 const prismaRoleToRole: Record<PrismaUserRole, UserRole> = {
@@ -74,6 +93,39 @@ const prismaStatusToStatus: Record<PrismaUserStatus, UserStatus> = {
   REJECTED: "rejected",
 };
 
+const invitationTypeToPrisma: Record<StoredAccountInvitation["invitationType"], PrismaInvitationType> = {
+  enrollment_approval: PrismaInvitationType.ENROLLMENT_APPROVAL,
+  admin_reinvite: PrismaInvitationType.ADMIN_REINVITE,
+};
+
+const prismaInvitationTypeToInvitationType: Record<
+  PrismaInvitationType,
+  StoredAccountInvitation["invitationType"]
+> = {
+  ENROLLMENT_APPROVAL: "enrollment_approval",
+  ADMIN_REINVITE: "admin_reinvite",
+};
+
+const prismaDeliveryStatusToDeliveryStatus: Record<
+  PrismaDeliveryStatus,
+  StoredAccountInvitation["deliveryStatus"]
+> = {
+  PENDING: "pending",
+  SENT: "sent",
+  FAILED: "failed",
+  NOT_CONFIGURED: "not_configured",
+};
+
+const deliveryStatusToPrisma: Record<
+  StoredAccountInvitation["deliveryStatus"],
+  PrismaDeliveryStatus
+> = {
+  pending: PrismaDeliveryStatus.PENDING,
+  sent: PrismaDeliveryStatus.SENT,
+  failed: PrismaDeliveryStatus.FAILED,
+  not_configured: PrismaDeliveryStatus.NOT_CONFIGURED,
+};
+
 const mapPrismaUser = (user: PrismaUser): StoredAuthUser => {
   return {
     id: user.id,
@@ -86,6 +138,7 @@ const mapPrismaUser = (user: PrismaUser): StoredAuthUser => {
     groupName: user.groupName,
     groupSlug: user.groupSlug,
     enrollmentId: user.enrollmentId,
+    accountActivatedAt: user.accountActivatedAt ? user.accountActivatedAt.toISOString() : null,
     mustChangePassword: user.mustChangePassword ?? false,
     temporaryPasswordGeneratedAt: user.temporaryPasswordGeneratedAt
       ? user.temporaryPasswordGeneratedAt.toISOString()
@@ -117,6 +170,24 @@ const mapPrismaPasswordResetToken = (token: PrismaPasswordResetToken): StoredPas
     usedAt: token.usedAt ? token.usedAt.toISOString() : null,
     invalidatedAt: token.invalidatedAt ? token.invalidatedAt.toISOString() : null,
     requestedIpHash: token.requestedIpHash ?? null,
+  };
+};
+
+const mapPrismaAccountInvitation = (invitation: PrismaAccountInvitation): StoredAccountInvitation => {
+  return {
+    id: invitation.id,
+    userId: invitation.userId,
+    tokenHash: invitation.tokenHash,
+    createdAt: invitation.createdAt.toISOString(),
+    expiresAt: invitation.expiresAt.toISOString(),
+    acceptedAt: invitation.acceptedAt ? invitation.acceptedAt.toISOString() : null,
+    invalidatedAt: invitation.invalidatedAt ? invitation.invalidatedAt.toISOString() : null,
+    invitedByUserId: invitation.invitedByUserId ?? null,
+    invitationType: prismaInvitationTypeToInvitationType[invitation.invitationType],
+    recipientEmailSnapshot: invitation.recipientEmailSnapshot,
+    deliveryStatus: prismaDeliveryStatusToDeliveryStatus[invitation.deliveryStatus],
+    deliveredAt: invitation.deliveredAt ? invitation.deliveredAt.toISOString() : null,
+    deliveryFailedAt: invitation.deliveryFailedAt ? invitation.deliveryFailedAt.toISOString() : null,
   };
 };
 
@@ -248,6 +319,218 @@ export const provisionStudentAccessWithPrisma = async (
   };
 };
 
+export const prepareInvitedEnrollmentUserWithPrisma = async (
+  transaction: AuthPersistenceClient,
+  input: InvitedEnrollmentUserInput,
+): Promise<InvitedEnrollmentUserResult> => {
+  const normalizedEmail = input.email.trim().toLowerCase();
+  const existingUser = await transaction.user.findUnique({
+    where: {
+      email: normalizedEmail,
+    },
+  });
+
+  const roleToPersist =
+    existingUser?.role === PrismaUserRole.ADMIN || existingUser?.role === PrismaUserRole.TEACHER
+      ? existingUser.role
+      : PrismaUserRole.STUDENT;
+
+  const basePayload = {
+    fullName: input.fullName.trim(),
+    email: normalizedEmail,
+    whatsapp: input.whatsapp.trim(),
+    role: roleToPersist,
+    status: PrismaUserStatus.ACTIVE,
+    groupName: input.groupName,
+    groupSlug: input.groupSlug,
+    enrollmentId: input.enrollmentId,
+    adminNote: "Acesso local preparado para ativação por convite.",
+  };
+
+  if (existingUser) {
+    const updatedUser = await transaction.user.update({
+      where: { id: existingUser.id },
+      data: {
+        ...basePayload,
+        ...(input.passwordHash
+          ? {
+              passwordHash: input.passwordHash,
+              mustChangePassword: false,
+              accountActivatedAt: null,
+              temporaryPasswordGeneratedAt: null,
+            }
+          : {}),
+      },
+    });
+
+    await transaction.auditLog.create({
+      data: {
+        actorName: input.actorName,
+        actorRole: toPrismaUserRole(input.actorRole),
+        action: "Acesso preparado para convite",
+        entity: `User ${updatedUser.id}`,
+        note: "Cadastro associado a convite de ativação sem expor credencial temporária.",
+      },
+    });
+
+    return {
+      user: buildAuthUser(mapPrismaUser(updatedUser)),
+      action: existingUser.status === PrismaUserStatus.ACTIVE ? "updated" : "activated",
+    };
+  }
+
+  const createdUser = await transaction.user.create({
+    data: {
+      ...basePayload,
+      passwordHash: input.passwordHash ?? createPasswordHash(randomBytes(32).toString("base64url")),
+      accountActivatedAt: null,
+      mustChangePassword: false,
+      temporaryPasswordGeneratedAt: null,
+    },
+  });
+
+  await transaction.auditLog.create({
+    data: {
+      actorName: input.actorName,
+      actorRole: toPrismaUserRole(input.actorRole),
+      action: "Acesso preparado para convite",
+      entity: `User ${createdUser.id}`,
+      note: "Novo cadastro criado com senha ainda não definida pelo participante.",
+    },
+  });
+
+  return {
+    user: buildAuthUser(mapPrismaUser(createdUser)),
+    action: "created",
+  };
+};
+
+export const provisionEnrollmentInvitationWithPrisma = async (
+  transaction: AuthPersistenceClient,
+  input: EnrollmentInvitationProvisionInput,
+): Promise<EnrollmentInvitationProvisionResult> => {
+  const normalizedEmail = input.email.trim().toLowerCase();
+  const existingUser = await transaction.user.findUnique({
+    where: {
+      email: normalizedEmail,
+    },
+  });
+  const roleToPersist =
+    existingUser?.role === PrismaUserRole.ADMIN || existingUser?.role === PrismaUserRole.TEACHER
+      ? existingUser.role
+      : PrismaUserRole.STUDENT;
+  const basePayload = {
+    fullName: input.fullName.trim(),
+    email: normalizedEmail,
+    whatsapp: input.whatsapp.trim(),
+    role: roleToPersist,
+    status: PrismaUserStatus.ACTIVE,
+    groupName: input.groupName,
+    groupSlug: input.groupSlug,
+    enrollmentId: input.enrollmentId,
+    adminNote: "Acesso local preparado para ativação por convite.",
+  };
+
+  let action: EnrollmentInvitationProvisionResult["action"] = "created";
+  let persistedUser: PrismaUser;
+
+  if (existingUser) {
+    action = existingUser.status === PrismaUserStatus.ACTIVE ? "updated" : "activated";
+    persistedUser = await transaction.user.update({
+      where: { id: existingUser.id },
+      data: {
+        ...basePayload,
+      },
+    });
+  } else {
+    persistedUser = await transaction.user.create({
+      data: {
+        ...basePayload,
+        passwordHash: input.placeholderPasswordHash,
+        accountActivatedAt: null,
+        mustChangePassword: false,
+        temporaryPasswordGeneratedAt: null,
+      },
+    });
+  }
+
+  await transaction.auditLog.create({
+    data: {
+      actorName: input.actorName,
+      actorRole: toPrismaUserRole(input.actorRole),
+      action: "Acesso preparado para convite",
+      entity: `User ${persistedUser.id}`,
+      note:
+        action === "created"
+          ? "Novo cadastro criado com senha ainda não definida pelo participante."
+          : "Cadastro associado a convite de ativação sem expor credencial temporária.",
+    },
+  });
+
+  const invitation = await replaceAccountInvitationWithPrisma(transaction, {
+    userId: persistedUser.id,
+    tokenHash: input.tokenHash,
+    expiresAt: input.expiresAt,
+    invitedByUserId: input.invitedByUserId ?? null,
+    invitationType: "enrollment_approval",
+    recipientEmailSnapshot: normalizedEmail,
+    actorName: input.actorName,
+    actorRole: input.actorRole,
+  });
+
+  return {
+    user: buildAuthUser(mapPrismaUser(persistedUser)),
+    action,
+    invitation,
+  };
+};
+
+const replaceAccountInvitationWithPrisma = async (
+  transaction: AuthPersistenceClient,
+  input: CreateAccountInvitationInput,
+) => {
+  const now = new Date();
+
+  await transaction.accountInvitation.updateMany({
+    where: {
+      userId: input.userId,
+      invitationType: invitationTypeToPrisma[input.invitationType],
+      acceptedAt: null,
+      invalidatedAt: null,
+      expiresAt: {
+        gt: now,
+      },
+    },
+    data: {
+      invalidatedAt: now,
+    },
+  });
+
+  const invitation = await transaction.accountInvitation.create({
+    data: {
+      userId: input.userId,
+      tokenHash: input.tokenHash,
+      expiresAt: new Date(input.expiresAt),
+      invitedByUserId: input.invitedByUserId ?? null,
+      invitationType: invitationTypeToPrisma[input.invitationType],
+      recipientEmailSnapshot: input.recipientEmailSnapshot,
+      deliveryStatus: PrismaDeliveryStatus.PENDING,
+    },
+  });
+
+  await transaction.auditLog.create({
+    data: {
+      actorName: input.actorName,
+      actorRole: toPrismaUserRole(input.actorRole),
+      action: "Convite de acesso criado",
+      entity: `User ${input.userId}`,
+      note: "Novo convite de ativação registrado no ambiente local.",
+    },
+  });
+
+  return mapPrismaAccountInvitation(invitation);
+};
+
 const cloneStoredUser = (user: StoredAuthUser): StoredAuthUser => ({
   ...user,
 });
@@ -260,9 +543,14 @@ const cloneStoredPasswordResetToken = (token: StoredPasswordResetToken): StoredP
   ...token,
 });
 
+const cloneStoredAccountInvitation = (invitation: StoredAccountInvitation): StoredAccountInvitation => ({
+  ...invitation,
+});
+
 let memoryAuthUsers: StoredAuthUser[] = [];
 let memoryAuthSessions: StoredAuthSession[] = [];
 let memoryPasswordResetTokens: StoredPasswordResetToken[] = [];
+let memoryAccountInvitations: StoredAccountInvitation[] = [];
 type MemoryAuthAuditEntry = {
   actorName: string;
   actorRole: UserRole;
@@ -280,6 +568,7 @@ const demoUsers: StoredAuthUser[] = [
     passwordHash: createPasswordHash("AdminDemo@123"),
     role: "admin",
     status: "active",
+    accountActivatedAt: "2026-07-12T09:00:00.000Z",
     mustChangePassword: false,
     passwordChangedAt: null,
   },
@@ -290,6 +579,7 @@ const demoUsers: StoredAuthUser[] = [
     passwordHash: createPasswordHash("ProfessorDemo@123"),
     role: "teacher",
     status: "active",
+    accountActivatedAt: "2026-07-12T09:00:00.000Z",
     mustChangePassword: false,
     passwordChangedAt: null,
   },
@@ -300,6 +590,7 @@ const demoUsers: StoredAuthUser[] = [
     passwordHash: createPasswordHash("AlunoDemo@123"),
     role: "student",
     status: "active",
+    accountActivatedAt: "2026-07-12T09:00:00.000Z",
     mustChangePassword: false,
     passwordChangedAt: null,
   },
@@ -310,6 +601,7 @@ const demoUsers: StoredAuthUser[] = [
     passwordHash: createPasswordHash("AlunoInativo@123"),
     role: "student",
     status: "inactive",
+    accountActivatedAt: "2026-07-12T09:00:00.000Z",
     mustChangePassword: false,
     passwordChangedAt: null,
   },
@@ -331,6 +623,195 @@ const revokeActiveSessionsInMemory = (userId: string, revokedAt: string, exceptS
 };
 
 export const toAuthUser = buildAuthUser;
+
+const updateExistingEnrollmentUser = (
+  existingUser: StoredAuthUser,
+  input: InvitedEnrollmentUserInput,
+) => {
+  existingUser.fullName = input.fullName.trim();
+  existingUser.whatsapp = input.whatsapp.trim();
+  existingUser.status = "active";
+  existingUser.groupName = input.groupName;
+  existingUser.groupSlug = input.groupSlug;
+  existingUser.enrollmentId = input.enrollmentId;
+  existingUser.adminNote = "Acesso local preparado para ativação por convite.";
+
+  if (existingUser.role !== "admin" && existingUser.role !== "teacher") {
+    existingUser.role = "student";
+  }
+
+  if (input.passwordHash) {
+    existingUser.passwordHash = input.passwordHash;
+    existingUser.accountActivatedAt = null;
+    existingUser.mustChangePassword = false;
+    existingUser.temporaryPasswordGeneratedAt = null;
+  }
+};
+
+const prepareInvitedEnrollmentUserInMemory = async (
+  input: InvitedEnrollmentUserInput,
+): Promise<InvitedEnrollmentUserResult> => {
+  const normalizedEmail = input.email.trim().toLowerCase();
+  const existingUser = memoryAuthUsers.find((user) => user.email === normalizedEmail);
+  const previousStatus = existingUser?.status;
+
+  if (existingUser) {
+    updateExistingEnrollmentUser(existingUser, input);
+
+    memoryAuthAuditLogs.unshift({
+      actorName: input.actorName,
+      actorRole: input.actorRole,
+      action: "Acesso preparado para convite",
+      entity: `User ${existingUser.id}`,
+      note: "Cadastro associado a convite de ativação sem expor credencial temporária.",
+    });
+
+    return {
+      user: buildAuthUser(existingUser),
+      action: previousStatus === "active" ? "updated" : "activated",
+    };
+  }
+
+  const createdUser: StoredAuthUser = {
+    id: `user-student-${Date.now()}`,
+    fullName: input.fullName.trim(),
+    email: normalizedEmail,
+    passwordHash: input.passwordHash ?? createPasswordHash(randomBytes(32).toString("base64url")),
+    whatsapp: input.whatsapp.trim(),
+    role: "student",
+    status: "active",
+    groupName: input.groupName,
+    groupSlug: input.groupSlug,
+    enrollmentId: input.enrollmentId,
+    accountActivatedAt: null,
+    mustChangePassword: false,
+    temporaryPasswordGeneratedAt: null,
+    passwordChangedAt: null,
+    adminNote: "Acesso local preparado para ativação por convite.",
+  };
+
+  memoryAuthUsers.unshift(createdUser);
+  memoryAuthAuditLogs.unshift({
+    actorName: input.actorName,
+    actorRole: input.actorRole,
+    action: "Acesso preparado para convite",
+    entity: `User ${createdUser.id}`,
+    note: "Novo cadastro criado com senha ainda não definida pelo participante.",
+  });
+
+  return {
+    user: buildAuthUser(createdUser),
+    action: "created",
+  };
+};
+
+export const provisionEnrollmentInvitationInMemory = async (
+  input: EnrollmentInvitationProvisionInput,
+): Promise<EnrollmentInvitationProvisionResult> => {
+  const normalizedEmail = input.email.trim().toLowerCase();
+  const existingUser = memoryAuthUsers.find((user) => user.email === normalizedEmail);
+  const now = new Date().toISOString();
+
+  const nextUsers = memoryAuthUsers.map(cloneStoredUser);
+  const nextInvitations = memoryAccountInvitations.map(cloneStoredAccountInvitation);
+  const nextAuditLogs = memoryAuthAuditLogs.map((entry) => ({ ...entry }));
+
+  let action: EnrollmentInvitationProvisionResult["action"] = "created";
+  let targetUser: StoredAuthUser;
+
+  if (existingUser) {
+    targetUser = nextUsers.find((user) => user.id === existingUser.id)!;
+    action = existingUser.status === "active" ? "updated" : "activated";
+    targetUser.fullName = input.fullName.trim();
+    targetUser.whatsapp = input.whatsapp.trim();
+    targetUser.status = "active";
+    targetUser.groupName = input.groupName;
+    targetUser.groupSlug = input.groupSlug;
+    targetUser.enrollmentId = input.enrollmentId;
+    targetUser.adminNote = "Acesso local preparado para ativação por convite.";
+
+    if (targetUser.role !== "admin" && targetUser.role !== "teacher") {
+      targetUser.role = "student";
+    }
+  } else {
+    targetUser = {
+      id: `user-student-${Date.now()}`,
+      fullName: input.fullName.trim(),
+      email: normalizedEmail,
+      passwordHash: input.placeholderPasswordHash,
+      whatsapp: input.whatsapp.trim(),
+      role: "student",
+      status: "active",
+      groupName: input.groupName,
+      groupSlug: input.groupSlug,
+      enrollmentId: input.enrollmentId,
+      accountActivatedAt: null,
+      mustChangePassword: false,
+      temporaryPasswordGeneratedAt: null,
+      passwordChangedAt: null,
+      adminNote: "Acesso local preparado para ativação por convite.",
+    };
+    nextUsers.unshift(targetUser);
+  }
+
+  nextAuditLogs.unshift({
+    actorName: input.actorName,
+    actorRole: input.actorRole,
+    action: "Acesso preparado para convite",
+    entity: `User ${targetUser.id}`,
+    note:
+      action === "created"
+        ? "Novo cadastro criado com senha ainda não definida pelo participante."
+        : "Cadastro associado a convite de ativação sem expor credencial temporária.",
+  });
+
+  for (const invitation of nextInvitations) {
+    if (
+      invitation.userId === targetUser.id &&
+      invitation.invitationType === "enrollment_approval" &&
+      !invitation.acceptedAt &&
+      !invitation.invalidatedAt &&
+      new Date(invitation.expiresAt).getTime() > Date.now()
+    ) {
+      invitation.invalidatedAt = now;
+    }
+  }
+
+  const createdInvitation: StoredAccountInvitation = {
+    id: `account-invitation-${Date.now()}`,
+    userId: targetUser.id,
+    tokenHash: input.tokenHash,
+    createdAt: now,
+    expiresAt: input.expiresAt,
+    acceptedAt: null,
+    invalidatedAt: null,
+    invitedByUserId: input.invitedByUserId ?? null,
+    invitationType: "enrollment_approval",
+    recipientEmailSnapshot: normalizedEmail,
+    deliveryStatus: "pending",
+    deliveredAt: null,
+    deliveryFailedAt: null,
+  };
+
+  nextInvitations.unshift(createdInvitation);
+  nextAuditLogs.unshift({
+    actorName: input.actorName,
+    actorRole: input.actorRole,
+    action: "Convite de acesso criado",
+    entity: `User ${targetUser.id}`,
+    note: "Novo convite de ativação registrado no ambiente local.",
+  });
+
+  memoryAuthUsers = nextUsers;
+  memoryAccountInvitations = nextInvitations;
+  memoryAuthAuditLogs = nextAuditLogs;
+
+  return {
+    user: buildAuthUser(targetUser),
+    action,
+    invitation: cloneStoredAccountInvitation(createdInvitation),
+  };
+};
 
 export const createMemoryAuthRepository = (
   seedUsers = demoUsers.map(cloneStoredUser),
@@ -517,6 +998,9 @@ export const createMemoryAuthRepository = (
         mustChangePassword: input.mustChangePassword,
       };
     },
+    async prepareInvitedEnrollmentUser(input) {
+      return prepareInvitedEnrollmentUserInMemory(input);
+    },
     async changePassword(input) {
       const existingUser = memoryAuthUsers.find((user) => user.id === input.userId);
 
@@ -525,6 +1009,7 @@ export const createMemoryAuthRepository = (
       }
 
       existingUser.passwordHash = input.passwordHash;
+      existingUser.accountActivatedAt = input.passwordChangedAt;
       existingUser.mustChangePassword = false;
       existingUser.passwordChangedAt = input.passwordChangedAt;
       existingUser.temporaryPasswordGeneratedAt = null;
@@ -616,6 +1101,114 @@ export const createMemoryAuthRepository = (
         note: "Um novo pedido de recuperação de senha foi registrado no ambiente local.",
       });
     },
+    async replaceAccountInvitation(input) {
+      const now = new Date().toISOString();
+
+      memoryAccountInvitations = memoryAccountInvitations.map((invitation) => {
+        if (
+          invitation.userId !== input.userId ||
+          invitation.invitationType !== input.invitationType ||
+          invitation.acceptedAt ||
+          invitation.invalidatedAt ||
+          new Date(invitation.expiresAt).getTime() <= Date.now()
+        ) {
+          return invitation;
+        }
+
+        return {
+          ...invitation,
+          invalidatedAt: now,
+        };
+      });
+
+      const createdInvitation: StoredAccountInvitation = {
+        id: `account-invitation-${Date.now()}`,
+        userId: input.userId,
+        tokenHash: input.tokenHash,
+        createdAt: now,
+        expiresAt: input.expiresAt,
+        acceptedAt: null,
+        invalidatedAt: null,
+        invitedByUserId: input.invitedByUserId ?? null,
+        invitationType: input.invitationType,
+        recipientEmailSnapshot: input.recipientEmailSnapshot,
+        deliveryStatus: "pending",
+        deliveredAt: null,
+        deliveryFailedAt: null,
+      };
+
+      memoryAccountInvitations.unshift(createdInvitation);
+      memoryAuthAuditLogs.unshift({
+        actorName: input.actorName,
+        actorRole: input.actorRole,
+        action: "Convite de acesso criado",
+        entity: `User ${input.userId}`,
+        note: "Novo convite de ativação registrado no ambiente local.",
+      });
+
+      return cloneStoredAccountInvitation(createdInvitation);
+    },
+    async markAccountInvitationDelivered(input) {
+      const invitationIndex = memoryAccountInvitations.findIndex(
+        (item) =>
+          item.id === input.invitationId &&
+          item.deliveryStatus === "pending" &&
+          !item.acceptedAt &&
+          !item.invalidatedAt,
+      );
+
+      if (invitationIndex === -1) {
+        return false;
+      }
+
+      const currentInvitation = memoryAccountInvitations[invitationIndex];
+      memoryAccountInvitations[invitationIndex] = {
+        ...currentInvitation,
+        deliveryStatus: "sent",
+        deliveredAt: input.deliveredAt,
+      };
+
+      memoryAuthAuditLogs.unshift({
+        actorName: input.actorName,
+        actorRole: input.actorRole,
+        action: "Convite de acesso enviado",
+        entity: `User ${currentInvitation.userId}`,
+        note: input.note,
+      });
+
+      return true;
+    },
+    async markAccountInvitationFailed(input) {
+      const invitationIndex = memoryAccountInvitations.findIndex(
+        (item) =>
+          item.id === input.invitationId &&
+          item.deliveryStatus === "pending" &&
+          !item.acceptedAt &&
+          !item.invalidatedAt,
+      );
+
+      if (invitationIndex === -1) {
+        return false;
+      }
+
+      const currentInvitation = memoryAccountInvitations[invitationIndex];
+      memoryAccountInvitations[invitationIndex] = {
+        ...currentInvitation,
+        deliveryStatus: "failed",
+        deliveryFailedAt: input.failedAt,
+        invalidatedAt: input.invalidatedAt,
+      };
+
+      memoryAuthAuditLogs.unshift({
+        actorName: input.actorName,
+        actorRole: input.actorRole,
+        action: "Convite de acesso invalidado",
+        entity: `User ${currentInvitation.userId}`,
+        note: input.note,
+      });
+
+      return true;
+    },
     async invalidatePasswordResetToken(input) {
       const tokenIndex = memoryPasswordResetTokens.findIndex(
         (item) => item.tokenHash === input.tokenHash && !item.usedAt && !item.invalidatedAt,
@@ -641,6 +1234,73 @@ export const createMemoryAuthRepository = (
       });
 
       return true;
+    },
+    async acceptAccountInvitation(input) {
+      const now = new Date();
+      const activeInvitationIndex = memoryAccountInvitations.findIndex(
+        (invitation) =>
+          invitation.tokenHash === input.tokenHash &&
+          !invitation.acceptedAt &&
+          !invitation.invalidatedAt &&
+          new Date(invitation.expiresAt).getTime() > now.getTime(),
+      );
+
+      if (activeInvitationIndex === -1) {
+        return { status: "invalid_invitation" };
+      }
+
+      const activeInvitation = memoryAccountInvitations[activeInvitationIndex];
+      const existingUser = memoryAuthUsers.find((user) => user.id === activeInvitation.userId);
+
+      if (!existingUser) {
+        return { status: "invalid_invitation" };
+      }
+
+      existingUser.passwordHash = input.passwordHash;
+      existingUser.accountActivatedAt = input.passwordChangedAt;
+      existingUser.mustChangePassword = false;
+      existingUser.passwordChangedAt = input.passwordChangedAt;
+      existingUser.temporaryPasswordGeneratedAt = null;
+
+      memoryAccountInvitations = memoryAccountInvitations.map((invitation) => {
+        if (invitation.id === activeInvitation.id) {
+          return {
+            ...invitation,
+            acceptedAt: input.passwordChangedAt,
+            deliveryStatus:
+              invitation.deliveryStatus === "pending" ? "sent" : invitation.deliveryStatus,
+          };
+        }
+
+        if (
+          invitation.userId === activeInvitation.userId &&
+          !invitation.acceptedAt &&
+          !invitation.invalidatedAt &&
+          new Date(invitation.expiresAt).getTime() > now.getTime()
+        ) {
+          return {
+            ...invitation,
+            invalidatedAt: input.passwordChangedAt,
+          };
+        }
+
+        return invitation;
+      });
+
+      revokeActiveSessionsInMemory(existingUser.id, input.passwordChangedAt);
+
+      memoryAuthAuditLogs.unshift({
+        actorName: input.actorName,
+        actorRole: input.actorRole,
+        action: "Convite de acesso aceito",
+        entity: `User ${existingUser.id}`,
+        note: "Conta ativada com nova senha definida pelo participante.",
+      });
+
+      return {
+        status: "updated",
+        user: cloneStoredUser(existingUser),
+      };
     },
     async resetPasswordWithRecoveryToken(input) {
       const now = new Date();
@@ -925,6 +1585,11 @@ export const createPrismaAuthRepository = (): AuthRepository => {
         provisionStudentAccessWithPrisma(transaction, input),
       );
     },
+    async prepareInvitedEnrollmentUser(input) {
+      return prisma.$transaction((transaction) =>
+        prepareInvitedEnrollmentUserWithPrisma(transaction, input),
+      );
+    },
     async changePassword(input) {
       const changedUser = await prisma.$transaction(async (transaction) => {
         const existingUser = await transaction.user.findUnique({
@@ -1068,6 +1733,109 @@ export const createPrismaAuthRepository = (): AuthRepository => {
         });
       });
     },
+    async replaceAccountInvitation(input) {
+      return prisma.$transaction((transaction) =>
+        replaceAccountInvitationWithPrisma(transaction, input),
+      );
+    },
+    async markAccountInvitationDelivered(input) {
+      const deliveredAt = new Date(input.deliveredAt);
+
+      return prisma.$transaction(async (transaction) => {
+        const result = await transaction.accountInvitation.updateMany({
+          where: {
+            id: input.invitationId,
+            deliveryStatus: PrismaDeliveryStatus.PENDING,
+            acceptedAt: null,
+            invalidatedAt: null,
+          },
+          data: {
+            deliveryStatus: PrismaDeliveryStatus.SENT,
+            deliveredAt,
+          },
+        });
+
+        if (result.count !== 1) {
+          return false;
+        }
+
+        const invitation = await transaction.accountInvitation.findUnique({
+          where: {
+            id: input.invitationId,
+          },
+          select: {
+            userId: true,
+          },
+        });
+
+        if (!invitation) {
+          return false;
+        }
+
+        await transaction.auditLog.create({
+          data: {
+            actorName: input.actorName,
+            actorRole: toPrismaUserRole(input.actorRole),
+            action: "Convite de acesso enviado",
+            entity: `User ${invitation.userId}`,
+            note: input.note,
+          },
+        });
+
+        return true;
+      });
+    },
+    async markAccountInvitationFailed(input) {
+      const failedAt = new Date(input.failedAt);
+      const invalidatedAt = new Date(input.invalidatedAt);
+
+      return prisma.$transaction(async (transaction) => {
+        const invitation = await transaction.accountInvitation.findUnique({
+          where: {
+            id: input.invitationId,
+          },
+          select: {
+            userId: true,
+            acceptedAt: true,
+            invalidatedAt: true,
+          },
+        });
+
+        if (!invitation || invitation.acceptedAt || invitation.invalidatedAt) {
+          return false;
+        }
+
+        const result = await transaction.accountInvitation.updateMany({
+          where: {
+            id: input.invitationId,
+            deliveryStatus: PrismaDeliveryStatus.PENDING,
+            acceptedAt: null,
+            invalidatedAt: null,
+          },
+          data: {
+            deliveryStatus: PrismaDeliveryStatus.FAILED,
+            deliveryFailedAt: failedAt,
+            invalidatedAt,
+          },
+        });
+
+        if (result.count !== 1) {
+          return false;
+        }
+
+        await transaction.auditLog.create({
+          data: {
+            actorName: input.actorName,
+            actorRole: toPrismaUserRole(input.actorRole),
+            action: "Convite de acesso invalidado",
+            entity: `User ${invitation.userId}`,
+            note: input.note,
+          },
+        });
+
+        return true;
+      });
+    },
     async invalidatePasswordResetToken(input) {
       const invalidatedAt = new Date(input.invalidatedAt);
 
@@ -1113,6 +1881,91 @@ export const createPrismaAuthRepository = (): AuthRepository => {
         });
 
         return true;
+      });
+    },
+    async acceptAccountInvitation(input) {
+      return prisma.$transaction(async (transaction) => {
+        const now = new Date();
+        const invitation = await transaction.accountInvitation.findUnique({
+          where: {
+            tokenHash: input.tokenHash,
+          },
+        });
+
+        if (
+          !invitation ||
+          invitation.acceptedAt ||
+          invitation.invalidatedAt ||
+          invitation.expiresAt.getTime() <= now.getTime()
+        ) {
+          return { status: "invalid_invitation" } satisfies AcceptAccountInvitationResult;
+        }
+
+        const acceptedAt = new Date(input.passwordChangedAt);
+        const consumeResult = await transaction.accountInvitation.updateMany({
+          where: {
+            tokenHash: input.tokenHash,
+            acceptedAt: null,
+            invalidatedAt: null,
+            expiresAt: {
+              gt: now,
+            },
+          },
+          data: {
+            acceptedAt,
+          },
+        });
+
+        if (consumeResult.count !== 1) {
+          return { status: "invalid_invitation" } satisfies AcceptAccountInvitationResult;
+        }
+
+        const updatedUser = await transaction.user.update({
+          where: {
+            id: invitation.userId,
+          },
+          data: {
+            passwordHash: input.passwordHash,
+            accountActivatedAt: acceptedAt,
+            mustChangePassword: false,
+            passwordChangedAt: acceptedAt,
+            temporaryPasswordGeneratedAt: null,
+          },
+        });
+
+        await transaction.accountInvitation.updateMany({
+          where: {
+            userId: invitation.userId,
+            id: {
+              not: invitation.id,
+            },
+            acceptedAt: null,
+            invalidatedAt: null,
+            expiresAt: {
+              gt: now,
+            },
+          },
+          data: {
+            invalidatedAt: acceptedAt,
+          },
+        });
+
+        await revokeActiveSessionsWithPrisma(transaction, invitation.userId, acceptedAt);
+
+        await transaction.auditLog.create({
+          data: {
+            actorName: input.actorName,
+            actorRole: toPrismaUserRole(input.actorRole),
+            action: "Convite de acesso aceito",
+            entity: `User ${updatedUser.id}`,
+            note: "Conta ativada com nova senha definida pelo participante.",
+          },
+        });
+
+        return {
+          status: "updated",
+          user: mapPrismaUser(updatedUser),
+        } satisfies AcceptAccountInvitationResult;
       });
     },
     async resetPasswordWithRecoveryToken(input) {
@@ -1222,6 +2075,7 @@ export const resetMemoryAuthRepositoryStore = () => {
   memoryAuthUsers = demoUsers.map(cloneStoredUser);
   memoryAuthSessions = [];
   memoryPasswordResetTokens = [];
+  memoryAccountInvitations = [];
   memoryAuthAuditLogs = [];
 };
 
@@ -1235,6 +2089,10 @@ export const getMemoryAuthSessions = () => {
 
 export const getMemoryPasswordResetTokens = () => {
   return memoryPasswordResetTokens.map(cloneStoredPasswordResetToken);
+};
+
+export const getMemoryAccountInvitations = () => {
+  return memoryAccountInvitations.map(cloneStoredAccountInvitation);
 };
 
 export const createAuthRepository = (): AuthRepository => {

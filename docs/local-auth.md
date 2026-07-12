@@ -122,19 +122,15 @@ No ambiente local:
 Fluxo local:
 
 - o professor ou admin aprova a inscrição
-- o backend cria ou reativa o usuário aluno com senha temporária
-- toda nova senha temporária também atualiza `passwordChangedAt`
-- o login local funciona com essa senha temporária
-- enquanto `mustChangePassword` estiver `true`, o backend libera apenas:
-  - `POST /api/auth/login`
-  - `GET /api/auth/me`
-  - `POST /api/auth/logout`
-  - `PATCH /api/auth/change-password`
-- após a troca de senha:
-  - `mustChangePassword` passa para `false`
+- o backend cria ou reativa o usuário aluno em estado ativo
+- o backend gera um convite de acesso com token protegido por hash e validade de 48 horas
+- o e-mail leva o aluno até `/ativar-conta`, onde ele cria a própria senha
+- após a ativação:
+  - `mustChangePassword` permanece `false` para esse fluxo
   - `passwordChangedAt` é atualizado
-  - o frontend redireciona o aluno para a própria área
-  - o token antigo deixa de ser aceito
+  - o frontend direciona o aluno para o login normal
+  - o token do convite deixa de valer depois do primeiro uso
+- o fluxo com senha temporária continua existindo apenas para reset administrativo e compatibilidade
 
 ## Proteção inicial
 
@@ -152,9 +148,10 @@ Quando `Admin` ou `Professor` aprova uma inscrição no ambiente local:
 - o backend atualiza a inscrição
 - o backend cria ou reativa o acesso local do aluno no PostgreSQL
 - a resposta retorna `enrollment` e `studentAccess`
-- `studentAccess` traz apenas `email`, `temporaryPassword` e `mustChangePassword`
+- `studentAccess` traz apenas `email`, `deliveryStatus`, `expiresAt` e o tipo do convite
 - `passwordHash` nunca retorna
-- o envio das credenciais continua manual no MVP
+- o token do convite nunca retorna
+- o envio da comunicação ao aluno continua manual no MVP
 
 Campos extras do usuário local nesta fase:
 
@@ -174,6 +171,7 @@ Campos extras do usuário local nesta fase:
 ### Ambiente local
 
 - a rota `/login` usa e-mail e senha reais da seed
+- a rota `/ativar-conta` cria a senha inicial a partir do convite enviado por e-mail
 - a rota `/esqueci-minha-senha` inicia a recuperação com resposta pública genérica
 - a rota `/redefinir-senha` consome o token do link temporário sem salvar esse valor no navegador
 - o Mailpit pode ser usado localmente em `http://localhost:8025` para inspecionar o e-mail recebido
@@ -183,7 +181,7 @@ Campos extras do usuário local nesta fase:
 - a rota `/minha-conta/seguranca` permite revisar sessões ativas e encerrar acessos antigos
 - `/aluno`, `/professor` e `/admin` passam a respeitar autenticação local
 - o Meet real continua restrito ao ambiente local autorizado
-- após aprovar um interessado, o painel pode mostrar o acesso criado para cópia manual
+- após aprovar um interessado, o painel pode mostrar o status seguro do convite para acompanhamento manual
 
 ## Limites atuais
 
