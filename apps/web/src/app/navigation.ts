@@ -145,6 +145,12 @@ export const studentSidebarConfig: SidebarConfig = {
       label: "Materiais dos livros",
       description: "Abrir a biblioteca com resumos curtos e arquivos do estudo.",
     },
+    {
+      type: "route",
+      to: "/minha-conta/seguranca",
+      label: "Segurança",
+      description: "Revisar sessões ativas e encerrar acessos antigos.",
+    },
   ],
 };
 
@@ -199,6 +205,12 @@ export const teacherSidebarConfig: SidebarConfig = {
       label: "Materiais dos livros",
       description: "Abrir a biblioteca com a base de apoio dos grupos.",
     },
+    {
+      type: "route",
+      to: "/minha-conta/seguranca",
+      label: "Segurança",
+      description: "Conferir sessões ativas e encerrar acessos antigos.",
+    },
   ],
 };
 
@@ -247,6 +259,12 @@ export const adminSidebarConfig: SidebarConfig = {
       label: "Auditoria",
       description: "Registro demonstrativo de revisões, aprovações e mudanças locais.",
     },
+    {
+      type: "route",
+      to: "/minha-conta/seguranca",
+      label: "Segurança",
+      description: "Acompanhar sessões ativas do próprio perfil administrativo.",
+    },
   ],
 };
 
@@ -290,6 +308,10 @@ export const pageMeta = {
   "/professor": {
     title: "Painel do Professor",
     description: "Planejamento da semana, revisão de conteúdo e publicação consciente.",
+  },
+  "/minha-conta/seguranca": {
+    title: "Segurança da Conta",
+    description: "Sessões ativas, encerramento de acessos antigos e cuidado com o ambiente local.",
   },
   "/admin": {
     title: "Área Administrativa",

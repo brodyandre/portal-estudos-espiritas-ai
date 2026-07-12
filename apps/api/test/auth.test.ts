@@ -1,8 +1,14 @@
 import request from "supertest";
+import jwt from "jsonwebtoken";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { app } from "../src/app";
-import { getMemoryAuthAuditLogs, provisionStudentAccessWithPrisma } from "../src/modules/auth/auth.repository";
+import { env } from "../src/config/env";
+import {
+  getMemoryAuthAuditLogs,
+  getMemoryAuthSessions,
+  provisionStudentAccessWithPrisma,
+} from "../src/modules/auth/auth.repository";
 import { resetAuthStore } from "../src/modules/auth/auth.service";
 import { resetEnrollmentStore } from "../src/modules/enrollments/enrollments.service";
 import { setAuthRateLimitNowProviderForTesting } from "../src/security/auth-rate-limit";
@@ -54,6 +60,22 @@ describe("auth endpoints", () => {
         email: "admin.demo@example.com",
         role: "admin",
         status: "active",
+      }),
+    );
+  });
+
+  it("cria uma sessao autenticada a cada login bem-sucedido", async () => {
+    const response = await loginAs("admin.demo@example.com", "AdminDemo@123");
+    const sessions = getMemoryAuthSessions();
+
+    expect(response.status).toBe(200);
+    expect(sessions).toHaveLength(1);
+    expect(sessions[0]).toEqual(
+      expect.objectContaining({
+        id: expect.any(String),
+        userId: "user-admin-demo",
+        revokedAt: null,
+        expiresAt: expect.any(String),
       }),
     );
   });
@@ -211,6 +233,253 @@ describe("auth endpoints", () => {
         role: "teacher",
       }),
     );
+  });
+
+  it("lista somente as sessoes do usuario autenticado e marca a atual", async () => {
+    const teacherLoginOne = await loginAs("professor.demo@example.com", "ProfessorDemo@123");
+    const teacherLoginTwo = await loginAs("professor.demo@example.com", "ProfessorDemo@123");
+    await loginAs("admin.demo@example.com", "AdminDemo@123");
+
+    const response = await request(app)
+      .get("/api/auth/sessions")
+      .set("Authorization", `Bearer ${teacherLoginTwo.body.data.token as string}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.data).toHaveLength(2);
+    expect(response.body.data[0].isCurrent).toBe(true);
+    expect(response.body.data[0].status).toBe("active");
+    expect(response.body.data[0].device.label).toEqual(expect.any(String));
+    expect(response.body.data.every((item: { device: Record<string, unknown> }) => !("ipHash" in item.device))).toBe(true);
+    expect(response.body.data.every((item: Record<string, unknown>) => !("ipHash" in item))).toBe(true);
+    expect(response.body.data.every((item: Record<string, unknown>) => !("userId" in item))).toBe(true);
+    expect(response.body.data.every((item: Record<string, unknown>) => !("token" in item))).toBe(true);
+    expect(response.body.data.some((item: { id: string }) => item.id === teacherLoginOne.body.data.token)).toBe(false);
+  });
+
+  it("ordena a sessao atual primeiro e depois as ativas mais recentes", async () => {
+    const firstLogin = await loginAs("professor.demo@example.com", "ProfessorDemo@123");
+    const secondLogin = await loginAs("professor.demo@example.com", "ProfessorDemo@123");
+
+    const response = await request(app)
+      .get("/api/auth/sessions")
+      .set("Authorization", `Bearer ${secondLogin.body.data.token as string}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.data[0].isCurrent).toBe(true);
+    expect(response.body.data[1].isCurrent).toBe(false);
+    expect(response.body.data[0].createdAt >= response.body.data[1].createdAt).toBe(true);
+    expect(firstLogin.status).toBe(200);
+  });
+
+  it("revoga outra sessao especifica sem afetar a atual", async () => {
+    const firstLogin = await loginAs("professor.demo@example.com", "ProfessorDemo@123");
+    const secondLogin = await loginAs("professor.demo@example.com", "ProfessorDemo@123");
+
+    const sessionsResponse = await request(app)
+      .get("/api/auth/sessions")
+      .set("Authorization", `Bearer ${secondLogin.body.data.token as string}`);
+    const otherSession = sessionsResponse.body.data.find((item: { isCurrent: boolean }) => !item.isCurrent);
+
+    const revokeResponse = await request(app)
+      .delete(`/api/auth/sessions/${otherSession.id as string}`)
+      .set("Authorization", `Bearer ${secondLogin.body.data.token as string}`);
+
+    expect(revokeResponse.status).toBe(200);
+    expect(revokeResponse.body.data.revoked).toBe(true);
+
+    const revokedTokenResponse = await request(app)
+      .get("/api/auth/me")
+      .set("Authorization", `Bearer ${firstLogin.body.data.token as string}`);
+    const currentTokenResponse = await request(app)
+      .get("/api/auth/me")
+      .set("Authorization", `Bearer ${secondLogin.body.data.token as string}`);
+
+    expect(revokedTokenResponse.status).toBe(401);
+    expect(currentTokenResponse.status).toBe(200);
+  });
+
+  it("bloqueia a revogacao da sessao atual por endpoint especifico", async () => {
+    const loginResponse = await loginAs("professor.demo@example.com", "ProfessorDemo@123");
+    const sessionsResponse = await request(app)
+      .get("/api/auth/sessions")
+      .set("Authorization", `Bearer ${loginResponse.body.data.token as string}`);
+    const currentSession = sessionsResponse.body.data.find((item: { isCurrent: boolean }) => item.isCurrent);
+
+    const response = await request(app)
+      .delete(`/api/auth/sessions/${currentSession.id as string}`)
+      .set("Authorization", `Bearer ${loginResponse.body.data.token as string}`);
+
+    expect(response.status).toBe(400);
+    expect(response.body.error.code).toBe("CURRENT_SESSION_REVOCATION_NOT_ALLOWED");
+  });
+
+  it("retorna 404 generico ao tentar revogar sessao de outro usuario", async () => {
+    const teacherLogin = await loginAs("professor.demo@example.com", "ProfessorDemo@123");
+    const adminLogin = await loginAs("admin.demo@example.com", "AdminDemo@123");
+
+    const sessionsResponse = await request(app)
+      .get("/api/auth/sessions")
+      .set("Authorization", `Bearer ${adminLogin.body.data.token as string}`);
+    const adminSession = sessionsResponse.body.data.find((item: { isCurrent: boolean }) => item.isCurrent);
+
+    const response = await request(app)
+      .delete(`/api/auth/sessions/${adminSession.id as string}`)
+      .set("Authorization", `Bearer ${teacherLogin.body.data.token as string}`);
+
+    expect(response.status).toBe(404);
+    expect(response.body.error.code).toBe("AUTH_SESSION_NOT_FOUND");
+  });
+
+  it("logout-others preserva a sessao atual e revoga as demais", async () => {
+    const firstLogin = await loginAs("professor.demo@example.com", "ProfessorDemo@123");
+    const secondLogin = await loginAs("professor.demo@example.com", "ProfessorDemo@123");
+    const adminLogin = await loginAs("admin.demo@example.com", "AdminDemo@123");
+
+    const response = await request(app)
+      .post("/api/auth/logout-others")
+      .set("Authorization", `Bearer ${secondLogin.body.data.token as string}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.revokedSessions).toBeGreaterThanOrEqual(1);
+
+    const revokedOther = await request(app)
+      .get("/api/auth/me")
+      .set("Authorization", `Bearer ${firstLogin.body.data.token as string}`);
+    const currentStillWorks = await request(app)
+      .get("/api/auth/me")
+      .set("Authorization", `Bearer ${secondLogin.body.data.token as string}`);
+    const otherUserStillWorks = await request(app)
+      .get("/api/auth/me")
+      .set("Authorization", `Bearer ${adminLogin.body.data.token as string}`);
+
+    expect(revokedOther.status).toBe(401);
+    expect(currentStillWorks.status).toBe(200);
+    expect(otherUserStillWorks.status).toBe(200);
+  });
+
+  it("logout revoga apenas a sessao atual", async () => {
+    const firstLogin = await loginAs("professor.demo@example.com", "ProfessorDemo@123");
+    const secondLogin = await loginAs("professor.demo@example.com", "ProfessorDemo@123");
+
+    const logoutResponse = await request(app)
+      .post("/api/auth/logout")
+      .set("Authorization", `Bearer ${firstLogin.body.data.token as string}`);
+
+    expect(logoutResponse.status).toBe(200);
+
+    const revokedCurrent = await request(app)
+      .get("/api/auth/me")
+      .set("Authorization", `Bearer ${firstLogin.body.data.token as string}`);
+    const otherStillActive = await request(app)
+      .get("/api/auth/me")
+      .set("Authorization", `Bearer ${secondLogin.body.data.token as string}`);
+
+    expect(revokedCurrent.status).toBe(401);
+    expect(otherStillActive.status).toBe(200);
+  });
+
+  it("logout-all revoga todas as sessoes do usuario sem afetar outros usuarios", async () => {
+    const teacherLoginOne = await loginAs("professor.demo@example.com", "ProfessorDemo@123");
+    const teacherLoginTwo = await loginAs("professor.demo@example.com", "ProfessorDemo@123");
+    const adminLogin = await loginAs("admin.demo@example.com", "AdminDemo@123");
+
+    const logoutAllResponse = await request(app)
+      .post("/api/auth/logout-all")
+      .set("Authorization", `Bearer ${teacherLoginOne.body.data.token as string}`);
+
+    expect(logoutAllResponse.status).toBe(200);
+    expect(logoutAllResponse.body.data.revokedSessions).toBeGreaterThanOrEqual(2);
+
+    const teacherFirstMe = await request(app)
+      .get("/api/auth/me")
+      .set("Authorization", `Bearer ${teacherLoginOne.body.data.token as string}`);
+    const teacherSecondMe = await request(app)
+      .get("/api/auth/me")
+      .set("Authorization", `Bearer ${teacherLoginTwo.body.data.token as string}`);
+    const adminMe = await request(app)
+      .get("/api/auth/me")
+      .set("Authorization", `Bearer ${adminLogin.body.data.token as string}`);
+
+    expect(teacherFirstMe.status).toBe(401);
+    expect(teacherSecondMe.status).toBe(401);
+    expect(adminMe.status).toBe(200);
+  });
+
+  it("rejeita token com sessao inexistente", async () => {
+    const token = jwt.sign(
+      {
+        sub: "user-admin-demo",
+        email: "admin.demo@example.com",
+        fullName: "Admin Demonstrativo",
+        role: "admin",
+        status: "active",
+        mustChangePassword: false,
+        passwordChangedAt: null,
+      },
+      env.jwtSecret,
+      {
+        algorithm: "HS256",
+        expiresIn: "8h",
+        jwtid: "missing-session-id",
+      },
+    );
+
+    const response = await request(app).get("/api/auth/me").set("Authorization", `Bearer ${token}`);
+
+    expect(response.status).toBe(401);
+    expect(response.body.error.code).toBe("AUTH_REQUIRED");
+  });
+
+  it("rejeita token quando a sessao pertence a outro usuario", async () => {
+    await loginAs("professor.demo@example.com", "ProfessorDemo@123");
+    const sessions = getMemoryAuthSessions();
+    const professorSession = sessions.find((session) => session.userId === "user-professor-demo");
+
+    const forgedToken = jwt.sign(
+      {
+        sub: "user-admin-demo",
+        email: "admin.demo@example.com",
+        fullName: "Admin Demonstrativo",
+        role: "admin",
+        status: "active",
+        mustChangePassword: false,
+        passwordChangedAt: null,
+      },
+      env.jwtSecret,
+      {
+        algorithm: "HS256",
+        expiresIn: "8h",
+        jwtid: professorSession?.id,
+      },
+    );
+
+    const response = await request(app)
+      .get("/api/auth/me")
+      .set("Authorization", `Bearer ${forgedToken}`);
+
+    expect(response.status).toBe(401);
+    expect(response.body.error.code).toBe("AUTH_REQUIRED");
+  });
+
+  it("os audit logs de sessao nao expoem jwt, sessionId ou ipHash", async () => {
+    const firstLogin = await loginAs("professor.demo@example.com", "ProfessorDemo@123");
+    const secondLogin = await loginAs("professor.demo@example.com", "ProfessorDemo@123");
+    const sessionsResponse = await request(app)
+      .get("/api/auth/sessions")
+      .set("Authorization", `Bearer ${secondLogin.body.data.token as string}`);
+    const otherSession = sessionsResponse.body.data.find((item: { isCurrent: boolean }) => !item.isCurrent);
+
+    await request(app)
+      .delete(`/api/auth/sessions/${otherSession.id as string}`)
+      .set("Authorization", `Bearer ${secondLogin.body.data.token as string}`);
+
+    const [latestAuditLog] = getMemoryAuthAuditLogs();
+    const serialized = JSON.stringify(latestAuditLog);
+
+    expect(serialized).not.toContain(firstLogin.body.data.token as string);
+    expect(serialized).not.toContain(secondLogin.body.data.token as string);
+    expect(serialized).not.toContain(otherSession.id as string);
+    expect(serialized).not.toContain("ipHash");
   });
 
   it("bloqueia /me sem token", async () => {
@@ -593,6 +862,11 @@ describe("auth endpoints", () => {
         create: async () => {
           operations.auditCount += 1;
         },
+      },
+      authSession: {
+        updateMany: async () => ({
+          count: 1,
+        }),
       },
     };
 

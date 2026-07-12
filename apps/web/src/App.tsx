@@ -1,11 +1,14 @@
 import { HashRouter, Navigate, Route, Routes } from "react-router-dom";
 
 import { AuthProvider } from "./auth/AuthProvider";
+import { AuthenticatedRoute } from "./components/access/AuthenticatedRoute";
 import { ProtectedRoute } from "./components/access/ProtectedRoute";
+import { AccountLayout } from "./components/layout/AccountLayout";
 import { AdminLayout } from "./components/layout/AdminLayout";
 import { PublicLayout } from "./components/layout/PublicLayout";
 import { StudentLayout } from "./components/layout/StudentLayout";
 import { TeacherLayout } from "./components/layout/TeacherLayout";
+import { AccountSecurityPage } from "./pages/AccountSecurityPage";
 import { AdminPage } from "./pages/AdminPage";
 import { AlunoPage } from "./pages/AlunoPage";
 import { EducationContinuedPage } from "./pages/EducationContinuedPage";
@@ -33,6 +36,12 @@ export const App = () => {
             <Route element={<PromotionPage />} path="/divulgacao" />
             <Route element={<MaterialsPage />} path="/materiais" />
             <Route element={<MaterialsPage />} path="/materiais/:groupSlug" />
+          </Route>
+
+          <Route element={<AccountLayout />}>
+            <Route element={<AuthenticatedRoute />}>
+              <Route element={<AccountSecurityPage />} path="/minha-conta/seguranca" />
+            </Route>
           </Route>
 
           <Route element={<StudentLayout />}>

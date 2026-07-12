@@ -38,6 +38,11 @@ Essas credenciais existem apenas para ambiente local controlado.
 
 - `POST /api/auth/login`
 - `GET /api/auth/me`
+- `GET /api/auth/sessions`
+- `DELETE /api/auth/sessions/:sessionId`
+- `POST /api/auth/logout`
+- `POST /api/auth/logout-others`
+- `POST /api/auth/logout-all`
 - `PATCH /api/auth/change-password`
 
 ## Regras principais
@@ -47,9 +52,20 @@ Essas credenciais existem apenas para ambiente local controlado.
 - usuário inativo não autentica
 - `passwordHash` nunca retorna na resposta
 - o token JWT é assinado com `JWT_SECRET`
+- cada login bem-sucedido cria uma sessão local com `jti`
+- o backend guarda apenas metadados da sessão, sem persistir o JWT completo
 - no primeiro acesso do aluno aprovado, `mustChangePassword` exige troca da senha temporária
 - a nova senha deve ter pelo menos 8 caracteres, com letra maiúscula, letra minúscula e número
 - `passwordChangedAt` representa a última alteração de credencial, incluindo troca de senha e redefinição de senha temporária
+
+## Sessões locais
+
+- `GET /api/auth/sessions` lista apenas as sessões do próprio usuário
+- `DELETE /api/auth/sessions/:sessionId` encerra uma sessão específica que não seja a atual
+- `POST /api/auth/logout` encerra a sessão atual
+- `POST /api/auth/logout-others` encerra todas as demais sessões ativas, preservando a atual
+- `POST /api/auth/logout-all` encerra inclusive a sessão atual
+- a tela `/minha-conta/seguranca` mostra a sessão atual em destaque e evita expor identificadores técnicos na interface
 
 ## Rate limiting local
 
@@ -94,6 +110,11 @@ Fluxo local:
 - enquanto `mustChangePassword` estiver `true`, o backend libera apenas:
   - `POST /api/auth/login`
   - `GET /api/auth/me`
+  - `GET /api/auth/sessions`
+  - `DELETE /api/auth/sessions/:sessionId`
+  - `POST /api/auth/logout`
+  - `POST /api/auth/logout-others`
+  - `POST /api/auth/logout-all`
   - `PATCH /api/auth/change-password`
 - após a troca de senha:
   - `mustChangePassword` passa para `false`
@@ -142,6 +163,7 @@ Campos extras do usuário local nesta fase:
 - se o backend indicar `mustChangePassword`, o frontend redireciona para `/primeiro-acesso`
 - a rota `/primeiro-acesso` exige a senha temporária atual, a nova senha e a confirmação
 - o token fica apenas no navegador local
+- a rota `/minha-conta/seguranca` permite revisar sessões ativas e encerrar acessos antigos
 - `/aluno`, `/professor` e `/admin` passam a respeitar autenticação local
 - o Meet real continua restrito ao ambiente local autorizado
 - após aprovar um interessado, o painel pode mostrar o acesso criado para cópia manual
