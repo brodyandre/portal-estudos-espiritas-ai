@@ -1,4 +1,10 @@
-import type { Enrollment, EnrollmentInput, EnrollmentStatus } from "../types/enrollment";
+import type {
+  Enrollment,
+  EnrollmentInput,
+  EnrollmentStatus,
+  EnrollmentStatusUpdateResult,
+  StudentAccessInfo,
+} from "../types/enrollment";
 
 const ENROLLMENTS_SESSION_STORAGE_KEY = "portal-estudos-espiritas-ai:demo-enrollments";
 
@@ -159,7 +165,7 @@ export const updateMockEnrollmentStatus = (
     status: Extract<EnrollmentStatus, "approved" | "rejected" | "needs_contact">;
     teacherNote?: string;
   },
-): Enrollment | null => {
+): EnrollmentStatusUpdateResult | null => {
   const currentItems = getCurrentEnrollments();
   const targetIndex = currentItems.findIndex((item) => item.id === id);
 
@@ -178,7 +184,19 @@ export const updateMockEnrollmentStatus = (
   currentItems.splice(targetIndex, 1, updatedEnrollment);
   writeStoredEnrollments(currentItems);
 
-  return cloneEnrollment(updatedEnrollment);
+  const studentAccess: StudentAccessInfo | null =
+    input.status === "approved"
+      ? {
+          email: updatedEnrollment.email,
+          temporaryPassword: `DEMO@${updatedEnrollment.id.slice(-4).toUpperCase()}`,
+          mustChangePassword: true,
+        }
+      : null;
+
+  return {
+    enrollment: cloneEnrollment(updatedEnrollment),
+    studentAccess,
+  };
 };
 
 export const resetMockEnrollments = () => {

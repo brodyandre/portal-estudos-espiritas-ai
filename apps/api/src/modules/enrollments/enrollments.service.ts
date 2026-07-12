@@ -1,8 +1,10 @@
 import type {
+  Enrollment,
   EnrollmentGroupInterest,
   EnrollmentInput,
   EnrollmentStatus,
 } from "../../types/enrollment";
+import type { UserRole } from "../../auth/types";
 import type { EnrollmentsRepository } from "./enrollments.repository";
 import {
   createEnrollmentRepository,
@@ -10,8 +12,17 @@ import {
   type EnrollmentFilters,
   type UpdateEnrollmentStatusInput,
 } from "./enrollments.repository";
+import {
+  prepareStudentAccessForEnrollment,
+  type StudentAccessPayload,
+} from "./student-access.service";
 
 export interface CreateEnrollmentInput extends EnrollmentInput {}
+export interface UpdateEnrollmentStatusResult {
+  enrollment: Enrollment;
+  studentAccess: StudentAccessPayload | null;
+}
+
 let enrollmentsRepository: EnrollmentsRepository = createEnrollmentRepository();
 
 export const isEnrollmentStatus = (value: string): value is EnrollmentStatus => {
@@ -41,6 +52,46 @@ export const createEnrollment = (input: CreateEnrollmentInput) => {
 
 export const updateEnrollmentStatus = (id: string, input: UpdateEnrollmentStatusInput) => {
   return enrollmentsRepository.updateStatus(id, input);
+};
+
+export const updateEnrollmentStatusWithStudentAccess = async (
+  id: string,
+  input: UpdateEnrollmentStatusInput & {
+    actorName: string;
+    authRole: UserRole;
+  },
+): Promise<UpdateEnrollmentStatusResult | null> => {
+  const currentEnrollment = await enrollmentsRepository.getById(id);
+
+  if (!currentEnrollment) {
+    return null;
+  }
+
+  const preparedStudentAccess =
+    input.status === "approved"
+      ? await prepareStudentAccessForEnrollment(currentEnrollment)
+      : null;
+
+  const updatedEnrollment = await enrollmentsRepository.reviewStatusWithStudentAccess(
+    id,
+    input,
+    preparedStudentAccess ?? undefined,
+  );
+
+  if (!updatedEnrollment) {
+    return null;
+  }
+
+  return {
+    enrollment: updatedEnrollment,
+    studentAccess: preparedStudentAccess
+      ? {
+          email: preparedStudentAccess.email,
+          temporaryPassword: preparedStudentAccess.temporaryPassword,
+          mustChangePassword: preparedStudentAccess.mustChangePassword,
+        }
+      : null,
+  };
 };
 
 export const resetEnrollmentStore = (): void => {

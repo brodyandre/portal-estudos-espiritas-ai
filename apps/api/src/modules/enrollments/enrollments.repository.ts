@@ -14,6 +14,9 @@ import type {
   EnrollmentInput,
   EnrollmentStatus,
 } from "../../types/enrollment";
+import { provisionStudentAccess } from "../auth/auth.service";
+import { provisionStudentAccessWithPrisma } from "../auth/auth.repository";
+import type { PreparedStudentAccessProvision } from "./student-access.service";
 
 export interface EnrollmentFilters {
   status?: EnrollmentStatus;
@@ -32,6 +35,14 @@ export interface EnrollmentsRepository {
   getById(id: string): Promise<Enrollment | null>;
   create(input: EnrollmentInput): Promise<Enrollment>;
   updateStatus(id: string, input: UpdateEnrollmentStatusInput): Promise<Enrollment | null>;
+  reviewStatusWithStudentAccess(
+    id: string,
+    input: UpdateEnrollmentStatusInput & {
+      actorName: string;
+      authRole: "visitor" | "student" | "teacher" | "admin";
+    },
+    studentAccess?: PreparedStudentAccessProvision,
+  ): Promise<Enrollment | null>;
 }
 
 const enrollmentStatusToPrisma: Record<EnrollmentStatus, PrismaEnrollmentStatus> = {
@@ -123,6 +134,37 @@ export const createMemoryEnrollmentsRepository = (
 
       if (!currentEnrollment) {
         return null;
+      }
+
+      currentEnrollment.status = input.status;
+      currentEnrollment.teacherNote = input.teacherNote?.trim() ?? "";
+      currentEnrollment.reviewedAt = new Date().toISOString();
+      currentEnrollment.reviewedBy = input.reviewedByName?.trim() || "Professor";
+
+      return cloneEnrollment(currentEnrollment);
+    },
+
+    async reviewStatusWithStudentAccess(id, input, studentAccess) {
+      const currentEnrollment = enrollmentStore.find((enrollment) => enrollment.id === id);
+
+      if (!currentEnrollment) {
+        return null;
+      }
+
+      if (input.status === "approved" && studentAccess) {
+        await provisionStudentAccess({
+          enrollmentId: currentEnrollment.id,
+          fullName: studentAccess.fullName,
+          email: studentAccess.email,
+          whatsapp: studentAccess.whatsapp,
+          groupName: studentAccess.groupName,
+          groupSlug: studentAccess.groupSlug,
+          passwordHash: studentAccess.passwordHash,
+          temporaryPasswordGeneratedAt: studentAccess.temporaryPasswordGeneratedAt,
+          mustChangePassword: studentAccess.mustChangePassword,
+          actorName: input.actorName,
+          actorRole: input.authRole,
+        });
       }
 
       currentEnrollment.status = input.status;
@@ -226,6 +268,58 @@ export const createPrismaEnrollmentsRepository = (): EnrollmentsRepository => {
       });
 
       return mapPrismaEnrollment(updatedEnrollment);
+    },
+
+    async reviewStatusWithStudentAccess(id, input, studentAccess) {
+      const reviewedEnrollment = await prisma.$transaction(async (transaction) => {
+        const currentEnrollment = await transaction.enrollment.findUnique({
+          where: { id },
+        });
+
+        if (!currentEnrollment) {
+          return null;
+        }
+
+        const item = await transaction.enrollment.update({
+          where: { id },
+          data: {
+            status: enrollmentStatusToPrisma[input.status],
+            teacherNote: input.teacherNote?.trim() ?? "",
+            reviewedAt: new Date(),
+            reviewedBy: input.reviewedByName?.trim() || "Professor",
+          },
+        });
+
+        await transaction.auditLog.create({
+          data: createAuditEntry({
+            actorName: input.reviewedByName?.trim() || "Professor",
+            actorRole: input.actorRole ?? PrismaUserRole.TEACHER,
+            action: "Status de inscrição atualizado",
+            entity: `Enrollment ${item.id}`,
+            note: `Cadastro atualizado para ${input.status}.`,
+          }),
+        });
+
+        if (input.status === "approved" && studentAccess) {
+          await provisionStudentAccessWithPrisma(transaction, {
+            enrollmentId: item.id,
+            fullName: studentAccess.fullName,
+            email: studentAccess.email,
+            whatsapp: studentAccess.whatsapp,
+            groupName: studentAccess.groupName,
+            groupSlug: studentAccess.groupSlug,
+            passwordHash: studentAccess.passwordHash,
+            temporaryPasswordGeneratedAt: studentAccess.temporaryPasswordGeneratedAt,
+            mustChangePassword: studentAccess.mustChangePassword,
+            actorName: input.actorName,
+            actorRole: input.authRole,
+          });
+        }
+
+        return item;
+      });
+
+      return reviewedEnrollment ? mapPrismaEnrollment(reviewedEnrollment) : null;
     },
   };
 };

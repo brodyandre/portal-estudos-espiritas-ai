@@ -56,6 +56,23 @@ Nesta etapa:
 - `PATCH /api/enrollments/:id/status` exige `ADMIN` ou `TEACHER`
 - `POST /api/enrollments` continua público para acolhimento de novos interessados
 
+## Aprovação local de aluno
+
+Quando `Admin` ou `Professor` aprova uma inscrição no ambiente local:
+
+- o backend atualiza a inscrição
+- o backend cria ou reativa o acesso local do aluno no PostgreSQL
+- a resposta retorna `enrollment` e `studentAccess`
+- `studentAccess` traz apenas `email`, `temporaryPassword` e `mustChangePassword`
+- `passwordHash` nunca retorna
+- o envio das credenciais continua manual no MVP
+
+Campos extras do usuário local nesta fase:
+
+- `enrollmentId`
+- `temporaryPasswordGeneratedAt`
+- `mustChangePassword`
+
 ## Fluxo no frontend
 
 ### GitHub Pages
@@ -70,6 +87,7 @@ Nesta etapa:
 - o token fica apenas no navegador local
 - `/aluno`, `/professor` e `/admin` passam a respeitar autenticação local
 - o Meet real continua restrito ao ambiente local autorizado
+- após aprovar um interessado, o painel pode mostrar o acesso criado para cópia manual
 
 ## Limites atuais
 

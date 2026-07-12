@@ -27,6 +27,32 @@ export interface StoredAuthUser {
   fullName: string;
   email: string;
   passwordHash: string;
+  whatsapp?: string | null;
   role: UserRole;
   status: UserStatus;
+  groupName?: string | null;
+  groupSlug?: string | null;
+  enrollmentId?: string | null;
+  mustChangePassword?: boolean;
+  temporaryPasswordGeneratedAt?: string | null;
+}
+
+export interface StudentAccessProvisionInput {
+  enrollmentId: string;
+  fullName: string;
+  email: string;
+  whatsapp: string;
+  groupName: string | null;
+  groupSlug: string | null;
+  passwordHash: string;
+  temporaryPasswordGeneratedAt: string;
+  mustChangePassword: boolean;
+  actorName: string;
+  actorRole: UserRole;
+}
+
+export interface StudentAccessProvisionResult {
+  user: AuthUser;
+  action: "created" | "activated" | "updated";
+  mustChangePassword: boolean;
 }

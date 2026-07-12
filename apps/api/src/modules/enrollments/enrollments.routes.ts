@@ -16,7 +16,7 @@ import {
   isEnrollmentGroupInterest,
   isEnrollmentStatus,
   listEnrollments,
-  updateEnrollmentStatus,
+  updateEnrollmentStatusWithStudentAccess,
 } from "./enrollments.service";
 import type { UpdateEnrollmentStatusInput } from "./enrollments.repository";
 
@@ -214,16 +214,29 @@ enrollmentsRouter.patch(
   ...requireEnrollmentReviewRole,
   asyncHandler(async (request, response) => {
     const input = parseUpdateEnrollmentStatusBody(request.body);
-    const updatedEnrollment = await updateEnrollmentStatus(getRouteParam(request.params.id), {
+    const reviewedByName = request.authUser?.fullName?.trim() || "Professor";
+    const authRole =
+      request.authUser?.role === "admin"
+        ? "admin"
+        : request.authUser?.role === "teacher"
+          ? "teacher"
+          : "visitor";
+
+    const updatedEnrollment = await updateEnrollmentStatusWithStudentAccess(
+      getRouteParam(request.params.id),
+      {
       ...input,
-      reviewedByName: request.authUser?.fullName,
+      reviewedByName,
       actorRole:
         request.authUser?.role === "admin"
           ? "ADMIN"
           : request.authUser?.role === "teacher"
             ? "TEACHER"
             : undefined,
-    });
+      actorName: reviewedByName,
+      authRole,
+      },
+    );
 
     if (!updatedEnrollment) {
       throw new AppError({

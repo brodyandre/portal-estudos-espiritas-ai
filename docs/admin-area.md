@@ -16,6 +16,7 @@ Enquanto o professor cuida principalmente de:
 - aulas
 - revisao de conteudos
 - publicacao para a turma
+- envio manual do acesso temporario quando uma aprovacao local cria credenciais de aluno
 
 o admin cuida de:
 
@@ -159,6 +160,7 @@ Eventos iniciais:
 
 - aluno inscrito
 - professor aprovou aluno
+- acesso local de aluno criado ou atualizado
 - professor marcou para conversar
 - admin alterou grupo
 - admin marcou conteudo como revisado

@@ -1,4 +1,4 @@
-import type { Enrollment, EnrollmentStatus } from "../types/enrollment";
+import type { Enrollment, EnrollmentStatus, StudentAccessInfo } from "../types/enrollment";
 
 export type EnrollmentMessageStatus = Extract<
   EnrollmentStatus,
@@ -7,6 +7,7 @@ export type EnrollmentMessageStatus = Extract<
 
 interface EnrollmentMessageInput {
   enrollment: Pick<Enrollment, "fullName" | "groupInterest">;
+  studentAccess?: StudentAccessInfo | null;
   portalUrl: string;
   status: EnrollmentMessageStatus;
 }
@@ -29,8 +30,19 @@ export const getEnrollmentMessageStatus = (status: EnrollmentStatus): Enrollment
   return "needs_contact";
 };
 
+export const buildLoginUrl = (
+  locationLike?: Pick<Location, "origin" | "pathname">,
+) => {
+  const origin = locationLike?.origin ?? "http://localhost:3000";
+  const pathname = locationLike?.pathname ?? "/";
+  const basePath = pathname === "/" ? "" : pathname.replace(/\/$/, "");
+
+  return `${origin}${basePath}/#/login`;
+};
+
 export const buildEnrollmentMessage = ({
   enrollment,
+  studentAccess,
   portalUrl,
   status,
 }: EnrollmentMessageInput) => {
@@ -38,6 +50,10 @@ export const buildEnrollmentMessage = ({
   const group = enrollment.groupInterest;
 
   if (status === "approved") {
+    if (studentAccess) {
+      return `Olá, ${name}! Tudo bem? Recebemos sua inscrição para a Educação Continuada Online do Centro Espírita Ana Vieira. Sua participação foi aprovada para o grupo ${group}. Seu acesso ao portal foi criado. Use este e-mail e senha temporária para entrar: ${studentAccess.email} | ${studentAccess.temporaryPassword}. Acesse: ${portalUrl}. Por segurança, troque a senha futuramente quando essa função estiver disponível.`;
+    }
+
     return `Olá, ${name}! Tudo bem? Recebemos sua inscrição para a Educação Continuada Online do Centro Espírita Ana Vieira. Sua participação foi aprovada para o grupo ${group}. Acesse sua área do aluno pelo portal: ${portalUrl}. Seja muito bem-vindo(a).`;
   }
 

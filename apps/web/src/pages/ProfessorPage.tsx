@@ -14,7 +14,12 @@ import { StatusTag } from "../components/ui/StatusTag";
 import { TextArea } from "../components/ui/TextArea";
 import { TextInput } from "../components/ui/TextInput";
 import type { DemoFlowStep, DemoGroup, DemoQuestion } from "../mocks";
-import type { Enrollment, EnrollmentGroupInterest, EnrollmentStatus } from "../types/enrollment";
+import type {
+  Enrollment,
+  EnrollmentGroupInterest,
+  EnrollmentStatus,
+  StudentAccessInfo,
+} from "../types/enrollment";
 import { collectServiceNotice } from "../services/api";
 import {
   generateGroupMessageDraft,
@@ -39,6 +44,7 @@ import { listStudies } from "../services/studiesService";
 import { listSummaries } from "../services/summariesService";
 import {
   buildEnrollmentMessage,
+  buildLoginUrl,
   buildPortalUrl,
   getEnrollmentMessageStatus,
 } from "../utils/enrollmentMessages";
@@ -370,6 +376,9 @@ export const ProfessorPage = () => {
   const [activeEnrollmentId, setActiveEnrollmentId] = useState<string | null>(null);
   const [enrollmentNotice, setEnrollmentNotice] = useState<string | null>(null);
   const [communicationNotice, setCommunicationNotice] = useState<string | null>(null);
+  const [studentAccessByEnrollment, setStudentAccessByEnrollment] = useState<
+    Record<string, StudentAccessInfo>
+  >({});
 
   useEffect(() => {
     let isActive = true;
@@ -749,9 +758,28 @@ export const ProfessorPage = () => {
 
     if (result.data) {
       setEnrollments((current) =>
-        current.map((item) => (item.id === enrollmentId ? result.data! : item)),
+        current.map((item) => (item.id === enrollmentId ? result.data!.enrollment : item)),
       );
-      syncStudentAccessFromEnrollmentStatus(result.data.status);
+      syncStudentAccessFromEnrollmentStatus(result.data.enrollment.status);
+
+      if (result.data.studentAccess) {
+        setStudentAccessByEnrollment((current) => ({
+          ...current,
+          [enrollmentId]: result.data!.studentAccess!,
+        }));
+
+        const updatedEnrollment = result.data.enrollment;
+        const loginUrl = buildLoginUrl(window.location);
+        setMessageOverrides((current) => ({
+          ...current,
+          [enrollmentId]: buildEnrollmentMessage({
+            enrollment: updatedEnrollment,
+            studentAccess: result.data!.studentAccess,
+            portalUrl: loginUrl,
+            status: "approved",
+          }),
+        }));
+      }
     }
 
     setEnrollmentNotice(result.notice);
@@ -1201,11 +1229,13 @@ export const ProfessorPage = () => {
                       const messageStatus = getEnrollmentMessageStatus(enrollment.status);
                       const defaultMessage = buildEnrollmentMessage({
                         enrollment,
+                        studentAccess: studentAccessByEnrollment[enrollment.id] ?? null,
                         portalUrl,
                         status: messageStatus,
                       });
                       const messageDraft = messageOverrides[enrollment.id] ?? defaultMessage;
                       const isUpdating = activeEnrollmentId === enrollment.id;
+                      const studentAccess = studentAccessByEnrollment[enrollment.id] ?? null;
                       const cardClassName = [
                         "teacher-enrollment-item",
                         enrollment.status === "pending"
@@ -1311,6 +1341,18 @@ export const ProfessorPage = () => {
                           <p className="teacher-panel__note">
                             WhatsApp pronto para envio manual em {getWhatsAppPhoneLabel(enrollment.whatsapp)}.
                           </p>
+
+                          {studentAccess ? (
+                            <AlertBox title="Acesso do aluno criado" tone="info">
+                              <strong>E-mail:</strong> {studentAccess.email}
+                              <br />
+                              <strong>Senha temporária:</strong> {studentAccess.temporaryPassword}
+                              <br />
+                              Seu acesso ao portal foi criado. Use este e-mail e senha temporária
+                              para entrar. Por segurança, troque a senha futuramente quando essa
+                              função estiver disponível. O envio ao aluno continua manual.
+                            </AlertBox>
+                          ) : null}
 
                           <div className="button-row">
                             <Button

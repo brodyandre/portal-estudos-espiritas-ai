@@ -127,6 +127,8 @@ Mesmo com PostgreSQL local:
 - trilha simples de auditoria para criacao e mudanca de status
 - seed demonstrativo persistido em PostgreSQL
 - autenticacao local de `Admin`, `Professor` e `Aluno`
+- criacao ou reativacao de acesso de aluno ao aprovar inscricoes
+- senha temporaria local retornada apenas no fluxo privado de aprovacao
 
 ## Proximo passo natural
 
