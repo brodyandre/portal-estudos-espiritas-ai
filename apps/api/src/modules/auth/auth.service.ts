@@ -22,7 +22,9 @@ import {
 } from "./password-recovery.notifier";
 import {
   assertAccountInvitationAcceptRateLimit,
+  assertAdminInvitationCancelRateLimit,
   assertAdminInvitationRateLimit,
+  assertAdminInvitationResendRateLimit,
   assertAdminPasswordResetRateLimit,
   assertLoginRateLimit,
   assertPasswordRecoveryRateLimit,
@@ -32,7 +34,9 @@ import {
   clearPasswordChangeRateLimit,
   normalizeEmailForRateLimit,
   recordAccountInvitationAcceptAttempt,
+  recordAdminInvitationCancelAttempt,
   recordAdminInvitationAttempt,
+  recordAdminInvitationResendAttempt,
   recordPasswordRecoveryAttempt,
   recordPasswordResetAttempt,
   recordAdminPasswordResetAttempt,
@@ -53,6 +57,8 @@ import {
 import type {
   AcceptAccountInvitationInput,
   AccountInvitationPreview,
+  AccountInvitationDeliveryStatus,
+  AccountInvitationLifecycleStatus,
   AccountInvitationType,
   AdminResetPasswordPersistenceInput,
   AuthSessionListItem,
@@ -64,6 +70,8 @@ import type {
   ForgotPasswordInput,
   LoginInput,
   LoginResponse,
+  ListAccountInvitationsInput,
+  ListAccountInvitationsResult,
   PasswordRecoveryPreview,
   ResetPasswordInput,
   StoredAuthSession,
@@ -80,15 +88,108 @@ const PASSWORD_RECOVERY_SUCCESS_MESSAGE =
 export const PASSWORD_MAX_LENGTH = 128;
 const PASSWORD_RESET_TOKEN_MAX_LENGTH = 512;
 const ACCOUNT_INVITATION_TOKEN_MAX_LENGTH = 512;
+const ACCOUNT_INVITATION_ID_MAX_LENGTH = 160;
 const AUTH_TOKEN_TTL_SECONDS = 8 * 60 * 60;
 const ACCOUNT_INVITATION_TTL_HOURS = 48;
 const PASSWORD_POLICY_MESSAGE =
   "Use pelo menos 8 caracteres, com letra maiúscula, letra minúscula e número.";
+const ACCOUNT_INVITATION_DELIVERY_STATUSES: AccountInvitationDeliveryStatus[] = [
+  "pending",
+  "sent",
+  "failed",
+  "not_configured",
+];
+const ACCOUNT_INVITATION_LIFECYCLE_STATUSES: AccountInvitationLifecycleStatus[] = [
+  "pending",
+  "accepted",
+  "expired",
+  "canceled",
+];
+const ACCOUNT_INVITATION_TYPES: AccountInvitationType[] = [
+  "enrollment_approval",
+  "admin_reinvite",
+];
+const ACCOUNT_INVITATION_SORT_FIELDS: ListAccountInvitationsInput["sortBy"][] = [
+  "createdAt",
+  "expiresAt",
+  "recipient",
+];
+const ACCOUNT_INVITATION_SORT_ORDERS: ListAccountInvitationsInput["sortOrder"][] = [
+  "asc",
+  "desc",
+];
+
+export type ListAdminAccountInvitationsInput = Partial<ListAccountInvitationsInput>;
 
 const normalizeLoginInput = (input: LoginInput): LoginInput => {
   return {
     email: input.email.trim().toLowerCase(),
     password: input.password,
+  };
+};
+
+const normalizeAdminAccountInvitationsListInput = (
+  input: ListAdminAccountInvitationsInput = {},
+): ListAccountInvitationsInput => {
+  const page = input.page ?? 1;
+  const pageSize = input.pageSize ?? 10;
+  const sortBy = input.sortBy ?? "createdAt";
+  const sortOrder = input.sortOrder ?? "desc";
+  const search = input.search?.trim();
+  const invalidListQueryError = () =>
+    new AppError({
+      statusCode: 400,
+      code: "INVALID_ACCOUNT_INVITATION_LIST_QUERY",
+      message: "Parâmetros inválidos para consultar convites.",
+    });
+
+  if (!Number.isInteger(page) || page < 1) {
+    throw invalidListQueryError();
+  }
+
+  if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 50) {
+    throw invalidListQueryError();
+  }
+
+  if (search && search.length > 120) {
+    throw invalidListQueryError();
+  }
+
+  if (
+    input.deliveryStatus &&
+    !ACCOUNT_INVITATION_DELIVERY_STATUSES.includes(input.deliveryStatus)
+  ) {
+    throw invalidListQueryError();
+  }
+
+  if (
+    input.lifecycleStatus &&
+    !ACCOUNT_INVITATION_LIFECYCLE_STATUSES.includes(input.lifecycleStatus)
+  ) {
+    throw invalidListQueryError();
+  }
+
+  if (input.invitationType && !ACCOUNT_INVITATION_TYPES.includes(input.invitationType)) {
+    throw invalidListQueryError();
+  }
+
+  if (!ACCOUNT_INVITATION_SORT_FIELDS.includes(sortBy)) {
+    throw invalidListQueryError();
+  }
+
+  if (!ACCOUNT_INVITATION_SORT_ORDERS.includes(sortOrder)) {
+    throw invalidListQueryError();
+  }
+
+  return {
+    page,
+    pageSize,
+    deliveryStatus: input.deliveryStatus,
+    lifecycleStatus: input.lifecycleStatus,
+    invitationType: input.invitationType,
+    search: search || undefined,
+    sortBy,
+    sortOrder,
   };
 };
 
@@ -1198,6 +1299,137 @@ export const sendAccountInvitationByAdmin = async (authUser: AuthUser, targetUse
       fullName: storedUser.fullName,
       email: storedUser.email,
     },
+    invitation: {
+      expiresAt: result.expiresAt,
+      deliveryStatus: result.deliveryStatus,
+      invitationType: "admin_reinvite" as const,
+    },
+  };
+};
+
+export const listAdminAccountInvitations = async (
+  authUser: AuthUser,
+  input: ListAdminAccountInvitationsInput = {},
+): Promise<ListAccountInvitationsResult> => {
+  if (authUser.role !== "admin") {
+    throw new AppError({
+      statusCode: 403,
+      code: "FORBIDDEN",
+      message: "Seu perfil não tem acesso a este recurso.",
+    });
+  }
+
+  const normalizedInput = normalizeAdminAccountInvitationsListInput(input);
+
+  return authRepository.listAccountInvitations(normalizedInput, new Date());
+};
+
+export const cancelAdminAccountInvitation = async (
+  authUser: AuthUser,
+  invitationId: string,
+) => {
+  if (authUser.role !== "admin") {
+    throw new AppError({
+      statusCode: 403,
+      code: "FORBIDDEN",
+      message: "Seu perfil não tem acesso a este recurso.",
+    });
+  }
+
+  const normalizedInvitationId = invitationId.trim();
+
+  if (
+    !normalizedInvitationId ||
+    normalizedInvitationId.length > ACCOUNT_INVITATION_ID_MAX_LENGTH
+  ) {
+    throw new AppError({
+      statusCode: 400,
+      code: "INVALID_ACCOUNT_INVITATION_CANCEL_INPUT",
+      message: "Informe um convite válido para cancelar.",
+    });
+  }
+
+  assertAdminInvitationCancelRateLimit(authUser.id, normalizedInvitationId);
+  recordAdminInvitationCancelAttempt(authUser.id, normalizedInvitationId);
+
+  const canceled = await authRepository.cancelAccountInvitation({
+    invitationId: normalizedInvitationId,
+    actorName: authUser.fullName,
+    actorRole: authUser.role,
+    now: new Date(),
+  });
+
+  if (!canceled) {
+    throw new AppError({
+      statusCode: 409,
+      code: "ACCOUNT_INVITATION_NOT_CANCELABLE",
+      message: "Não foi possível cancelar este convite.",
+    });
+  }
+
+  return {
+    canceled: true,
+  };
+};
+
+export const resendAdminAccountInvitation = async (
+  authUser: AuthUser,
+  invitationId: string,
+) => {
+  if (authUser.role !== "admin") {
+    throw new AppError({
+      statusCode: 403,
+      code: "FORBIDDEN",
+      message: "Seu perfil não tem acesso a este recurso.",
+    });
+  }
+
+  const normalizedInvitationId = invitationId.trim();
+
+  if (
+    !normalizedInvitationId ||
+    normalizedInvitationId.length > ACCOUNT_INVITATION_ID_MAX_LENGTH
+  ) {
+    throw new AppError({
+      statusCode: 400,
+      code: "INVALID_ACCOUNT_INVITATION_RESEND_INPUT",
+      message: "Informe um convite válido para reenviar.",
+    });
+  }
+
+  assertAdminInvitationResendRateLimit(authUser.id, normalizedInvitationId);
+  recordAdminInvitationResendAttempt(authUser.id, normalizedInvitationId);
+
+  const resendContext = await authRepository.getAccountInvitationResendContext(
+    normalizedInvitationId,
+  );
+
+  if (
+    !resendContext ||
+    resendContext.acceptedAt ||
+    !resendContext.user ||
+    resendContext.user.accountActivatedAt ||
+    resendContext.user.status !== "active"
+  ) {
+    throw new AppError({
+      statusCode: 409,
+      code: "ACCOUNT_INVITATION_NOT_RESENDABLE",
+      message: "Não foi possível reenviar este convite.",
+    });
+  }
+
+  const result = await createAndDeliverAccountInvitation({
+    userId: resendContext.user.id,
+    recipientEmail: resendContext.user.email,
+    recipientName: resendContext.user.fullName,
+    invitationType: "admin_reinvite",
+    actorName: authUser.fullName,
+    actorRole: authUser.role,
+    invitedByUserId: authUser.id,
+    strictDelivery: true,
+  });
+
+  return {
     invitation: {
       expiresAt: result.expiresAt,
       deliveryStatus: result.deliveryStatus,

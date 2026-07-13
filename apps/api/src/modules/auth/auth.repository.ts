@@ -8,7 +8,7 @@ import {
   type AccountInvitation as PrismaAccountInvitation,
   type AuthSession as PrismaAuthSession,
   type PasswordResetToken as PrismaPasswordResetToken,
-  type Prisma,
+  Prisma,
   type User as PrismaUser,
 } from "@prisma/client";
 
@@ -19,7 +19,10 @@ import type { UserRole, UserStatus } from "../../auth/types";
 import type {
   AcceptAccountInvitationPersistenceInput,
   AcceptAccountInvitationResult,
+  AdminAccountInvitationListItem,
+  AccountInvitationResendContext,
   AdminResetPasswordPersistenceInput,
+  CancelAccountInvitationInput,
   CreateAccountInvitationInput,
   EnrollmentInvitationProvisionInput,
   EnrollmentInvitationProvisionResult,
@@ -30,6 +33,8 @@ import type {
   ChangePasswordPersistenceResult,
   CreateAuthSessionInput,
   InvalidatePasswordResetTokenInput,
+  ListAccountInvitationsInput,
+  ListAccountInvitationsResult,
   ListAuthSessionsInput,
   MarkAccountInvitationDeliveredInput,
   MarkAccountInvitationFailedInput,
@@ -72,6 +77,12 @@ export interface AuthRepository {
   resetPasswordWithRecoveryToken(
     input: PasswordResetPersistenceInput,
   ): Promise<PasswordResetPersistenceResult>;
+  listAccountInvitations(
+    input: ListAccountInvitationsInput,
+    now: Date,
+  ): Promise<ListAccountInvitationsResult>;
+  getAccountInvitationResendContext(invitationId: string): Promise<AccountInvitationResendContext | null>;
+  cancelAccountInvitation(input: CancelAccountInvitationInput): Promise<boolean>;
 }
 
 type AuthPersistenceClient = Pick<
@@ -125,6 +136,7 @@ const deliveryStatusToPrisma: Record<
   failed: PrismaDeliveryStatus.FAILED,
   not_configured: PrismaDeliveryStatus.NOT_CONFIGURED,
 };
+const ACCOUNT_INVITATION_REPLACE_MAX_RETRIES = 3;
 
 const mapPrismaUser = (user: PrismaUser): StoredAuthUser => {
   return {
@@ -251,6 +263,145 @@ const revokeActiveSessionsWithPrisma = async (
   });
 
   return result.count;
+};
+
+type AccountInvitationLifecycleSource = {
+  acceptedAt?: Date | string | null;
+  invalidatedAt?: Date | string | null;
+  expiresAt: Date | string;
+};
+
+export const calculateAccountInvitationLifecycleStatus = (
+  invitation: AccountInvitationLifecycleSource,
+  now: Date,
+) => {
+  if (invitation.acceptedAt) {
+    return "accepted" as const;
+  }
+
+  if (invitation.invalidatedAt) {
+    return "canceled" as const;
+  }
+
+  if (new Date(invitation.expiresAt).getTime() <= now.getTime()) {
+    return "expired" as const;
+  }
+
+  return "pending" as const;
+};
+
+export const maskAccountInvitationEmail = (email: string) => {
+  const normalizedEmail = email.trim().toLowerCase();
+  const [localPart, domain] = normalizedEmail.split("@");
+
+  if (!localPart || !domain) {
+    return "*";
+  }
+
+  if (localPart.length === 1) {
+    return `*@${domain}`;
+  }
+
+  if (localPart.length === 2) {
+    return `${localPart[0]}*@${domain}`;
+  }
+
+  return `${localPart[0]}***${localPart[localPart.length - 1]}@${domain}`;
+};
+
+const assertValidAccountInvitationListInput = (input: ListAccountInvitationsInput) => {
+  if (input.page < 1) {
+    throw new RangeError("Account invitation page must be greater than or equal to 1.");
+  }
+
+  if (input.pageSize < 1 || input.pageSize > 50) {
+    throw new RangeError("Account invitation pageSize must be between 1 and 50.");
+  }
+
+  const allowedSortFields: ListAccountInvitationsInput["sortBy"][] = [
+    "createdAt",
+    "expiresAt",
+    "recipient",
+  ];
+  const allowedSortOrders: ListAccountInvitationsInput["sortOrder"][] = ["asc", "desc"];
+
+  if (!allowedSortFields.includes(input.sortBy)) {
+    throw new RangeError("Account invitation sortBy must be an allowed field.");
+  }
+
+  if (!allowedSortOrders.includes(input.sortOrder)) {
+    throw new RangeError("Account invitation sortOrder must be asc or desc.");
+  }
+};
+
+const toNullableDate = (value?: Date | string | null) => {
+  return value ? new Date(value) : null;
+};
+
+const buildAdminAccountInvitationListItem = (input: {
+  id: string;
+  recipientName: string;
+  recipientEmailSnapshot: string;
+  invitationType: StoredAccountInvitation["invitationType"];
+  deliveryStatus: StoredAccountInvitation["deliveryStatus"];
+  createdAt: Date | string;
+  expiresAt: Date | string;
+  deliveredAt?: Date | string | null;
+  deliveryFailedAt?: Date | string | null;
+  acceptedAt?: Date | string | null;
+  invalidatedAt?: Date | string | null;
+  invitedByName?: string | null;
+  now: Date;
+}): AdminAccountInvitationListItem => {
+  const acceptedAt = toNullableDate(input.acceptedAt);
+  const invalidatedAt = toNullableDate(input.invalidatedAt);
+  const expiresAt = new Date(input.expiresAt);
+
+  return {
+    id: input.id,
+    recipientName: input.recipientName,
+    recipientEmailMasked: maskAccountInvitationEmail(input.recipientEmailSnapshot),
+    invitationType: input.invitationType,
+    deliveryStatus: input.deliveryStatus,
+    lifecycleStatus: calculateAccountInvitationLifecycleStatus(
+      {
+        acceptedAt,
+        invalidatedAt,
+        expiresAt,
+      },
+      input.now,
+    ),
+    createdAt: new Date(input.createdAt),
+    expiresAt,
+    deliveredAt: toNullableDate(input.deliveredAt),
+    deliveryFailedAt: toNullableDate(input.deliveryFailedAt),
+    acceptedAt,
+    invalidatedAt,
+    invitedByName: input.invitedByName ?? null,
+  };
+};
+
+const buildAccountInvitationLifecycleWhere = (
+  lifecycleStatus: ListAccountInvitationsInput["lifecycleStatus"],
+  now: Date,
+): Prisma.AccountInvitationWhereInput => {
+  if (lifecycleStatus === "accepted") {
+    return { acceptedAt: { not: null } };
+  }
+
+  if (lifecycleStatus === "canceled") {
+    return { acceptedAt: null, invalidatedAt: { not: null } };
+  }
+
+  if (lifecycleStatus === "expired") {
+    return { acceptedAt: null, invalidatedAt: null, expiresAt: { lte: now } };
+  }
+
+  if (lifecycleStatus === "pending") {
+    return { acceptedAt: null, invalidatedAt: null, expiresAt: { gt: now } };
+  }
+
+  return {};
 };
 
 export const provisionStudentAccessWithPrisma = async (
@@ -494,7 +645,6 @@ const replaceAccountInvitationWithPrisma = async (
   await transaction.accountInvitation.updateMany({
     where: {
       userId: input.userId,
-      invitationType: invitationTypeToPrisma[input.invitationType],
       acceptedAt: null,
       invalidatedAt: null,
       expiresAt: {
@@ -530,6 +680,20 @@ const replaceAccountInvitationWithPrisma = async (
 
   return mapPrismaAccountInvitation(invitation);
 };
+
+export const accountInvitationResendContextSelect = {
+  id: true,
+  acceptedAt: true,
+  user: {
+    select: {
+      id: true,
+      fullName: true,
+      email: true,
+      accountActivatedAt: true,
+      status: true,
+    },
+  },
+} satisfies Prisma.AccountInvitationSelect;
 
 const cloneStoredUser = (user: StoredAuthUser): StoredAuthUser => ({
   ...user,
@@ -1107,7 +1271,6 @@ export const createMemoryAuthRepository = (
       memoryAccountInvitations = memoryAccountInvitations.map((invitation) => {
         if (
           invitation.userId !== input.userId ||
-          invitation.invitationType !== input.invitationType ||
           invitation.acceptedAt ||
           invitation.invalidatedAt ||
           new Date(invitation.expiresAt).getTime() <= Date.now()
@@ -1147,6 +1310,144 @@ export const createMemoryAuthRepository = (
       });
 
       return cloneStoredAccountInvitation(createdInvitation);
+    },
+    async listAccountInvitations(input, now) {
+      assertValidAccountInvitationListInput(input);
+
+      const search = input.search?.trim().toLowerCase();
+      const rows = memoryAccountInvitations
+        .map((invitation) => {
+          const recipient = memoryAuthUsers.find((user) => user.id === invitation.userId);
+          const inviter = invitation.invitedByUserId
+            ? memoryAuthUsers.find((user) => user.id === invitation.invitedByUserId)
+            : null;
+
+          return {
+            invitation: cloneStoredAccountInvitation(invitation),
+            recipientName: recipient?.fullName ?? "",
+            invitedByName: inviter?.fullName ?? null,
+          };
+        })
+        .filter((row) => {
+          if (input.deliveryStatus && row.invitation.deliveryStatus !== input.deliveryStatus) {
+            return false;
+          }
+
+          if (input.invitationType && row.invitation.invitationType !== input.invitationType) {
+            return false;
+          }
+
+          if (
+            input.lifecycleStatus &&
+            calculateAccountInvitationLifecycleStatus(row.invitation, now) !== input.lifecycleStatus
+          ) {
+            return false;
+          }
+
+          if (!search) {
+            return true;
+          }
+
+          return (
+            row.recipientName.toLowerCase().includes(search) ||
+            row.invitation.recipientEmailSnapshot.toLowerCase().includes(search)
+          );
+        });
+
+      const direction = input.sortOrder === "asc" ? 1 : -1;
+      const sortedRows = [...rows].sort((first, second) => {
+        let firstValue: string | number;
+        let secondValue: string | number;
+
+        if (input.sortBy === "recipient") {
+          firstValue = first.recipientName.toLowerCase();
+          secondValue = second.recipientName.toLowerCase();
+        } else {
+          firstValue = new Date(first.invitation[input.sortBy]).getTime();
+          secondValue = new Date(second.invitation[input.sortBy]).getTime();
+        }
+
+        if (firstValue < secondValue) {
+          return -1 * direction;
+        }
+
+        if (firstValue > secondValue) {
+          return direction;
+        }
+
+        return first.invitation.id.localeCompare(second.invitation.id);
+      });
+
+      const total = sortedRows.length;
+      const offset = (input.page - 1) * input.pageSize;
+      const pageRows = sortedRows.slice(offset, offset + input.pageSize);
+
+      return {
+        items: pageRows.map((row) =>
+          buildAdminAccountInvitationListItem({
+            ...row.invitation,
+            recipientName: row.recipientName,
+            invitedByName: row.invitedByName,
+            now,
+          }),
+        ),
+        page: input.page,
+        pageSize: input.pageSize,
+        total,
+        totalPages: Math.ceil(total / input.pageSize),
+      };
+    },
+    async getAccountInvitationResendContext(invitationId) {
+      const invitation = memoryAccountInvitations.find((item) => item.id === invitationId);
+
+      if (!invitation) {
+        return null;
+      }
+
+      const user = memoryAuthUsers.find((item) => item.id === invitation.userId);
+
+      return {
+        invitationId: invitation.id,
+        acceptedAt: invitation.acceptedAt ?? null,
+        user: user
+          ? {
+              id: user.id,
+              fullName: user.fullName,
+              email: user.email,
+              accountActivatedAt: user.accountActivatedAt ?? null,
+              status: user.status,
+            }
+          : null,
+      };
+    },
+    async cancelAccountInvitation(input) {
+      const invitationIndex = memoryAccountInvitations.findIndex(
+        (item) =>
+          item.id === input.invitationId &&
+          !item.acceptedAt &&
+          !item.invalidatedAt &&
+          new Date(item.expiresAt).getTime() > input.now.getTime(),
+      );
+
+      if (invitationIndex === -1) {
+        return false;
+      }
+
+      const currentInvitation = memoryAccountInvitations[invitationIndex];
+      memoryAccountInvitations[invitationIndex] = {
+        ...currentInvitation,
+        invalidatedAt: input.now.toISOString(),
+      };
+
+      memoryAuthAuditLogs.unshift({
+        actorName: input.actorName,
+        actorRole: input.actorRole,
+        action: "ACCOUNT_INVITATION_CANCELED",
+        entity: `AccountInvitation ${currentInvitation.id}`,
+        note: "Convite administrativo cancelado sem expor dados sensíveis.",
+      });
+
+      return true;
     },
     async markAccountInvitationDelivered(input) {
       const invitationIndex = memoryAccountInvitations.findIndex(
@@ -1734,9 +2035,184 @@ export const createPrismaAuthRepository = (): AuthRepository => {
       });
     },
     async replaceAccountInvitation(input) {
-      return prisma.$transaction((transaction) =>
-        replaceAccountInvitationWithPrisma(transaction, input),
-      );
+      for (let attempt = 1; attempt <= ACCOUNT_INVITATION_REPLACE_MAX_RETRIES; attempt += 1) {
+        try {
+          return await prisma.$transaction(
+            (transaction) => replaceAccountInvitationWithPrisma(transaction, input),
+            {
+              isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+            },
+          );
+        } catch (error) {
+          const canRetry =
+            error instanceof Prisma.PrismaClientKnownRequestError &&
+            error.code === "P2034" &&
+            attempt < ACCOUNT_INVITATION_REPLACE_MAX_RETRIES;
+
+          if (!canRetry) {
+            throw error;
+          }
+        }
+      }
+
+      throw new Error("Unable to replace account invitation after retries.");
+    },
+    async listAccountInvitations(input, now) {
+      assertValidAccountInvitationListInput(input);
+
+      const search = input.search?.trim();
+      const where: Prisma.AccountInvitationWhereInput = {
+        ...(input.deliveryStatus
+          ? { deliveryStatus: deliveryStatusToPrisma[input.deliveryStatus] }
+          : {}),
+        ...(input.invitationType
+          ? { invitationType: invitationTypeToPrisma[input.invitationType] }
+          : {}),
+        ...buildAccountInvitationLifecycleWhere(input.lifecycleStatus, now),
+        ...(search
+          ? {
+              OR: [
+                {
+                  recipientEmailSnapshot: {
+                    contains: search,
+                    mode: "insensitive",
+                  },
+                },
+                {
+                  user: {
+                    fullName: {
+                      contains: search,
+                      mode: "insensitive",
+                    },
+                  },
+                },
+              ],
+            }
+          : {}),
+      };
+      const orderBy: Prisma.AccountInvitationOrderByWithRelationInput[] =
+        input.sortBy === "recipient"
+          ? [{ user: { fullName: input.sortOrder } }, { id: "asc" }]
+          : [{ [input.sortBy]: input.sortOrder }, { id: "asc" }];
+
+      const [total, invitations] = await prisma.$transaction([
+        prisma.accountInvitation.count({
+          where,
+        }),
+        prisma.accountInvitation.findMany({
+          where,
+          orderBy,
+          skip: (input.page - 1) * input.pageSize,
+          take: input.pageSize,
+          select: {
+            id: true,
+            createdAt: true,
+            expiresAt: true,
+            acceptedAt: true,
+            invalidatedAt: true,
+            invitationType: true,
+            recipientEmailSnapshot: true,
+            deliveryStatus: true,
+            deliveredAt: true,
+            deliveryFailedAt: true,
+            user: {
+              select: {
+                fullName: true,
+              },
+            },
+            invitedByUser: {
+              select: {
+                fullName: true,
+              },
+            },
+          },
+        }),
+      ]);
+
+      return {
+        items: invitations.map((invitation) =>
+          buildAdminAccountInvitationListItem({
+            id: invitation.id,
+            recipientName: invitation.user.fullName,
+            recipientEmailSnapshot: invitation.recipientEmailSnapshot,
+            invitationType: prismaInvitationTypeToInvitationType[invitation.invitationType],
+            deliveryStatus: prismaDeliveryStatusToDeliveryStatus[invitation.deliveryStatus],
+            createdAt: invitation.createdAt,
+            expiresAt: invitation.expiresAt,
+            deliveredAt: invitation.deliveredAt,
+            deliveryFailedAt: invitation.deliveryFailedAt,
+            acceptedAt: invitation.acceptedAt,
+            invalidatedAt: invitation.invalidatedAt,
+            invitedByName: invitation.invitedByUser?.fullName ?? null,
+            now,
+          }),
+        ),
+        page: input.page,
+        pageSize: input.pageSize,
+        total,
+        totalPages: Math.ceil(total / input.pageSize),
+      };
+    },
+    async getAccountInvitationResendContext(invitationId) {
+      const invitation = await prisma.accountInvitation.findUnique({
+        where: {
+          id: invitationId,
+        },
+        select: accountInvitationResendContextSelect,
+      });
+
+      if (!invitation) {
+        return null;
+      }
+
+      return {
+        invitationId: invitation.id,
+        acceptedAt: invitation.acceptedAt ? invitation.acceptedAt.toISOString() : null,
+        user: invitation.user
+          ? {
+              id: invitation.user.id,
+              fullName: invitation.user.fullName,
+              email: invitation.user.email,
+              accountActivatedAt: invitation.user.accountActivatedAt
+                ? invitation.user.accountActivatedAt.toISOString()
+                : null,
+              status: prismaStatusToStatus[invitation.user.status],
+            }
+          : null,
+      };
+    },
+    async cancelAccountInvitation(input) {
+      return prisma.$transaction(async (transaction) => {
+        const result = await transaction.accountInvitation.updateMany({
+          where: {
+            id: input.invitationId,
+            acceptedAt: null,
+            invalidatedAt: null,
+            expiresAt: {
+              gt: input.now,
+            },
+          },
+          data: {
+            invalidatedAt: input.now,
+          },
+        });
+
+        if (result.count !== 1) {
+          return false;
+        }
+
+        await transaction.auditLog.create({
+          data: {
+            actorName: input.actorName,
+            actorRole: toPrismaUserRole(input.actorRole),
+            action: "ACCOUNT_INVITATION_CANCELED",
+            entity: `AccountInvitation ${input.invitationId}`,
+            note: "Convite administrativo cancelado sem expor dados sensíveis.",
+          },
+        });
+
+        return true;
+      });
     },
     async markAccountInvitationDelivered(input) {
       const deliveredAt = new Date(input.deliveredAt);
