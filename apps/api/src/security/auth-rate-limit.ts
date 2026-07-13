@@ -48,6 +48,26 @@ const adminInvitationPolicy: RateLimitPolicy = {
   windowMs: ONE_HOUR_MS,
 };
 
+const adminInvitationCancelActorPolicy: RateLimitPolicy = {
+  limit: 20,
+  windowMs: FIFTEEN_MINUTES_MS,
+};
+
+const adminInvitationCancelTargetPolicy: RateLimitPolicy = {
+  limit: 5,
+  windowMs: FIFTEEN_MINUTES_MS,
+};
+
+const adminInvitationResendActorPolicy: RateLimitPolicy = {
+  limit: 10,
+  windowMs: FIFTEEN_MINUTES_MS,
+};
+
+const adminInvitationResendTargetPolicy: RateLimitPolicy = {
+  limit: 3,
+  windowMs: FIFTEEN_MINUTES_MS,
+};
+
 const loginLimiter = new MemorySlidingWindowRateLimiter();
 const passwordChangeLimiter = new MemorySlidingWindowRateLimiter();
 const adminPasswordResetLimiter = new MemorySlidingWindowRateLimiter();
@@ -60,6 +80,10 @@ const accountInvitationIpLimiter = new MemorySlidingWindowRateLimiter();
 const accountInvitationTokenLimiter = new MemorySlidingWindowRateLimiter();
 const adminInvitationActorLimiter = new MemorySlidingWindowRateLimiter();
 const adminInvitationTargetLimiter = new MemorySlidingWindowRateLimiter();
+const adminInvitationCancelActorLimiter = new MemorySlidingWindowRateLimiter();
+const adminInvitationCancelTargetLimiter = new MemorySlidingWindowRateLimiter();
+const adminInvitationResendActorLimiter = new MemorySlidingWindowRateLimiter();
+const adminInvitationResendTargetLimiter = new MemorySlidingWindowRateLimiter();
 
 const toHashedIdentity = (value: string) => {
   return createHmac("sha256", env.jwtSecret).update(value).digest("hex");
@@ -77,7 +101,9 @@ const buildRateLimitError = (
     | "PASSWORD_RECOVERY_RATE_LIMITED"
     | "PASSWORD_RESET_RATE_LIMITED"
     | "ACCOUNT_INVITATION_RATE_LIMITED"
-    | "ADMIN_INVITATION_RATE_LIMITED",
+    | "ADMIN_INVITATION_RATE_LIMITED"
+    | "ADMIN_INVITATION_CANCEL_RATE_LIMITED"
+    | "ADMIN_INVITATION_RESEND_RATE_LIMITED",
   retryAfterSeconds: number,
 ) => {
   return new AppError({
@@ -139,6 +165,28 @@ export const buildAdminInvitationActorKey = (adminUserId: string) => {
 
 export const buildAdminInvitationTargetKey = (targetUserId: string) => {
   return `admin-invitation-target:${targetUserId}`;
+};
+
+export const buildAdminInvitationCancelActorKey = (adminUserId: string) => {
+  return `admin-invitation-cancel:${adminUserId}`;
+};
+
+export const buildAdminInvitationCancelTargetKey = (
+  adminUserId: string,
+  invitationId: string,
+) => {
+  return `admin-invitation-cancel-target:${adminUserId}:${toHashedIdentity(invitationId)}`;
+};
+
+export const buildAdminInvitationResendActorKey = (adminUserId: string) => {
+  return `admin-invitation-resend:${adminUserId}`;
+};
+
+export const buildAdminInvitationResendTargetKey = (
+  adminUserId: string,
+  invitationId: string,
+) => {
+  return `admin-invitation-resend-target:${adminUserId}:${toHashedIdentity(invitationId)}`;
 };
 
 export const assertLoginRateLimit = (ipAddress: string, email: string) => {
@@ -310,6 +358,92 @@ export const recordAdminInvitationAttempt = (adminUserId: string, targetUserId: 
   );
 };
 
+export const assertAdminInvitationCancelRateLimit = (
+  adminUserId: string,
+  invitationId: string,
+) => {
+  const actorDecision = adminInvitationCancelActorLimiter.peek(
+    buildAdminInvitationCancelActorKey(adminUserId),
+    adminInvitationCancelActorPolicy,
+  );
+
+  if (!actorDecision.allowed) {
+    throw buildRateLimitError(
+      "ADMIN_INVITATION_CANCEL_RATE_LIMITED",
+      actorDecision.retryAfterSeconds,
+    );
+  }
+
+  const targetDecision = adminInvitationCancelTargetLimiter.peek(
+    buildAdminInvitationCancelTargetKey(adminUserId, invitationId),
+    adminInvitationCancelTargetPolicy,
+  );
+
+  if (!targetDecision.allowed) {
+    throw buildRateLimitError(
+      "ADMIN_INVITATION_CANCEL_RATE_LIMITED",
+      targetDecision.retryAfterSeconds,
+    );
+  }
+};
+
+export const recordAdminInvitationCancelAttempt = (
+  adminUserId: string,
+  invitationId: string,
+) => {
+  adminInvitationCancelActorLimiter.record(
+    buildAdminInvitationCancelActorKey(adminUserId),
+    adminInvitationCancelActorPolicy,
+  );
+  adminInvitationCancelTargetLimiter.record(
+    buildAdminInvitationCancelTargetKey(adminUserId, invitationId),
+    adminInvitationCancelTargetPolicy,
+  );
+};
+
+export const assertAdminInvitationResendRateLimit = (
+  adminUserId: string,
+  invitationId: string,
+) => {
+  const actorDecision = adminInvitationResendActorLimiter.peek(
+    buildAdminInvitationResendActorKey(adminUserId),
+    adminInvitationResendActorPolicy,
+  );
+
+  if (!actorDecision.allowed) {
+    throw buildRateLimitError(
+      "ADMIN_INVITATION_RESEND_RATE_LIMITED",
+      actorDecision.retryAfterSeconds,
+    );
+  }
+
+  const targetDecision = adminInvitationResendTargetLimiter.peek(
+    buildAdminInvitationResendTargetKey(adminUserId, invitationId),
+    adminInvitationResendTargetPolicy,
+  );
+
+  if (!targetDecision.allowed) {
+    throw buildRateLimitError(
+      "ADMIN_INVITATION_RESEND_RATE_LIMITED",
+      targetDecision.retryAfterSeconds,
+    );
+  }
+};
+
+export const recordAdminInvitationResendAttempt = (
+  adminUserId: string,
+  invitationId: string,
+) => {
+  adminInvitationResendActorLimiter.record(
+    buildAdminInvitationResendActorKey(adminUserId),
+    adminInvitationResendActorPolicy,
+  );
+  adminInvitationResendTargetLimiter.record(
+    buildAdminInvitationResendTargetKey(adminUserId, invitationId),
+    adminInvitationResendTargetPolicy,
+  );
+};
+
 export const resetAuthRateLimitStore = () => {
   loginLimiter.resetAll();
   passwordChangeLimiter.resetAll();
@@ -323,6 +457,10 @@ export const resetAuthRateLimitStore = () => {
   accountInvitationTokenLimiter.resetAll();
   adminInvitationActorLimiter.resetAll();
   adminInvitationTargetLimiter.resetAll();
+  adminInvitationCancelActorLimiter.resetAll();
+  adminInvitationCancelTargetLimiter.resetAll();
+  adminInvitationResendActorLimiter.resetAll();
+  adminInvitationResendTargetLimiter.resetAll();
 };
 
 export const setAuthRateLimitNowProviderForTesting = (nowProvider: () => number) => {
@@ -338,6 +476,10 @@ export const setAuthRateLimitNowProviderForTesting = (nowProvider: () => number)
   accountInvitationTokenLimiter.setNowProvider(nowProvider);
   adminInvitationActorLimiter.setNowProvider(nowProvider);
   adminInvitationTargetLimiter.setNowProvider(nowProvider);
+  adminInvitationCancelActorLimiter.setNowProvider(nowProvider);
+  adminInvitationCancelTargetLimiter.setNowProvider(nowProvider);
+  adminInvitationResendActorLimiter.setNowProvider(nowProvider);
+  adminInvitationResendTargetLimiter.setNowProvider(nowProvider);
 };
 
 export const restoreAuthRateLimitNowProvider = () => {
@@ -353,6 +495,10 @@ export const restoreAuthRateLimitNowProvider = () => {
   accountInvitationTokenLimiter.restoreDefaultNowProvider();
   adminInvitationActorLimiter.restoreDefaultNowProvider();
   adminInvitationTargetLimiter.restoreDefaultNowProvider();
+  adminInvitationCancelActorLimiter.restoreDefaultNowProvider();
+  adminInvitationCancelTargetLimiter.restoreDefaultNowProvider();
+  adminInvitationResendActorLimiter.restoreDefaultNowProvider();
+  adminInvitationResendTargetLimiter.restoreDefaultNowProvider();
 };
 
 export const getAuthRateLimitEntryCounts = () => ({
@@ -368,4 +514,8 @@ export const getAuthRateLimitEntryCounts = () => ({
   accountInvitationToken: accountInvitationTokenLimiter.getEntryCount(),
   adminInvitationActor: adminInvitationActorLimiter.getEntryCount(),
   adminInvitationTarget: adminInvitationTargetLimiter.getEntryCount(),
+  adminInvitationCancelActor: adminInvitationCancelActorLimiter.getEntryCount(),
+  adminInvitationCancelTarget: adminInvitationCancelTargetLimiter.getEntryCount(),
+  adminInvitationResendActor: adminInvitationResendActorLimiter.getEntryCount(),
+  adminInvitationResendTarget: adminInvitationResendTargetLimiter.getEntryCount(),
 });

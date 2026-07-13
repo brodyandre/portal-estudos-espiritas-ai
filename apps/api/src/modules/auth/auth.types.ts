@@ -7,6 +7,11 @@ export interface AuthUser extends AppUser {
 
 export type AccountInvitationType = "enrollment_approval" | "admin_reinvite";
 export type AccountInvitationDeliveryStatus = "pending" | "sent" | "failed" | "not_configured";
+export type AccountInvitationLifecycleStatus =
+  | "pending"
+  | "accepted"
+  | "expired"
+  | "canceled";
 
 export interface StoredAuthSession {
   id: string;
@@ -116,6 +121,53 @@ export interface StoredAccountInvitation {
   deliveryStatus: AccountInvitationDeliveryStatus;
   deliveredAt?: string | null;
   deliveryFailedAt?: string | null;
+}
+
+export interface ListAccountInvitationsInput {
+  page: number;
+  pageSize: number;
+  deliveryStatus?: AccountInvitationDeliveryStatus;
+  lifecycleStatus?: AccountInvitationLifecycleStatus;
+  invitationType?: AccountInvitationType;
+  search?: string;
+  sortBy: "createdAt" | "expiresAt" | "recipient";
+  sortOrder: "asc" | "desc";
+}
+
+export interface AdminAccountInvitationListItem {
+  id: string;
+  recipientName: string;
+  recipientEmailMasked: string;
+  invitationType: AccountInvitationType;
+  deliveryStatus: AccountInvitationDeliveryStatus;
+  lifecycleStatus: AccountInvitationLifecycleStatus;
+  createdAt: Date;
+  expiresAt: Date;
+  deliveredAt: Date | null;
+  deliveryFailedAt: Date | null;
+  acceptedAt: Date | null;
+  invalidatedAt: Date | null;
+  invitedByName: string | null;
+}
+
+export interface ListAccountInvitationsResult {
+  items: AdminAccountInvitationListItem[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface AccountInvitationResendContext {
+  invitationId: string;
+  acceptedAt: string | null;
+  user: {
+    id: string;
+    fullName: string;
+    email: string;
+    accountActivatedAt: string | null;
+    status: UserStatus;
+  } | null;
 }
 
 export interface StudentAccessProvisionInput {
@@ -262,6 +314,13 @@ export interface MarkAccountInvitationFailedInput {
   actorName: string;
   actorRole: UserRole;
   note: string;
+}
+
+export interface CancelAccountInvitationInput {
+  invitationId: string;
+  actorName: string;
+  actorRole: UserRole;
+  now: Date;
 }
 
 export interface InvalidatePasswordResetTokenInput {

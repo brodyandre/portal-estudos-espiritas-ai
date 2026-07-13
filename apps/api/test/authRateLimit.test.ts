@@ -2,9 +2,15 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import {
   assertLoginRateLimit,
+  assertAdminInvitationCancelRateLimit,
+  assertAdminInvitationResendRateLimit,
+  buildAdminInvitationCancelTargetKey,
+  buildAdminInvitationResendTargetKey,
   buildLoginRateLimitKey,
   clearLoginRateLimit,
   getAuthRateLimitEntryCounts,
+  recordAdminInvitationCancelAttempt,
+  recordAdminInvitationResendAttempt,
   recordFailedLoginAttempt,
   resetAuthRateLimitStore,
   restoreAuthRateLimitNowProvider,
@@ -48,6 +54,41 @@ describe("auth rate limit store", () => {
     const secondKey = buildLoginRateLimitKey("127.0.0.1", "admin.demo@example.com");
 
     expect(firstKey).toBe(secondKey);
+  });
+
+  it("limita cancelamento de convite por ator e convite sem expor id bruto na chave alvo", () => {
+    const invitationId = "account-invitation-sensitive-id";
+
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      expect(() => assertAdminInvitationCancelRateLimit("admin-001", invitationId)).not.toThrow();
+      recordAdminInvitationCancelAttempt("admin-001", invitationId);
+    }
+
+    expect(() => assertAdminInvitationCancelRateLimit("admin-001", invitationId)).toThrow(
+      "Muitas tentativas. Aguarde antes de tentar novamente.",
+    );
+    expect(getAuthRateLimitEntryCounts().adminInvitationCancelActor).toBe(1);
+    expect(getAuthRateLimitEntryCounts().adminInvitationCancelTarget).toBe(1);
+    expect(buildAdminInvitationCancelTargetKey("admin-001", invitationId)).not.toContain(invitationId);
+  });
+
+  it("limita reenvio de convite por ator e convite sem compartilhar contador com cancelamento", () => {
+    const invitationId = "account-invitation-resend-sensitive-id";
+
+    recordAdminInvitationCancelAttempt("admin-001", invitationId);
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      expect(() => assertAdminInvitationResendRateLimit("admin-001", invitationId)).not.toThrow();
+      recordAdminInvitationResendAttempt("admin-001", invitationId);
+    }
+
+    expect(() => assertAdminInvitationResendRateLimit("admin-001", invitationId)).toThrow(
+      "Muitas tentativas. Aguarde antes de tentar novamente.",
+    );
+    expect(getAuthRateLimitEntryCounts().adminInvitationCancelActor).toBe(1);
+    expect(getAuthRateLimitEntryCounts().adminInvitationResendActor).toBe(1);
+    expect(getAuthRateLimitEntryCounts().adminInvitationResendTarget).toBe(1);
+    expect(buildAdminInvitationResendTargetKey("admin-001", invitationId)).not.toContain(invitationId);
   });
 
   it("restaura o relogio padrao apos usar nowProvider de teste", () => {
