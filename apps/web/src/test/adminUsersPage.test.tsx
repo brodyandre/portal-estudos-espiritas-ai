@@ -185,8 +185,11 @@ describe("AdminUsersPage", () => {
     expect(await screen.findByText("Esta visualização usa apenas dados fictícios e não realiza chamadas para a API local.")).toBeInTheDocument();
   });
 
-  it("não exibe ações mutáveis", async () => {
-    listUsersMock.mockResolvedValue(baseResult);
+  it("não exibe ações mutáveis no modo demonstrativo", async () => {
+    listUsersMock.mockResolvedValue({
+      ...baseResult,
+      source: "demo",
+    });
 
     renderPage();
 
@@ -195,5 +198,6 @@ describe("AdminUsersPage", () => {
     expect(screen.queryByRole("button", { name: /Inativar usuário/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Redefinir senha/i })).not.toBeInTheDocument();
     expect(screen.queryByText(/Observação administrativa/i)).not.toBeInTheDocument();
+    expect(screen.getByText("Alteração indisponível no modo demonstrativo.")).toBeInTheDocument();
   });
 });

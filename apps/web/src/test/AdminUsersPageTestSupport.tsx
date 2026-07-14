@@ -52,14 +52,21 @@ export const buildResult = (
   source,
 });
 
-export const storeAuthenticatedUser = (role: "student" | "teacher" | "admin") => {
+export const storeAuthenticatedUser = (
+  role: "student" | "teacher" | "admin",
+  overrides: Partial<{
+    id: string;
+    fullName: string;
+    email: string;
+  }> = {},
+) => {
   window.localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, "token-demo-local");
   window.localStorage.setItem(
     AUTH_USER_STORAGE_KEY,
     JSON.stringify({
-      id: `${role}-user`,
-      fullName: `Perfil ${role}`,
-      email: `${role}.demo@example.com`,
+      id: overrides.id ?? `${role}-user`,
+      fullName: overrides.fullName ?? `Perfil ${role}`,
+      email: overrides.email ?? `${role}.demo@example.com`,
       role,
       status: "active",
       mustChangePassword: false,
