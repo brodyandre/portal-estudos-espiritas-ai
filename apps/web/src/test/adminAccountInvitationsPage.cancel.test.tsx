@@ -460,8 +460,13 @@ describe("AdminAccountInvitationsPage", () => {
     expect(await screen.findByText("Nao foi possivel conectar ao backend local agora.")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Cancelar convite" }));
+    expect(
+      await screen.findByRole("dialog", { name: /Cancelar convite de Ana Beatriz/i }),
+    ).toBeInTheDocument();
 
-    expect(screen.queryByText("Nao foi possivel conectar ao backend local agora.")).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByText("Nao foi possivel conectar ao backend local agora.")).not.toBeInTheDocument();
+    });
   });
 
   it("nao atualiza estado apos desmontar durante cancelamento", async () => {

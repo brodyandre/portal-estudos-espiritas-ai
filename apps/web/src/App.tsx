@@ -12,6 +12,7 @@ import { AccountSecurityPage } from "./pages/AccountSecurityPage";
 import { ActivateAccountPage } from "./pages/ActivateAccountPage";
 import { AdminAccountInvitationsPage } from "./pages/AdminAccountInvitationsPage";
 import { AdminPage } from "./pages/AdminPage";
+import { AdminUsersPage } from "./pages/AdminUsersPage";
 import { AlunoPage } from "./pages/AlunoPage";
 import { EducationContinuedPage } from "./pages/EducationContinuedPage";
 import { EnrollmentPage } from "./pages/EnrollmentPage";
@@ -67,7 +68,7 @@ export const App = () => {
             <Route element={<ProtectedRoute routeType="admin" />}>
               <Route element={<Navigate replace to="/admin/dashboard" />} path="/admin" />
               <Route element={<AdminPage section="dashboard" />} path="/admin/dashboard" />
-              <Route element={<AdminPage section="usuarios" />} path="/admin/usuarios" />
+              <Route element={<AdminUsersPage />} path="/admin/usuarios" />
               <Route element={<AdminAccountInvitationsPage />} path="/admin/convites" />
               <Route element={<AdminPage section="grupos" />} path="/admin/grupos" />
               <Route element={<AdminPage section="conteudos" />} path="/admin/conteudos" />

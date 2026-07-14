@@ -53,6 +53,42 @@ import type {
   StudentAccessProvisionResult,
 } from "./auth.types";
 
+export type AdminUserActivationStatus = "activated" | "not_activated";
+export type AdminUserSortField = "name" | "createdAt" | "role" | "status";
+export type AdminUserSortOrder = "asc" | "desc";
+
+export interface AdminUserListInput {
+  page: number;
+  pageSize: number;
+  search?: string;
+  role?: UserRole;
+  status?: UserStatus;
+  activationStatus?: AdminUserActivationStatus;
+  group?: string;
+  sortBy: AdminUserSortField;
+  sortOrder: AdminUserSortOrder;
+}
+
+export interface AdminUserListRecord {
+  id: string;
+  fullName: string;
+  email: string;
+  role: UserRole;
+  status: UserStatus;
+  groupName: string | null;
+  groupSlug: string | null;
+  accountActivatedAt: Date | null;
+  createdAt: Date;
+}
+
+export interface AdminUserListResult {
+  records: AdminUserListRecord[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+
 export interface AuthRepository {
   getByEmail(email: string): Promise<StoredAuthUser | null>;
   getById(id: string): Promise<StoredAuthUser | null>;
@@ -81,6 +117,7 @@ export interface AuthRepository {
     input: ListAccountInvitationsInput,
     now: Date,
   ): Promise<ListAccountInvitationsResult>;
+  listAdminUsers(input: AdminUserListInput): Promise<AdminUserListResult>;
   getAccountInvitationResendContext(invitationId: string): Promise<AccountInvitationResendContext | null>;
   cancelAccountInvitation(input: CancelAccountInvitationInput): Promise<boolean>;
 }
@@ -102,6 +139,13 @@ const prismaStatusToStatus: Record<PrismaUserStatus, UserStatus> = {
   INACTIVE: "inactive",
   PENDING: "pending",
   REJECTED: "rejected",
+};
+
+const statusToPrismaStatus: Record<UserStatus, PrismaUserStatus> = {
+  pending: PrismaUserStatus.PENDING,
+  active: PrismaUserStatus.ACTIVE,
+  inactive: PrismaUserStatus.INACTIVE,
+  rejected: PrismaUserStatus.REJECTED,
 };
 
 const invitationTypeToPrisma: Record<StoredAccountInvitation["invitationType"], PrismaInvitationType> = {
@@ -379,6 +423,41 @@ const buildAdminAccountInvitationListItem = (input: {
     invalidatedAt,
     invitedByName: input.invitedByName ?? null,
   };
+};
+
+const PRISMA_USER_ROLE_SORT_ORDER: Record<UserRole, number> = {
+  visitor: 0,
+  student: 1,
+  teacher: 2,
+  admin: 3,
+};
+
+const PRISMA_USER_STATUS_SORT_ORDER: Record<UserStatus, number> = {
+  pending: 0,
+  active: 1,
+  inactive: 2,
+  rejected: 3,
+};
+
+const assertValidAdminUsersListInput = (input: AdminUserListInput) => {
+  if (input.page < 1) {
+    throw new RangeError("Admin users page must be greater than or equal to 1.");
+  }
+
+  if (input.pageSize < 1 || input.pageSize > 50) {
+    throw new RangeError("Admin users pageSize must be between 1 and 50.");
+  }
+
+  const allowedSortFields: AdminUserListInput["sortBy"][] = ["name", "createdAt", "role", "status"];
+  const allowedSortOrders: AdminUserListInput["sortOrder"][] = ["asc", "desc"];
+
+  if (!allowedSortFields.includes(input.sortBy)) {
+    throw new RangeError("Admin users sortBy must be an allowed field.");
+  }
+
+  if (!allowedSortOrders.includes(input.sortOrder)) {
+    throw new RangeError("Admin users sortOrder must be asc or desc.");
+  }
 };
 
 const buildAccountInvitationLifecycleWhere = (
@@ -723,6 +802,15 @@ type MemoryAuthAuditEntry = {
   note: string;
 };
 let memoryAuthAuditLogs: MemoryAuthAuditEntry[] = [];
+const demoUserCreatedAtById: Record<string, string> = {
+  "user-admin-demo": "2026-07-10T09:00:00.000Z",
+  "user-professor-demo": "2026-07-10T09:05:00.000Z",
+  "user-aluno-demo": "2026-07-10T09:10:00.000Z",
+  "user-aluno-inativo-demo": "2026-07-10T09:15:00.000Z",
+};
+let memoryUserCreatedAtById = new Map<string, string>(Object.entries(demoUserCreatedAtById));
+const fallbackMemoryUserCreatedAt = (index: number) =>
+  new Date(Date.UTC(2026, 6, 10, 10, index, 0, 0)).toISOString();
 
 const demoUsers: StoredAuthUser[] = [
   {
@@ -788,6 +876,27 @@ const revokeActiveSessionsInMemory = (userId: string, revokedAt: string, exceptS
 
 export const toAuthUser = buildAuthUser;
 
+const getMemoryUserCreatedAt = (userId: string) => {
+  return memoryUserCreatedAtById.get(userId) ?? fallbackMemoryUserCreatedAt(0);
+};
+
+const setMemoryUserCreatedAt = (userId: string, createdAt: string) => {
+  if (memoryUserCreatedAtById.has(userId)) {
+    return;
+  }
+
+  memoryUserCreatedAtById.set(userId, createdAt);
+};
+
+const seedMemoryUserCreatedAt = (users: StoredAuthUser[]) => {
+  memoryUserCreatedAtById = new Map(
+    users.map((user, index) => [
+      user.id,
+      demoUserCreatedAtById[user.id] ?? fallbackMemoryUserCreatedAt(index),
+    ]),
+  );
+};
+
 const updateExistingEnrollmentUser = (
   existingUser: StoredAuthUser,
   input: InvitedEnrollmentUserInput,
@@ -836,6 +945,7 @@ const prepareInvitedEnrollmentUserInMemory = async (
     };
   }
 
+  const createdAt = new Date(Date.now()).toISOString();
   const createdUser: StoredAuthUser = {
     id: `user-student-${Date.now()}`,
     fullName: input.fullName.trim(),
@@ -855,6 +965,7 @@ const prepareInvitedEnrollmentUserInMemory = async (
   };
 
   memoryAuthUsers.unshift(createdUser);
+  setMemoryUserCreatedAt(createdUser.id, createdAt);
   memoryAuthAuditLogs.unshift({
     actorName: input.actorName,
     actorRole: input.actorRole,
@@ -898,6 +1009,7 @@ export const provisionEnrollmentInvitationInMemory = async (
       targetUser.role = "student";
     }
   } else {
+    const createdAt = new Date(Date.now()).toISOString();
     targetUser = {
       id: `user-student-${Date.now()}`,
       fullName: input.fullName.trim(),
@@ -916,6 +1028,7 @@ export const provisionEnrollmentInvitationInMemory = async (
       adminNote: "Acesso local preparado para ativação por convite.",
     };
     nextUsers.unshift(targetUser);
+    setMemoryUserCreatedAt(targetUser.id, createdAt);
   }
 
   nextAuditLogs.unshift({
@@ -982,6 +1095,7 @@ export const createMemoryAuthRepository = (
 ): AuthRepository => {
   if (memoryAuthUsers.length === 0) {
     memoryAuthUsers = seedUsers.map(cloneStoredUser);
+    seedMemoryUserCreatedAt(memoryAuthUsers);
   }
 
   return {
@@ -1138,6 +1252,7 @@ export const createMemoryAuthRepository = (
         };
       }
 
+      const createdAt = new Date(Date.now()).toISOString();
       const createdUser: StoredAuthUser = {
         id: `user-student-${Date.now()}`,
         fullName: input.fullName.trim(),
@@ -1155,6 +1270,7 @@ export const createMemoryAuthRepository = (
       };
 
       memoryAuthUsers.unshift(createdUser);
+      setMemoryUserCreatedAt(createdUser.id, createdAt);
 
       return {
         user: buildAuthUser(createdUser),
@@ -1391,6 +1507,94 @@ export const createMemoryAuthRepository = (
             now,
           }),
         ),
+        page: input.page,
+        pageSize: input.pageSize,
+        total,
+        totalPages: Math.ceil(total / input.pageSize),
+      };
+    },
+    async listAdminUsers(input) {
+      assertValidAdminUsersListInput(input);
+
+      const search = input.search?.trim().toLowerCase();
+      const filteredUsers = memoryAuthUsers.filter((user) => {
+        if (input.role && user.role !== input.role) {
+          return false;
+        }
+
+        if (input.status && user.status !== input.status) {
+          return false;
+        }
+
+        if (input.activationStatus === "activated" && !user.accountActivatedAt) {
+          return false;
+        }
+
+        if (input.activationStatus === "not_activated" && user.accountActivatedAt) {
+          return false;
+        }
+
+        if (input.group && user.groupSlug !== input.group) {
+          return false;
+        }
+
+        if (!search) {
+          return true;
+        }
+
+        return (
+          user.fullName.toLowerCase().includes(search) ||
+          user.email.toLowerCase().includes(search)
+        );
+      });
+
+      const direction = input.sortOrder === "asc" ? 1 : -1;
+      const sortedUsers = [...filteredUsers].sort((first, second) => {
+        let comparison = 0;
+
+        if (input.sortBy === "name") {
+          comparison = first.fullName.localeCompare(second.fullName, "pt-BR", {
+            sensitivity: "base",
+          });
+        }
+
+        if (input.sortBy === "createdAt") {
+          comparison =
+            new Date(getMemoryUserCreatedAt(first.id)).getTime() -
+            new Date(getMemoryUserCreatedAt(second.id)).getTime();
+        }
+
+        if (input.sortBy === "role") {
+          comparison = PRISMA_USER_ROLE_SORT_ORDER[first.role] - PRISMA_USER_ROLE_SORT_ORDER[second.role];
+        }
+
+        if (input.sortBy === "status") {
+          comparison = PRISMA_USER_STATUS_SORT_ORDER[first.status] - PRISMA_USER_STATUS_SORT_ORDER[second.status];
+        }
+
+        if (comparison !== 0) {
+          return comparison * direction;
+        }
+
+        return first.id.localeCompare(second.id);
+      });
+
+      const total = sortedUsers.length;
+      const offset = (input.page - 1) * input.pageSize;
+      const pageUsers = sortedUsers.slice(offset, offset + input.pageSize);
+
+      return {
+        records: pageUsers.map((user) => ({
+            id: user.id,
+            fullName: user.fullName,
+            email: user.email,
+            role: user.role,
+            status: user.status,
+            groupName: user.groupName ?? null,
+            groupSlug: user.groupSlug ?? null,
+            accountActivatedAt: user.accountActivatedAt ? new Date(user.accountActivatedAt) : null,
+            createdAt: new Date(getMemoryUserCreatedAt(user.id)),
+          })),
         page: input.page,
         pageSize: input.pageSize,
         total,
@@ -2153,6 +2357,85 @@ export const createPrismaAuthRepository = (): AuthRepository => {
         totalPages: Math.ceil(total / input.pageSize),
       };
     },
+    async listAdminUsers(input) {
+      assertValidAdminUsersListInput(input);
+
+      const search = input.search?.trim();
+      const where: Prisma.UserWhereInput = {
+        ...(input.role ? { role: toPrismaUserRole(input.role) } : {}),
+        ...(input.status ? { status: statusToPrismaStatus[input.status] } : {}),
+        ...(input.activationStatus === "activated" ? { accountActivatedAt: { not: null } } : {}),
+        ...(input.activationStatus === "not_activated" ? { accountActivatedAt: null } : {}),
+        ...(input.group ? { groupSlug: input.group } : {}),
+        ...(search
+          ? {
+              OR: [
+                {
+                  fullName: {
+                    contains: search,
+                    mode: "insensitive",
+                  },
+                },
+                {
+                  email: {
+                    contains: search,
+                    mode: "insensitive",
+                  },
+                },
+              ],
+            }
+          : {}),
+      };
+      const orderBy: Prisma.UserOrderByWithRelationInput[] =
+        input.sortBy === "name"
+          ? [{ fullName: input.sortOrder }, { id: "asc" }]
+          : input.sortBy === "createdAt"
+            ? [{ createdAt: input.sortOrder }, { id: "asc" }]
+            : input.sortBy === "role"
+              ? [{ role: input.sortOrder }, { id: "asc" }]
+              : [{ status: input.sortOrder }, { id: "asc" }];
+
+      const [total, users] = await prisma.$transaction([
+        prisma.user.count({
+          where,
+        }),
+        prisma.user.findMany({
+          where,
+          orderBy,
+          skip: (input.page - 1) * input.pageSize,
+          take: input.pageSize,
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+            role: true,
+            status: true,
+            groupName: true,
+            groupSlug: true,
+            accountActivatedAt: true,
+            createdAt: true,
+          },
+        }),
+      ]);
+
+      return {
+        records: users.map((user) => ({
+            id: user.id,
+            fullName: user.fullName,
+            email: user.email,
+            role: prismaRoleToRole[user.role],
+            status: prismaStatusToStatus[user.status],
+            groupName: user.groupName ?? null,
+            groupSlug: user.groupSlug ?? null,
+            accountActivatedAt: user.accountActivatedAt,
+            createdAt: user.createdAt,
+          })),
+        page: input.page,
+        pageSize: input.pageSize,
+        total,
+        totalPages: Math.ceil(total / input.pageSize),
+      };
+    },
     async getAccountInvitationResendContext(invitationId) {
       const invitation = await prisma.accountInvitation.findUnique({
         where: {
@@ -2553,6 +2836,7 @@ export const resetMemoryAuthRepositoryStore = () => {
   memoryPasswordResetTokens = [];
   memoryAccountInvitations = [];
   memoryAuthAuditLogs = [];
+  seedMemoryUserCreatedAt(memoryAuthUsers);
 };
 
 export const getMemoryAuthAuditLogs = () => {

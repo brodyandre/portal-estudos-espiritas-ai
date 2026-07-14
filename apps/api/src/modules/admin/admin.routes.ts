@@ -4,6 +4,8 @@ import { AppError } from "../../lib/app-error";
 import { sendSuccess } from "../../lib/api-response";
 import { asyncHandler } from "../../lib/async-handler";
 import { requireRole } from "../auth/auth.middleware";
+import { parseAdminUsersListQuery } from "./users/query";
+import { listAdminUsers } from "./users/service";
 import type {
   AccountInvitationDeliveryStatus,
   AccountInvitationLifecycleStatus,
@@ -182,6 +184,35 @@ adminRouter.get(
 
     return sendSuccess(response, {
       message: "Convites administrativos consultados com sucesso.",
+      data: {
+        items: result.items,
+      },
+      meta: {
+        page: result.page,
+        pageSize: result.pageSize,
+        total: result.total,
+        totalPages: result.totalPages,
+      },
+    });
+  }),
+);
+
+adminRouter.get(
+  "/users",
+  ...requireRole(["admin"]),
+  asyncHandler(async (request, response) => {
+    if (!request.authUser) {
+      throw new AppError({
+        statusCode: 401,
+        code: "AUTH_REQUIRED",
+        message: "Faça login no ambiente local para continuar.",
+      });
+    }
+
+    const result = await listAdminUsers(request.authUser, parseAdminUsersListQuery(request.query));
+
+    return sendSuccess(response, {
+      message: "Usuários administrativos consultados com sucesso.",
       data: {
         items: result.items,
       },

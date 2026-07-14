@@ -384,7 +384,18 @@ describe("AdminAccountInvitationsPage", () => {
 
     renderPage();
     fireEvent.click(await screen.findByRole("button", { name: "Reenviar convite" }));
+    expect(
+      await screen.findByRole("dialog", { name: /Reenviar convite para Ana Beatriz/i }),
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Confirmar reenvio" }));
+    await waitFor(() => {
+      expect(resendInvitationMock).toHaveBeenCalledTimes(1);
+    });
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("dialog", { name: /Reenviar convite para Ana Beatriz/i }),
+      ).not.toBeInTheDocument();
+    });
 
     expect(await screen.findByText("Você não tem permissão para reenviar este convite.")).toBeInTheDocument();
     expect(screen.queryByText("invitation-internal-id-001")).not.toBeInTheDocument();
@@ -402,8 +413,13 @@ describe("AdminAccountInvitationsPage", () => {
     expect(await screen.findByText("Nao foi possivel conectar ao backend local agora.")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Reenviar convite" }));
+    expect(
+      await screen.findByRole("dialog", { name: /Reenviar convite para Ana Beatriz/i }),
+    ).toBeInTheDocument();
 
-    expect(screen.queryByText("Nao foi possivel conectar ao backend local agora.")).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByText("Nao foi possivel conectar ao backend local agora.")).not.toBeInTheDocument();
+    });
   });
 
   it("reenvio nao constroi token ou url de ativacao", async () => {

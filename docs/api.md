@@ -221,6 +221,73 @@ Rate limit:
 - a chave usa e-mail normalizado apenas em memória interna
 - login bem-sucedido limpa o contador dessa identidade
 
+### `GET /api/admin/users`
+
+Lista usuários para a área administrativa local.
+
+Acesso:
+
+- exige `Authorization: Bearer <token>`;
+- exige usuário com papel `admin`;
+- usuários sem sessão recebem `AUTH_REQUIRED`;
+- usuários autenticados sem papel administrativo recebem `FORBIDDEN`;
+- usuários com troca de senha obrigatória recebem `PASSWORD_CHANGE_REQUIRED` antes da listagem.
+
+Query parameters aceitos:
+
+- `page`: inteiro positivo, padrão `1`;
+- `pageSize`: inteiro de `1` a `50`, padrão `10`;
+- `search`: busca case-insensitive por nome ou e-mail persistido;
+- `role`: um dos papéis reais (`visitor`, `student`, `teacher`, `admin`);
+- `status`: um dos status reais (`pending`, `active`, `inactive`, `rejected`);
+- `activationStatus`: `activated` ou `not_activated`;
+- `group`: filtra por `groupSlug` normalizado;
+- `sortBy`: `name`, `createdAt`, `role` ou `status`;
+- `sortOrder`: `asc` ou `desc`, padrão `desc`.
+
+Parâmetros desconhecidos, repetidos, arrays e valores fora da whitelist retornam `400` com `INVALID_ADMIN_USER_LIST_QUERY`.
+
+Resposta:
+
+```json
+{
+  "success": true,
+  "message": "Usuários administrativos consultados com sucesso.",
+  "data": {
+    "items": [
+      {
+        "id": "user-id",
+        "name": "Nome do usuário",
+        "emailMasked": "lu***@exemplo.com",
+        "role": "student",
+        "status": "active",
+        "activationStatus": "activated",
+        "group": {
+          "name": "Emmanuel",
+          "slug": "emmanuel"
+        },
+        "createdAt": "2026-07-14T10:00:00.000Z"
+      }
+    ]
+  },
+  "meta": {
+    "page": 1,
+    "pageSize": 10,
+    "total": 1,
+    "totalPages": 1
+  }
+}
+```
+
+Segurança do contrato:
+
+- `emailMasked` preserva somente os dois primeiros caracteres do local-part, ou um quando houver apenas um, e acrescenta `***`;
+- o e-mail completo nunca é retornado;
+- `activationStatus` deriva somente de `accountActivatedAt`;
+- `status` representa o estado operacional persistido do usuário;
+- `group` só é retornado quando `groupName` e `groupSlug` existem; grupos parciais retornam `null`;
+- `lastLoginAt`, `passwordHash`, dados de sessão, convites, tokens, auditoria e observações administrativas não fazem parte da resposta.
+
 Sessão local:
 
 - cada login cria uma sessão individual com `jti`
