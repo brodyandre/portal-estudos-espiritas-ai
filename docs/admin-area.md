@@ -70,6 +70,7 @@ Gestao de perfis e acessos.
 API implementada nesta etapa:
 
 - `GET /api/admin/users`;
+- `PATCH /api/admin/users/:userId/status`;
 - exige autenticacao local;
 - exige papel `admin`;
 - retorna envelope padrao com `data.items` e metadados de paginacao em `meta`;
@@ -117,7 +118,7 @@ Escopo atual entregue:
 
 Fora do escopo desta entrega:
 
-- ativacao ou inativacao
+- controles de ativacao ou inativacao na interface de `/admin/usuarios`
 - alteracao de papel
 - vinculo ou desvinculo de grupo
 - observacao administrativa
@@ -134,9 +135,16 @@ Limite importante:
 
 Evolucoes futuras planejadas - ainda nao implementadas:
 
-- simulacao de ativacao, inativacao, alteracao de perfil, vinculo com grupo e observacao administrativa
+- acionar pela interface a mutacao `PATCH /api/admin/users/:userId/status`, com confirmacao, estados transientes e tratamento de conflitos
+- simulacao de alteracao de perfil, vinculo com grupo e observacao administrativa
 - redefinicao de senha por admin em fluxo dedicado
 - registro dessas acoes em um audit log demonstrativo local
+
+Observacao de escopo backend atual:
+
+- o backend local ja expoe `PATCH /api/admin/users/:userId/status` para alternar entre `active` e `inactive`;
+- a mutacao revalida o admin ator dentro da propria transacao, revoga sessoes ao inativar e trata conflitos concorrentes;
+- a pagina `/admin/usuarios` continua read-only para status nesta entrega e nao renderiza botoes de ativacao ou inativacao.
 
 Regras previstas para futura redefinicao de senha:
 

@@ -288,6 +288,68 @@ Segurança do contrato:
 - `group` só é retornado quando `groupName` e `groupSlug` existem; grupos parciais retornam `null`;
 - `lastLoginAt`, `passwordHash`, dados de sessão, convites, tokens, auditoria e observações administrativas não fazem parte da resposta.
 
+### `PATCH /api/admin/users/:userId/status`
+
+Atualiza o status operacional de um usuário pela área administrativa local.
+
+Acesso:
+
+- exige `Authorization: Bearer <token>`;
+- exige usuário com papel `admin`;
+- usuários sem sessão recebem `AUTH_REQUIRED`;
+- usuários autenticados sem papel administrativo recebem `FORBIDDEN` na camada de rota;
+- o service e a transação revalidam que o ator continua `admin`, `active` e com `accountActivatedAt` preenchido;
+- usuários com troca de senha obrigatória recebem `PASSWORD_CHANGE_REQUIRED` antes da mutação.
+
+Body esperado:
+
+```json
+{
+  "status": "inactive"
+}
+```
+
+Contratos de entrada:
+
+- aceita somente um objeto JSON simples com a chave `status`;
+- aceita somente `active` ou `inactive` em lowercase;
+- rejeita body ausente, arrays, `null`, chaves extras e valores fora da whitelist com `400` e `INVALID_ADMIN_USER_STATUS_INPUT`;
+- rejeita `userId` vazio, em branco ou acima de 160 caracteres com `400` e `INVALID_ADMIN_USER_STATUS_INPUT`.
+
+Regras de negócio:
+
+- permite apenas `active -> inactive` e `inactive -> active`;
+- rejeita `active -> active` e `inactive -> inactive` com `409` e `ADMIN_USER_STATUS_ALREADY_SET`;
+- rejeita qualquer tentativa envolvendo usuários em `pending` ou `rejected` com `409` e `ADMIN_USER_STATUS_TRANSITION_NOT_ALLOWED`;
+- exige `accountActivatedAt` preenchido para `inactive -> active`, caso contrário retorna `409` e `ADMIN_USER_ACCOUNT_NOT_ACTIVATED`;
+- bloqueia autoinativação administrativa com `409` e `ADMIN_USER_SELF_DEACTIVATION_NOT_ALLOWED`;
+- preserva que sempre exista ao menos um admin autenticável pela combinação de revalidação do ator dentro da transação, bloqueio de autoinativação e retry serializable;
+- quando a mudança é para `inactive`, revoga as sessões ativas do usuário na mesma transação;
+- quando a mudança é para `active`, não restaura sessões antigas e `revokedSessions` permanece `0`;
+- grava auditoria na mesma transação serializable;
+- conflitos concorrentes retornam `409` e `ADMIN_USER_STATUS_CONFLICT`.
+
+Rate limit:
+
+- aplica limite por admin ator e por usuário alvo;
+- quando excedido, retorna `429` com `ADMIN_USER_STATUS_RATE_LIMITED` e `Retry-After`.
+
+Resposta de sucesso:
+
+```json
+{
+  "success": true,
+  "message": "Status do usuário atualizado com sucesso.",
+  "data": {
+    "user": {
+      "id": "user-aluno-demo",
+      "status": "inactive"
+    },
+    "revokedSessions": 2
+  }
+}
+```
+
 Sessão local:
 
 - cada login cria uma sessão individual com `jti`

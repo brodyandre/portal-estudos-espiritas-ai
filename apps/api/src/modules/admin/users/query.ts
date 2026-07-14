@@ -1,6 +1,13 @@
 import { USER_ROLES, USER_STATUSES, type UserRole, type UserStatus } from "../../../auth/types";
 import { AppError } from "../../../lib/app-error";
-import type { AdminUserActivationStatus, AdminUserSortField, AdminUserSortOrder, ListAdminUsersInput } from "./types";
+import type {
+  AdminUserActivationStatus,
+  AdminUserSortField,
+  AdminUserSortOrder,
+  AdminUserStatusMutation,
+  ListAdminUsersInput,
+  UpdateAdminUserStatusInput,
+} from "./types";
 
 const ADMIN_USERS_QUERY_KEYS = new Set([
   "page",
@@ -20,6 +27,7 @@ const ADMIN_USER_ACTIVATION_STATUSES: AdminUserActivationStatus[] = [
 ];
 const ADMIN_USER_SORT_FIELDS: AdminUserSortField[] = ["name", "createdAt", "role", "status"];
 const ADMIN_USER_SORT_ORDERS: AdminUserSortOrder[] = ["asc", "desc"];
+const ADMIN_USER_STATUS_MUTATIONS: AdminUserStatusMutation[] = ["active", "inactive"];
 const DEFAULT_ADMIN_USERS_PAGE = 1;
 const DEFAULT_ADMIN_USERS_PAGE_SIZE = 10;
 const MAX_ADMIN_USERS_PAGE_SIZE = 50;
@@ -31,6 +39,13 @@ export const buildInvalidAdminUsersListQueryError = () =>
     statusCode: 400,
     code: "INVALID_ADMIN_USER_LIST_QUERY",
     message: "Parâmetros inválidos para consultar usuários.",
+  });
+
+export const buildInvalidAdminUserStatusInputError = () =>
+  new AppError({
+    statusCode: 400,
+    code: "INVALID_ADMIN_USER_STATUS_INPUT",
+    message: "Informe um usuário e um status válidos para a alteração administrativa.",
   });
 
 const getOptionalQueryString = (query: Record<string, unknown>, key: string) => {
@@ -125,5 +140,46 @@ export const parseAdminUsersListQuery = (
     group: parseGroupQuery(query),
     sortBy: parseEnumQuery(query, "sortBy", ADMIN_USER_SORT_FIELDS) ?? DEFAULT_ADMIN_USERS_SORT_BY,
     sortOrder: parseEnumQuery(query, "sortOrder", ADMIN_USER_SORT_ORDERS) ?? DEFAULT_ADMIN_USERS_SORT_ORDER,
+  };
+};
+
+const ADMIN_USER_ID_MAX_LENGTH = 160;
+
+export const parseAdminUserStatusPathParam = (value: string | string[] | undefined) => {
+  const normalizedValue = Array.isArray(value) ? (value[0] ?? "") : (value ?? "");
+  const trimmedValue = normalizedValue.trim();
+
+  if (!trimmedValue || trimmedValue.length > ADMIN_USER_ID_MAX_LENGTH) {
+    throw buildInvalidAdminUserStatusInputError();
+  }
+
+  return trimmedValue;
+};
+
+export const parseAdminUserStatusBody = (body: unknown): UpdateAdminUserStatusInput => {
+  const isPlainObject =
+    typeof body === "object" &&
+    body !== null &&
+    !Array.isArray(body) &&
+    Object.getPrototypeOf(body) === Object.prototype;
+
+  if (!isPlainObject) {
+    throw buildInvalidAdminUserStatusInputError();
+  }
+
+  const keys = Object.keys(body);
+
+  if (keys.length !== 1 || keys[0] !== "status") {
+    throw buildInvalidAdminUserStatusInputError();
+  }
+
+  const { status } = body as Record<string, unknown>;
+
+  if (typeof status !== "string" || !ADMIN_USER_STATUS_MUTATIONS.includes(status as AdminUserStatusMutation)) {
+    throw buildInvalidAdminUserStatusInputError();
+  }
+
+  return {
+    status: status as AdminUserStatusMutation,
   };
 };
