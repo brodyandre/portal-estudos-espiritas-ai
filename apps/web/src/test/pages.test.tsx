@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthProvider } from "../auth/AuthProvider";
 import { AlunoPage } from "../pages/AlunoPage";
 import { AdminPage } from "../pages/AdminPage";
+import { AdminUsersPage } from "../pages/AdminUsersPage";
 import { resetMockAdminAuditEvents } from "../mocks/adminAudit";
 import { resetMockAdminContents } from "../mocks/adminContents";
 import { resetMockAdminGroups } from "../mocks/adminGroups";
@@ -16,6 +17,13 @@ import { resetMockAdminUsers } from "../mocks/adminUsers";
 import { resetMockEnrollments } from "../mocks/enrollments";
 import { PortalPage } from "../pages/PortalPage";
 import { ProfessorPage } from "../pages/ProfessorPage";
+import { listAdminUsersList } from "../services/adminUsersListService";
+
+vi.mock("../services/adminUsersListService", () => ({
+  listAdminUsersList: vi.fn(),
+}));
+
+const listAdminUsersListMock = vi.mocked(listAdminUsersList);
 
 const renderRoute = (path: string, element: ReactNode) => {
   return render(
@@ -37,6 +45,44 @@ const renderRoute = (path: string, element: ReactNode) => {
 
 describe("paginas principais com fallback local", () => {
   beforeEach(() => {
+    listAdminUsersListMock.mockReset();
+    listAdminUsersListMock.mockResolvedValue({
+      items: [
+        {
+          id: "admin-user-demo-001",
+          name: "Rafael Torres",
+          emailMasked: "ra***@demo.local",
+          role: "student",
+          status: "inactive",
+          activationStatus: "activated",
+          group: {
+            name: "A Caminho da Luz",
+            slug: "a-caminho-da-luz",
+          },
+          createdAt: "2026-07-01T15:05:00.000Z",
+        },
+        {
+          id: "admin-user-demo-002",
+          name: "Celia Nogueira",
+          emailMasked: "ce***@demo.local",
+          role: "teacher",
+          status: "active",
+          activationStatus: "activated",
+          group: {
+            name: "Emmanuel",
+            slug: "emmanuel",
+          },
+          createdAt: "2026-06-28T09:45:00.000Z",
+        },
+      ],
+      meta: {
+        page: 1,
+        pageSize: 10,
+        total: 2,
+        totalPages: 1,
+      },
+      source: "demo",
+    });
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => {
@@ -177,37 +223,27 @@ describe("paginas principais com fallback local", () => {
     expect(await screen.findByRole("link", { name: "Abrir usuários" })).toBeInTheDocument();
   });
 
-  it("/admin/usuarios filtra perfis e registra ação simulada no log local", async () => {
-    renderRoute("/admin/usuarios", <AdminPage section="usuarios" />);
+  it("/admin/usuarios renderiza a página dedicada em modo demonstrativo sem ações mutáveis", async () => {
+    renderRoute("/admin/usuarios", <AdminUsersPage />);
 
     expect(await screen.findByRole("heading", { name: "Gestão de usuários" })).toBeInTheDocument();
-    expect(await screen.findByText("Modo demonstrativo de usuários")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Esta visualização usa apenas dados fictícios e não realiza chamadas para a API local."),
+    ).toBeInTheDocument();
     expect(await screen.findByText("Rafael Torres")).toBeInTheDocument();
-
-    fireEvent.change(screen.getByLabelText("Perfil"), {
-      target: { value: "teacher" },
-    });
+    expect(screen.queryByRole("button", { name: /Ativar usuário/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Redefinir senha/i })).not.toBeInTheDocument();
 
     await waitFor(() => {
-      expect(screen.getByText("Celia Nogueira")).toBeInTheDocument();
+      expect(listAdminUsersListMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          page: 1,
+          pageSize: 10,
+          sortBy: "createdAt",
+          sortOrder: "desc",
+        }),
+      );
     });
-
-    fireEvent.change(screen.getByLabelText("Perfil"), {
-      target: { value: "all" },
-    });
-
-    const userCard = screen.getByText("Rafael Torres").closest(".admin-user-card") as HTMLElement | null;
-    expect(userCard).not.toBeNull();
-
-    fireEvent.click(
-      within(userCard as HTMLElement).getByRole("button", { name: "Ativar usuário Rafael Torres" }),
-    );
-
-    await waitFor(() => {
-      expect(within(userCard as HTMLElement).getByText("Ativo")).toBeInTheDocument();
-    });
-
-    expect((await screen.findAllByText("Ativou o usuário Rafael Torres.")).length).toBeGreaterThan(0);
   });
 
   it("/admin/grupos renderiza os grupos e alterna o status em modo demonstrativo", async () => {

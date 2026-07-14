@@ -67,14 +67,64 @@ Pode reunir:
 
 Gestao de perfis e acessos.
 
-Escopo do MVP atual:
+API implementada nesta etapa:
 
-- listar usuarios mockados ou vindos da API local
-- filtrar por perfil e status
-- mostrar nome, email, perfil, grupo, status e data de cadastro
-- simular ativacao, inativacao, alteracao de perfil, vinculo com grupo e observacao administrativa
-- permitir que um admin redefina a senha de outro usuario
-- registrar essas acoes em um audit log mockado local
+- `GET /api/admin/users`;
+- exige autenticacao local;
+- exige papel `admin`;
+- retorna envelope padrao com `data.items` e metadados de paginacao em `meta`;
+- aceita `page`, `pageSize`, `search`, `role`, `status`, `activationStatus`, `group`, `sortBy` e `sortOrder`;
+- usa defaults `page=1`, `pageSize=10`, `sortBy=createdAt` e `sortOrder=desc`;
+- busca por nome ou e-mail sem expor e-mail completo;
+- ordena somente por `name`, `createdAt`, `role` e `status`, sempre com desempate por `id`;
+- rejeita query desconhecida, repetida, array ou valor invalido com `INVALID_ADMIN_USER_LIST_QUERY`.
+
+Contrato seguro da listagem:
+
+- cada item contem somente `id`, `name`, `emailMasked`, `role`, `status`, `activationStatus`, `group` e `createdAt`;
+- `emailMasked` preserva os dois primeiros caracteres do local-part, ou um quando houver apenas um, e acrescenta `***`;
+- `status` e o status operacional persistido;
+- `activationStatus` e derivado de `accountActivatedAt`, sem usar `mustChangePassword`;
+- `group` usa `groupName` e `groupSlug`;
+- se somente `groupName` ou somente `groupSlug` estiver persistido, a API retorna `group: null`;
+- `lastLoginAt` fica deliberadamente ausente porque a listagem nao expõe dados de sessao;
+- a resposta nao inclui e-mail completo, `passwordHash`, sessoes, convites, tokens, hashes, auditoria, inscricao completa ou observacoes administrativas.
+
+Escopo atual entregue:
+
+- pagina administrativa dedicada
+- rota protegida para administradores
+- listagem real de usuarios persistidos no PostgreSQL no modo local
+- busca por nome ou e-mail
+- filtro por papel
+- filtro por status da conta
+- filtro por estado de ativacao
+- filtro por grupo
+- filtros em modo draft
+- botao explicito para aplicar filtros
+- limpeza de filtros
+- paginacao
+- ordenacao
+- loading
+- estado vazio
+- erro
+- nova tentativa
+- protecao contra respostas antigas
+- protecao contra atualizacao depois da desmontagem
+- e-mail mascarado
+- modo demonstrativo do GitHub Pages com dados ficticios
+- ausencia de fallback silencioso para mocks no modo local
+
+Fora do escopo desta entrega:
+
+- ativacao ou inativacao
+- alteracao de papel
+- vinculo ou desvinculo de grupo
+- observacao administrativa
+- detalhes administrativos expandidos
+- auditoria na tela
+- redefinicao de senha iniciada pela pagina nova
+- outras mutacoes
 
 Limite importante:
 
@@ -82,7 +132,13 @@ Limite importante:
 - a operacao segura em producao exige backend hospedado, observabilidade e controles de acesso mais fortes
 - o log demonstrativo atual nao substitui auditoria persistente de producao
 
-Regras da redefinicao de senha:
+Evolucoes futuras planejadas - ainda nao implementadas:
+
+- simulacao de ativacao, inativacao, alteracao de perfil, vinculo com grupo e observacao administrativa
+- redefinicao de senha por admin em fluxo dedicado
+- registro dessas acoes em um audit log demonstrativo local
+
+Regras previstas para futura redefinicao de senha:
 
 - apenas admin pode executar a acao
 - o proprio admin nao deve usar esse endpoint para redefinir a propria senha
@@ -333,7 +389,7 @@ No ambiente local:
 - a area administrativa pode consumir a API local
 - usa autenticacao local simples nesta fase
 - serve apenas como MVP de operacao interna
-- a tela `/admin/usuarios` pode simular a gestao de usuarios sem expor o link do Meet
+- a tela `/admin/usuarios` consome a listagem administrativa real no modo local e usa dados ficticios no GitHub Pages, sem mutacoes na nova pagina
 - a tela `/admin/convites` consome endpoints administrativos reais da API local e preserva respostas seguras
 - a tela `/admin/grupos` pode revisar configuracoes do grupo e mostrar o Meet real apenas no ambiente local autorizado
 
