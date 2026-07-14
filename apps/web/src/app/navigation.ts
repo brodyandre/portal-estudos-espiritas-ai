@@ -237,6 +237,12 @@ export const adminSidebarConfig: SidebarConfig = {
     },
     {
       type: "route",
+      to: "/admin/convites",
+      label: "Convites de acesso",
+      description: "Acompanhar convites administrativos emitidos para contas.",
+    },
+    {
+      type: "route",
       to: "/admin/grupos",
       label: "Grupos",
       description: "Organização dos grupos, horários e capacidade de acompanhamento.",
@@ -324,6 +330,10 @@ export const pageMeta = {
   "/admin/usuarios": {
     title: "Usuários",
     description: "Perfis demonstrativos, papéis e situação dos acessos cadastrados.",
+  },
+  "/admin/convites": {
+    title: "Convites de acesso",
+    description: "Acompanhamento dos convites administrativos emitidos para contas.",
   },
   "/admin/grupos": {
     title: "Grupos",
@@ -563,6 +573,12 @@ export const pageSections: Record<string, PageSectionContext[]> = {
     {
       targetId: "admin-usuarios",
       label: "Usuários",
+    },
+  ],
+  "/admin/convites": [
+    {
+      targetId: "admin-account-invitations",
+      label: "Convites",
     },
   ],
   "/admin/grupos": [

@@ -85,6 +85,15 @@ const buildListInput = (
   ...overrides,
 });
 
+const installSequentialDateNowMock = (initialTimestamp = 1000) => {
+  let nextTimestamp = initialTimestamp;
+
+  return vi.spyOn(Date, "now").mockImplementation(() => {
+    nextTimestamp += 1;
+    return nextTimestamp;
+  });
+};
+
 const loginAs = async (email: string, password: string) => {
   const response = await request(app).post("/api/auth/login").send({ email, password });
   return response.body.data.token as string;
@@ -93,6 +102,11 @@ const loginAs = async (email: string, password: string) => {
 const loginAsAdmin = () => loginAs("admin.demo@example.com", "AdminDemo@123");
 const loginAsTeacher = () => loginAs("professor.demo@example.com", "ProfessorDemo@123");
 const loginAsStudent = () => loginAs("aluno.demo@example.com", "AlunoDemo@123");
+const loginAsAdminThenInstallSequentialDateNowMock = async () => {
+  const token = await loginAsAdmin();
+  installSequentialDateNowMock();
+  return token;
+};
 
 describe("admin account invitations foundation", () => {
   let repository: AuthRepository;
@@ -151,11 +165,6 @@ describe("admin account invitations foundation", () => {
   beforeEach(async () => {
     vi.restoreAllMocks();
     resetAuthRateLimitStore();
-    let nextTimestamp = 1000;
-    vi.spyOn(Date, "now").mockImplementation(() => {
-      nextTimestamp += 1;
-      return nextTimestamp;
-    });
     resetMemoryAuthRepositoryStore();
     resetAccountInvitationNotifier();
     repository = createMemoryAuthRepository();
@@ -170,20 +179,25 @@ describe("admin account invitations foundation", () => {
       { key: "elisa", fullName: "Elisa Martins", email: "elisa@example.com" },
     ];
 
-    for (const user of users) {
-      const result = await repository.prepareInvitedEnrollmentUser({
-        enrollmentId: `enrollment-${user.key}`,
-        fullName: user.fullName,
-        email: user.email,
-        whatsapp: "11999999999",
-        groupName: null,
-        groupSlug: null,
-        actorName: adminUser.fullName,
-        actorRole: adminUser.role,
-        passwordHash: "hash",
-      });
+    const dateNowMock = installSequentialDateNowMock();
+    try {
+      for (const user of users) {
+        const result = await repository.prepareInvitedEnrollmentUser({
+          enrollmentId: `enrollment-${user.key}`,
+          fullName: user.fullName,
+          email: user.email,
+          whatsapp: "11999999999",
+          groupName: null,
+          groupSlug: null,
+          actorName: adminUser.fullName,
+          actorRole: adminUser.role,
+          passwordHash: "hash",
+        });
 
-      testUserIds[user.key] = result.user.id;
+        testUserIds[user.key] = result.user.id;
+      }
+    } finally {
+      dateNowMock.mockRestore();
     }
   });
 
@@ -239,11 +253,7 @@ describe("admin account invitations foundation", () => {
 
   describe("listagem", () => {
     beforeEach(async () => {
-      let nextTimestamp = 1000;
-      vi.spyOn(Date, "now").mockImplementation(() => {
-        nextTimestamp += 1;
-        return nextTimestamp;
-      });
+      installSequentialDateNowMock();
 
       await seedInvitationMatrix();
     });
@@ -476,6 +486,10 @@ describe("admin account invitations foundation", () => {
   });
 
   describe("cancelamento", () => {
+    beforeEach(() => {
+      installSequentialDateNowMock();
+    });
+
     it("permite admin cancelar convite utilizável", async () => {
       const invitation = await createInvitation(repository, {
         userId: testUserIds.ana,
@@ -642,6 +656,10 @@ describe("admin account invitations foundation", () => {
   });
 
   describe("reenvio", () => {
+    beforeEach(() => {
+      installSequentialDateNowMock();
+    });
+
     const expectSuccessfulResend = async (invitationId: string) => {
       const previousPreviews = listAccountInvitationPreviews();
       const result = await resendAdminAccountInvitation(adminUser, invitationId);
@@ -955,11 +973,16 @@ describe("admin account invitations foundation", () => {
   describe("rotas HTTP", () => {
     describe("GET /api/admin/account-invitations", () => {
       beforeEach(async () => {
-        await seedInvitationMatrix();
+        const dateNowMock = installSequentialDateNowMock();
+        try {
+          await seedInvitationMatrix();
+        } finally {
+          dateNowMock.mockRestore();
+        }
       });
 
       it("retorna envelope, defaults e payload seguro para admin", async () => {
-        const token = await loginAsAdmin();
+        const token = await loginAsAdminThenInstallSequentialDateNowMock();
 
         const response = await request(app)
           .get("/api/admin/account-invitations")
@@ -1000,7 +1023,7 @@ describe("admin account invitations foundation", () => {
       });
 
       it("aplica paginação customizada", async () => {
-        const token = await loginAsAdmin();
+        const token = await loginAsAdminThenInstallSequentialDateNowMock();
 
         const response = await request(app)
           .get("/api/admin/account-invitations")
@@ -1021,7 +1044,7 @@ describe("admin account invitations foundation", () => {
       });
 
       it("filtra por delivery status, lifecycle status e invitation type", async () => {
-        const token = await loginAsAdmin();
+        const token = await loginAsAdminThenInstallSequentialDateNowMock();
         const sentResponse = await request(app)
           .get("/api/admin/account-invitations")
           .query({ deliveryStatus: "sent" })
@@ -1046,7 +1069,7 @@ describe("admin account invitations foundation", () => {
       });
 
       it("aplica busca e ordenação", async () => {
-        const token = await loginAsAdmin();
+        const token = await loginAsAdminThenInstallSequentialDateNowMock();
 
         const searchResponse = await request(app)
           .get("/api/admin/account-invitations")
@@ -1073,6 +1096,7 @@ describe("admin account invitations foundation", () => {
       it("bloqueia perfis teacher, student e requisição sem autenticação", async () => {
         const teacherToken = await loginAsTeacher();
         const studentToken = await loginAsStudent();
+        installSequentialDateNowMock();
 
         const teacherResponse = await request(app)
           .get("/api/admin/account-invitations")
@@ -1100,7 +1124,7 @@ describe("admin account invitations foundation", () => {
         ["query repetida", "/api/admin/account-invitations?page=1&page=2"],
         ["query extra", "/api/admin/account-invitations?unknown=value"],
       ])("retorna 400 para %s", async (_caseName, path) => {
-        const token = await loginAsAdmin();
+        const token = await loginAsAdminThenInstallSequentialDateNowMock();
 
         const response = await request(app)
           .get(path)
@@ -1121,7 +1145,7 @@ describe("admin account invitations foundation", () => {
             sendCount += 1;
           },
         });
-        const token = await loginAsAdmin();
+        const token = await loginAsAdminThenInstallSequentialDateNowMock();
         const invitation = await createInvitation(repository, {
           userId: testUserIds.ana,
           tokenHash: "http-cancel-hash",
@@ -1154,7 +1178,7 @@ describe("admin account invitations foundation", () => {
       });
 
       it("retorna 409 para segunda tentativa, aceito, expirado, invalidado e inexistente", async () => {
-        const token = await loginAsAdmin();
+        const token = await loginAsAdminThenInstallSequentialDateNowMock();
         const validInvitation = await createInvitation(repository, {
           userId: testUserIds.ana,
           tokenHash: "http-double-hash",
@@ -1212,7 +1236,7 @@ describe("admin account invitations foundation", () => {
       });
 
       it("retorna 400 para ID inválido e body inesperado", async () => {
-        const token = await loginAsAdmin();
+        const token = await loginAsAdminThenInstallSequentialDateNowMock();
         const invitation = await createInvitation(repository, {
           userId: testUserIds.ana,
           tokenHash: "http-body-hash",
@@ -1234,7 +1258,7 @@ describe("admin account invitations foundation", () => {
       });
 
       it("retorna 400 para body null", async () => {
-        const token = await loginAsAdmin();
+        const token = await loginAsAdminThenInstallSequentialDateNowMock();
         const invitation = await createInvitation(repository, {
           userId: testUserIds.ana,
           tokenHash: "http-null-body-cancel-hash",
@@ -1254,6 +1278,7 @@ describe("admin account invitations foundation", () => {
       it("bloqueia teacher, student e requisição sem autenticação", async () => {
         const teacherToken = await loginAsTeacher();
         const studentToken = await loginAsStudent();
+        installSequentialDateNowMock();
         const invitation = await createInvitation(repository, {
           userId: testUserIds.ana,
           tokenHash: "http-forbidden-hash",
@@ -1277,7 +1302,7 @@ describe("admin account invitations foundation", () => {
       });
 
       it("limita tentativas por ator e convite", async () => {
-        const token = await loginAsAdmin();
+        const token = await loginAsAdminThenInstallSequentialDateNowMock();
         const invitation = await createInvitation(repository, {
           userId: testUserIds.ana,
           tokenHash: "http-rate-hash",
@@ -1303,7 +1328,7 @@ describe("admin account invitations foundation", () => {
 
     describe("POST /api/admin/account-invitations/:invitationId/resend", () => {
       it("permite admin reenviar com body ausente e envelope seguro", async () => {
-        const token = await loginAsAdmin();
+        const token = await loginAsAdminThenInstallSequentialDateNowMock();
         const invitation = await createInvitation(repository, {
           userId: testUserIds.ana,
           tokenHash: "http-resend-hash",
@@ -1334,7 +1359,7 @@ describe("admin account invitations foundation", () => {
       });
 
       it("aceita body vazio", async () => {
-        const token = await loginAsAdmin();
+        const token = await loginAsAdminThenInstallSequentialDateNowMock();
         const invitation = await createInvitation(repository, {
           userId: testUserIds.bruno,
           tokenHash: "http-resend-empty-body-hash",
@@ -1351,7 +1376,7 @@ describe("admin account invitations foundation", () => {
       });
 
       it("rejeita body inesperado e ID acima de 160", async () => {
-        const token = await loginAsAdmin();
+        const token = await loginAsAdminThenInstallSequentialDateNowMock();
         const invitation = await createInvitation(repository, {
           userId: testUserIds.ana,
           tokenHash: "http-resend-invalid-body-hash",
@@ -1373,7 +1398,7 @@ describe("admin account invitations foundation", () => {
       });
 
       it("retorna 400 para body null", async () => {
-        const token = await loginAsAdmin();
+        const token = await loginAsAdminThenInstallSequentialDateNowMock();
         const invitation = await createInvitation(repository, {
           userId: testUserIds.ana,
           tokenHash: "http-null-body-resend-hash",
@@ -1393,6 +1418,7 @@ describe("admin account invitations foundation", () => {
       it("bloqueia teacher, student e requisição sem autenticação", async () => {
         const teacherToken = await loginAsTeacher();
         const studentToken = await loginAsStudent();
+        installSequentialDateNowMock();
         const invitation = await createInvitation(repository, {
           userId: testUserIds.ana,
           tokenHash: "http-resend-forbidden-hash",
@@ -1416,7 +1442,7 @@ describe("admin account invitations foundation", () => {
       });
 
       it("retorna 409 genérico para convite não reenviável", async () => {
-        const token = await loginAsAdmin();
+        const token = await loginAsAdminThenInstallSequentialDateNowMock();
         const invitation = await createInvitation(repository, {
           userId: testUserIds.ana,
           tokenHash: "http-resend-accepted-hash",
@@ -1440,7 +1466,7 @@ describe("admin account invitations foundation", () => {
       });
 
       it("retorna 429 ao exceder limite por ator e convite", async () => {
-        const token = await loginAsAdmin();
+        const token = await loginAsAdminThenInstallSequentialDateNowMock();
         const invitation = await createInvitation(repository, {
           userId: testUserIds.ana,
           tokenHash: "http-resend-rate-hash",
@@ -1464,7 +1490,7 @@ describe("admin account invitations foundation", () => {
       });
 
       it("mantém apenas o convite mais recente válido em reenvios concorrentes", async () => {
-        const token = await loginAsAdmin();
+        const token = await loginAsAdminThenInstallSequentialDateNowMock();
         const invitation = await createInvitation(repository, {
           userId: testUserIds.ana,
           tokenHash: "http-concurrent-resend-hash",
@@ -1510,7 +1536,7 @@ describe("admin account invitations foundation", () => {
       });
 
       it("mantém endpoint existente por userId funcionando", async () => {
-        const token = await loginAsAdmin();
+        const token = await loginAsAdminThenInstallSequentialDateNowMock();
 
         const response = await request(app)
           .post(`/api/admin/users/${testUserIds.ana}/send-invitation`)

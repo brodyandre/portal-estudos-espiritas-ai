@@ -1,5 +1,6 @@
 import request from "supertest";
 import jwt from "jsonwebtoken";
+import bcrypt from "bcryptjs";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { app } from "../src/app";
@@ -107,6 +108,19 @@ describe("auth endpoints", () => {
 
   afterEach(() => {
     app.set("trust proxy", false);
+  });
+
+  it("mantem bcrypt real com custo reduzido no ambiente de testes da API", async () => {
+    const password = "SenhaBcryptReal@123";
+    const hash = await bcrypt.hash(password, 10);
+
+    expect(hash).toMatch(/^\$2[abxy]\$04\$/);
+    expect(bcrypt.getRounds(hash)).toBe(4);
+    expect(hash).not.toContain(password);
+    expect(hash.startsWith("hashed:")).toBe(false);
+    await expect(bcrypt.compare(password, hash)).resolves.toBe(true);
+    await expect(bcrypt.compare("senha-incorreta", hash)).resolves.toBe(false);
+    expect(bcrypt.compareSync(password, hash)).toBe(true);
   });
 
   it("faz login local com sucesso", async () => {
@@ -477,7 +491,7 @@ describe("auth endpoints", () => {
         id: "user-pending-activation",
         fullName: "Aluno Convidado",
         email: "aluno.convidado@example.com",
-        passwordHash: "$2b$10$wy0YlIcUd2dQWB/0lClqYuqn3x8GfI0afZj3JI6G4EQ7FLp7cLxN2",
+        passwordHash: bcrypt.hashSync("SenhaConvite@123", 10),
         role: "student",
         status: "active",
         accountActivatedAt: null,

@@ -46,6 +46,7 @@ describe("paginas principais com fallback local", () => {
   });
 
   afterEach(() => {
+    cleanup();
     vi.unstubAllGlobals();
     window.localStorage.clear();
     window.sessionStorage.clear();
@@ -326,7 +327,6 @@ describe("paginas principais com fallback local", () => {
     });
 
     professorView.unmount();
-    cleanup();
     renderRoute("/aluno", <AlunoPage />);
 
     expect(await screen.findByText("Painel do Aluno")).toBeInTheDocument();

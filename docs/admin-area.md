@@ -4,7 +4,7 @@
 
 Descrever a experiencia administrativa prevista para o projeto, separada do painel do professor.
 
-Nesta fase, a area administrativa ainda e um conceito de MVP demonstrativo. A seguranca real dessa area depende de backend autenticado, ainda nao implementado.
+Nesta fase, a area administrativa combina telas demonstrativas com fluxos locais autenticados. As rotas em `/admin` usam a autenticacao local e protecao por papel administrativo, mas a publicacao estatica no GitHub Pages continua sendo uma demonstracao sem seguranca real de producao.
 
 ## Papel da area administrativa
 
@@ -32,6 +32,7 @@ Rotas previstas:
 - `/admin`
 - `/admin/dashboard`
 - `/admin/usuarios`
+- `/admin/convites`
 - `/admin/grupos`
 - `/admin/conteudos`
 - `/admin/configuracoes`
@@ -77,8 +78,8 @@ Escopo do MVP atual:
 
 Limite importante:
 
-- essa tela ainda nao tem autenticacao real
-- a operacao segura em producao exige backend autenticado
+- essa tela usa autenticacao local simples, sem hardening de producao
+- a operacao segura em producao exige backend hospedado, observabilidade e controles de acesso mais fortes
 - o log demonstrativo atual nao substitui auditoria persistente de producao
 
 Regras da redefinicao de senha:
@@ -91,6 +92,102 @@ Regras da redefinicao de senha:
 - o endpoint possui limite de uso por admin e por usuario-alvo
 - o limite por usuario-alvo e compartilhado entre administradores
 - quando o limite e excedido, a interface deve orientar o admin a aguardar antes de tentar novamente
+
+### `/admin/convites`
+
+Gestao administrativa read-only da listagem de convites de conta, com acoes pontuais de cancelamento e reenvio.
+
+Acesso:
+
+- rota React em `/admin/convites`;
+- no GitHub Pages, o `HashRouter` publica a mesma tela como `/#/admin/convites`;
+- rota protegida pelo fluxo local de autenticacao;
+- exige usuario com papel `admin`;
+- professores, alunos e usuarios anonimos nao devem acessar a tela nem os endpoints administrativos.
+
+Funcionalidades implementadas:
+
+- listar convites vindos de `GET /api/admin/account-invitations`;
+- paginar os resultados;
+- buscar por destinatario;
+- filtrar por estado de entrega, ciclo de vida e tipo do convite;
+- ordenar por criacao, expiracao ou destinatario;
+- escolher tamanho de pagina entre os limites aceitos pela API;
+- exibir estado de carregamento, vazio, erro, retry manual e respostas tardias de forma segura;
+- cancelar convite elegivel;
+- reenviar convite elegivel;
+- atualizar a listagem apos uma acao bem-sucedida sem retry automatico.
+
+Estados de entrega exibidos:
+
+- `sent`: e-mail enviado;
+- `pending`: entrega pendente;
+- `failed`: falha no envio;
+- `not_configured`: e-mail nao configurado.
+
+`failed` e `not_configured` indicam o resultado da tentativa de entrega. Eles nao significam, por si so, rollback da criacao do convite no reenvio administrativo.
+
+Estados de ciclo de vida exibidos:
+
+- `pending`: convite ainda utilizavel se nao expirou nem foi invalidado;
+- `accepted`: convite aceito, sem acoes administrativas de cancelamento ou reenvio na interface;
+- `expired`: convite expirado;
+- `canceled`: convite invalidado administrativamente ou por substituicao.
+
+Regras visuais de acao:
+
+- `Cancelar` aparece apenas para convites com ciclo de vida `pending`;
+- `Reenviar` aparece para convites que ainda nao foram aceitos;
+- a API continua sendo a fonte de verdade e pode retornar `409` mesmo quando a interface mostrou uma acao disponivel;
+- `ACCOUNT_INVITATION_NOT_CANCELABLE` e tratado como conflito seguro de cancelamento;
+- `ACCOUNT_INVITATION_NOT_RESENDABLE` e tratado como conflito seguro de reenvio;
+- `429` deve orientar aguardar antes de repetir a acao;
+- `401` e `403` seguem o fluxo de autenticacao e autorizacao existente.
+
+Cancelamento:
+
+- usa `POST /api/admin/account-invitations/:invitationId/cancel`;
+- envia corpo vazio;
+- nao envia motivo livre no MVP;
+- confirma a acao em modal antes de chamar a API;
+- nao altera o estado de entrega original, apenas invalida o convite quando elegivel;
+- nao expõe token, hash, URL, `userId`, e-mail completo ou dados internos.
+
+Reenvio:
+
+- usa `POST /api/admin/account-invitations/:invitationId/resend`;
+- envia corpo vazio;
+- confirma a acao em modal antes de chamar a API;
+- cria um convite do tipo `admin_reinvite`;
+- invalida o convite anterior elegivel e deixa somente o convite mais recente como utilizavel;
+- tenta entrega por SMTP fora da transacao;
+- a resposta publica contem apenas `expiresAt`, `deliveryStatus` e `invitationType`;
+- mensagens de sucesso diferenciam `sent`, `pending`, `failed` e `not_configured` sem revelar URL ou token.
+
+Seguranca da interface:
+
+- a tabela usa `recipientEmailMasked`, nunca e-mail completo;
+- a tela nao renderiza JWT, token bruto, `tokenHash`, URL de ativacao, `userId`, `invitedByUserId`, senha, IP, payload SMTP ou dados pessoais completos;
+- erros tecnicos de rede e API sao normalizados para mensagens seguras;
+- chamadas antigas da listagem sao ignoradas quando uma resposta mais recente ja foi iniciada;
+- atualizacoes apos desmontagem sao bloqueadas.
+
+Acessibilidade:
+
+- a listagem usa titulo e regioes nomeadas;
+- modais de confirmacao usam `role="dialog"`, `aria-modal="true"` e `aria-labelledby` apontando para o titulo visivel;
+- o identificador acessivel interno do modal e estavel e nao contem `invitationId`, nome ou e-mail.
+
+Testes de frontend cobrem:
+
+- protecao da rota administrativa;
+- estados de loading, vazio, erro, retry manual e paginação;
+- filtros, busca e ordenacao;
+- cancelamento, reenvio, conflitos `409` e limite `429`;
+- concorrencia de acoes e ausencia de chamadas duplicadas;
+- respostas tardias, desmontagem e ausencia de atualizacao indevida;
+- sanitizacao de dados sensiveis;
+- associacao acessivel dos modais por `aria-labelledby`.
 
 ### `/admin/grupos`
 
@@ -209,6 +306,7 @@ Foco em governanca e operacao do sistema:
 No GitHub Pages:
 
 - a area administrativa pode existir como interface demonstrativa
+- `/admin/convites` funciona pela rota hash `/#/admin/convites`
 - nao deve usar dados reais
 - nao deve mostrar informacoes sensiveis
 - nao deve ser tratada como area segura
@@ -226,7 +324,7 @@ Na experiencia `Admin` publicada:
 - nao pode haver links reais do Meet em paginas publicas
 - nao pode haver qualquer segredo operacional
 
-Isso vale inclusive para `/admin/usuarios`, `/admin/grupos`, `/admin/conteudos`, `/admin/configuracoes` e `/admin/auditoria`.
+Isso vale inclusive para `/admin/usuarios`, `/admin/convites`, `/admin/grupos`, `/admin/conteudos`, `/admin/configuracoes` e `/admin/auditoria`.
 
 ## Ambiente local
 
@@ -236,6 +334,7 @@ No ambiente local:
 - usa autenticacao local simples nesta fase
 - serve apenas como MVP de operacao interna
 - a tela `/admin/usuarios` pode simular a gestao de usuarios sem expor o link do Meet
+- a tela `/admin/convites` consome endpoints administrativos reais da API local e preserva respostas seguras
 - a tela `/admin/grupos` pode revisar configuracoes do grupo e mostrar o Meet real apenas no ambiente local autorizado
 
 ## Decisao tecnica atual
@@ -245,12 +344,13 @@ Nesta fase do projeto:
 - a experiencia `Admin` pode reutilizar partes da estrutura do painel do professor
 - isso nao significa que professor e admin sejam o mesmo perfil
 - a separacao conceitual de rotas ja deve existir na documentacao
-- a separacao funcional completa fica para a etapa com backend autenticado
+- a tela de convites ja depende de autorizacao local por papel
+- a separacao funcional completa de producao fica para a etapa com backend hospedado e controles persistentes
 
 ## Limites atuais
 
-- sem login real
-- sem autorizacao real por perfil
+- sem hardening de login para producao
+- sem autorizacao fina por recurso alem do papel local
 - sem trilha de auditoria persistente
 - sem segregacao forte entre professor e admin
 
