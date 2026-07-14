@@ -10,6 +10,7 @@ import { StudentLayout } from "./components/layout/StudentLayout";
 import { TeacherLayout } from "./components/layout/TeacherLayout";
 import { AccountSecurityPage } from "./pages/AccountSecurityPage";
 import { ActivateAccountPage } from "./pages/ActivateAccountPage";
+import { AdminAccountInvitationsPage } from "./pages/AdminAccountInvitationsPage";
 import { AdminPage } from "./pages/AdminPage";
 import { AlunoPage } from "./pages/AlunoPage";
 import { EducationContinuedPage } from "./pages/EducationContinuedPage";
@@ -67,6 +68,7 @@ export const App = () => {
               <Route element={<Navigate replace to="/admin/dashboard" />} path="/admin" />
               <Route element={<AdminPage section="dashboard" />} path="/admin/dashboard" />
               <Route element={<AdminPage section="usuarios" />} path="/admin/usuarios" />
+              <Route element={<AdminAccountInvitationsPage />} path="/admin/convites" />
               <Route element={<AdminPage section="grupos" />} path="/admin/grupos" />
               <Route element={<AdminPage section="conteudos" />} path="/admin/conteudos" />
               <Route element={<AdminPage section="configuracoes" />} path="/admin/configuracoes" />

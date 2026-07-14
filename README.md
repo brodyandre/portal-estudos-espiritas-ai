@@ -33,12 +33,14 @@ Grupos de estudo online costumam espalhar informacoes entre links, mensagens, re
 - autenticação local simples com JWT para Admin, Professor e Aluno no ambiente privado
 - gerenciamento local de sessões ativas em `/minha-conta/seguranca`
 - troca obrigatória da senha temporária no primeiro acesso do aluno aprovado
+- interface administrativa protegida em `/admin/convites` para listar, filtrar, cancelar e reenviar convites de conta sem expor dados sensíveis
 - recuperação local de senha com token temporário de uso único
 - entrega transacional local de recuperação de senha via SMTP com Mailpit para desenvolvimento
 - redefinição administrativa de senha por admin, com encerramento imediato das sessões anteriores
 - proteção contra força bruta e excesso de tentativas em login, troca de senha e reset administrativo
 - Integracao opcional com Ollama, com fallback claro quando o modelo nao estiver disponivel
-- Funcionamento da interface mesmo com backend desligado, usando mocks e respostas demonstrativas no frontend
+- Fallback local em fluxos publicos e demonstrativos quando o backend estiver desligado
+- Areas autenticadas com dados administrativos reais, como `/admin/convites`, continuam exigindo a API; no GitHub Pages, a versao estatica segue demonstrativa e mostra erro seguro com nova tentativa manual quando a API privada nao esta disponivel
 
 ## Stack
 
@@ -95,6 +97,7 @@ Documentacao complementar:
 - [docs/rag.md](docs/rag.md)
 - [docs/agent-flow.md](docs/agent-flow.md)
 - [docs/admin-area.md](docs/admin-area.md)
+- [docs/account-invitations.md](docs/account-invitations.md)
 - [docs/password-recovery.md](docs/password-recovery.md)
 - [docs/user-guide-student.md](docs/user-guide-student.md)
 - [docs/user-guide-teacher.md](docs/user-guide-teacher.md)

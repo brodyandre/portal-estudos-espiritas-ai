@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-API local em `Express + TypeScript` para servir dados demonstrativos do portal de estudos espiritas, sem banco de dados e com respostas JSON padronizadas.
+API local em `Express + TypeScript` para servir dados demonstrativos e fluxos privados do portal de estudos espiritas, com respostas JSON padronizadas e persistencia local configuravel.
 
 ## Estrutura
 
@@ -544,6 +544,190 @@ Observação operacional:
 - nesta etapa, os contadores ficam apenas em memória
 - ao reiniciar a API, o histórico de tentativas é perdido
 - produção futura deve considerar Redis ou armazenamento distribuído
+
+### `GET /api/admin/account-invitations`
+
+Lista convites de conta para a interface administrativa `/admin/convites`.
+
+Permissão:
+
+- exige token Bearer valido;
+- exige papel `admin`;
+- retorna `401` com `AUTH_REQUIRED` sem autenticacao;
+- retorna `403` para professor, aluno ou outro papel sem permissao.
+
+Query params aceitos:
+
+- `page`: inteiro maior ou igual a `1`; padrao `1`;
+- `pageSize`: inteiro entre `1` e `50`; padrao `10`;
+- `deliveryStatus`: `pending`, `sent`, `failed` ou `not_configured`;
+- `lifecycleStatus`: `pending`, `accepted`, `expired` ou `canceled`;
+- `invitationType`: `enrollment_approval` ou `admin_reinvite`;
+- `search`: texto com ate 120 caracteres;
+- `sortBy`: `createdAt`, `expiresAt` ou `recipient`;
+- `sortOrder`: `asc` ou `desc`.
+
+Queries repetidas, desconhecidas ou fora dos limites retornam `400` com `INVALID_ACCOUNT_INVITATION_LIST_QUERY`.
+
+Resposta:
+
+```json
+{
+  "success": true,
+  "message": "Convites administrativos consultados com sucesso.",
+  "data": {
+    "items": [
+      {
+        "id": "account-invitation-demo",
+        "recipientName": "Ana Beatriz",
+        "recipientEmailMasked": "a***@example.com",
+        "invitationType": "enrollment_approval",
+        "deliveryStatus": "sent",
+        "lifecycleStatus": "pending",
+        "createdAt": "2026-07-13T12:00:00.000Z",
+        "expiresAt": "2026-07-15T12:00:00.000Z",
+        "deliveredAt": "2026-07-13T12:01:00.000Z",
+        "deliveryFailedAt": null,
+        "acceptedAt": null,
+        "invalidatedAt": null,
+        "invitedByName": "Admin Demonstrativo"
+      }
+    ]
+  },
+  "meta": {
+    "page": 1,
+    "pageSize": 10,
+    "total": 1,
+    "totalPages": 1
+  }
+}
+```
+
+Campos publicos:
+
+- `recipientEmailMasked` e o unico campo de e-mail retornado;
+- `deliveryStatus` descreve a tentativa de entrega;
+- `lifecycleStatus` descreve se o convite ainda esta pendente, aceito, expirado ou cancelado;
+- `invitationType` diferencia convite gerado por aprovacao de inscricao e reenvio administrativo.
+
+Nunca retorna:
+
+- token bruto;
+- `tokenHash`;
+- URL de ativacao;
+- JWT;
+- `userId`;
+- `invitedByUserId`;
+- e-mail completo;
+- senha ou `passwordHash`;
+- IP;
+- payload SMTP.
+
+### `POST /api/admin/account-invitations/:invitationId/cancel`
+
+Cancela um convite de conta elegivel.
+
+Permissão:
+
+- exige token Bearer valido;
+- exige papel `admin`.
+
+Body:
+
+- pode ser ausente;
+- pode ser objeto vazio `{}`;
+- propriedades inesperadas retornam `400` com `INVALID_ACCOUNT_INVITATION_CANCEL_INPUT`.
+
+Resposta:
+
+```json
+{
+  "success": true,
+  "message": "Convite cancelado com sucesso.",
+  "data": {
+    "canceled": true
+  }
+}
+```
+
+Erros contratuais relevantes:
+
+- `INVALID_ACCOUNT_INVITATION_CANCEL_INPUT`: ID invalido ou body inesperado;
+- `ACCOUNT_INVITATION_NOT_CANCELABLE`: convite inexistente, aceito, expirado, ja invalidado ou nao elegivel;
+- `AUTH_REQUIRED`;
+- `FORBIDDEN`.
+
+Limite operacional:
+
+- a API pode responder `429` com `ADMIN_INVITATION_CANCEL_RATE_LIMITED`;
+- a resposta pode incluir orientacao de espera, como `Retry-After`;
+- o frontend nao executa retry automatico;
+- valores, janelas e politicas internas de limitacao podem evoluir sem alterar o objetivo funcional do endpoint.
+
+Regras:
+
+- a API e a fonte de verdade da elegibilidade;
+- a interface pode mostrar o botao apenas para `lifecycleStatus=pending`, mas a API ainda pode retornar `409`;
+- cancelar nao envia SMTP;
+- a resposta nao inclui token, hash, URL, usuario interno ou e-mail completo.
+
+### `POST /api/admin/account-invitations/:invitationId/resend`
+
+Reenvia um convite de conta elegivel.
+
+Permissão:
+
+- exige token Bearer valido;
+- exige papel `admin`.
+
+Body:
+
+- pode ser ausente;
+- pode ser objeto vazio `{}`;
+- propriedades inesperadas retornam `400` com `INVALID_ACCOUNT_INVITATION_RESEND_INPUT`.
+
+Resposta:
+
+```json
+{
+  "success": true,
+  "message": "Reenvio de convite processado com sucesso.",
+  "data": {
+    "invitation": {
+      "expiresAt": "2026-07-15T12:00:00.000Z",
+      "deliveryStatus": "sent",
+      "invitationType": "admin_reinvite"
+    }
+  }
+}
+```
+
+Erros contratuais relevantes:
+
+- `INVALID_ACCOUNT_INVITATION_RESEND_INPUT`: ID invalido ou body inesperado;
+- `ACCOUNT_INVITATION_NOT_RESENDABLE`: convite inexistente, aceito, usuario ja ativado, usuario ausente, usuario inativo ou nao elegivel;
+- `AUTH_REQUIRED`;
+- `FORBIDDEN`.
+
+Limite operacional:
+
+- a API pode responder `429` com `ADMIN_INVITATION_RESEND_RATE_LIMITED`;
+- a resposta pode incluir orientacao de espera, como `Retry-After`;
+- o frontend nao executa retry automatico;
+- valores, janelas e politicas internas de limitacao podem evoluir sem alterar o objetivo funcional do endpoint.
+
+Regras:
+
+- a API invalida o convite anterior elegivel e cria um novo `admin_reinvite`;
+- somente o convite mais recente deve permanecer utilizavel para o usuario;
+- a entrega SMTP ocorre fora da transacao;
+- `sent` indica e-mail enviado;
+- `pending` indica entrega ainda pendente;
+- `failed` indica falha na tentativa de envio;
+- `not_configured` indica SMTP nao configurado;
+- `failed` e `not_configured` nao significam que a criacao do convite foi revertida;
+- a resposta publica contem apenas `expiresAt`, `deliveryStatus` e `invitationType`;
+- a auditoria nao deve conter token, hash ou URL.
 
 ### `POST /api/enrollments`
 
