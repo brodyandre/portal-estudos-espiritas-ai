@@ -11,8 +11,14 @@ import { LoadingState } from "../components/ui/LoadingState";
 import { Select } from "../components/ui/Select";
 import { StatusTag } from "../components/ui/StatusTag";
 import { TextInput } from "../components/ui/TextInput";
+import { readStoredAuthSession } from "../auth/storage";
+import { appConfig } from "../config/appMode";
 import { ServiceRequestError, formatRetryAfterLabel } from "../services/api";
 import { listAdminUsersList } from "../services/adminUsersListService";
+import {
+  updateAdminUserStatus,
+  type AdminUserStatusMutation,
+} from "../services/adminUserStatusService";
 import type {
   AdminUserActivationStatus,
   AdminUserListItem,
@@ -74,6 +80,16 @@ type PageState =
   | { status: "success"; items: AdminUserListItem[]; meta: AdminUserListMeta; source: AdminUsersListSource }
   | { status: "empty"; meta: AdminUserListMeta; source: AdminUsersListSource }
   | { status: "error"; message: string };
+
+type StatusConfirmation = {
+  user: Pick<AdminUserListItem, "id" | "name" | "emailMasked" | "status">;
+  nextStatus: AdminUserStatusMutation;
+};
+
+type ActionFeedback = {
+  title: string;
+  message: string;
+};
 
 const roleOptions = [
   { label: "Todos os papéis", value: "" },
@@ -250,12 +266,75 @@ const getErrorMessage = (error: unknown) => {
   return "Não foi possível carregar os usuários agora.";
 };
 
+const getStatusActionErrorMessage = (error: unknown) => {
+  if (error instanceof ServiceRequestError) {
+    if (error.kind === "network") {
+      return "Não foi possível conectar ao backend local agora. Verifique a API e tente novamente.";
+    }
+
+    if (error.retryAfterSeconds) {
+      return `Muitas tentativas de alteração de status. Tente novamente em cerca de ${formatRetryAfterLabel(error.retryAfterSeconds)}.`;
+    }
+
+    switch (error.code) {
+      case "AUTH_REQUIRED":
+        return "Sua sessão local expirou. Faça login novamente para alterar status.";
+      case "FORBIDDEN":
+      case "ADMIN_USER_STATUS_ACTOR_NOT_AUTHORIZED":
+        return "Seu perfil não pode alterar o status administrativo deste usuário.";
+      case "PASSWORD_CHANGE_REQUIRED":
+        return "Troque sua senha temporária antes de alterar status administrativos.";
+      case "INVALID_ADMIN_USER_STATUS_INPUT":
+        return "A solicitação de alteração de status está inválida. Atualize a lista e tente novamente.";
+      case "ADMIN_USER_NOT_FOUND":
+        return "Usuário não encontrado. Atualize a lista para consultar o estado atual.";
+      case "ADMIN_USER_STATUS_ALREADY_SET":
+        return "O usuário já está com este status. Atualize a lista para consultar o estado atual.";
+      case "ADMIN_USER_STATUS_TRANSITION_NOT_ALLOWED":
+      case "ADMIN_USER_ACCOUNT_NOT_ACTIVATED":
+        return "Esta transição de status não é permitida para a conta selecionada.";
+      case "ADMIN_USER_STATUS_CONFLICT":
+        return "O estado do usuário mudou durante a operação. Atualize a lista e tente novamente.";
+      case "ADMIN_USER_SELF_DEACTIVATION_NOT_ALLOWED":
+        return "Você não pode inativar a própria conta administrativa.";
+      case "ADMIN_USER_STATUS_UNAVAILABLE_IN_DEMO":
+        return "Alteração de status indisponível no modo demonstrativo.";
+      default:
+        return "Não foi possível alterar o status agora. Atualize a lista e tente novamente.";
+    }
+  }
+
+  return "Não foi possível alterar o status agora. Atualize a lista e tente novamente.";
+};
+
+const getCurrentUserId = () => readStoredAuthSession()?.user.id ?? null;
+
+const getNextStatusForUser = (user: AdminUserListItem): AdminUserStatusMutation | null => {
+  if (user.status === "active") {
+    return "inactive";
+  }
+
+  if (user.status === "inactive") {
+    return "active";
+  }
+
+  return null;
+};
+
+const getStatusActionLabel = (status: AdminUserStatusMutation) =>
+  status === "inactive" ? "Inativar" : "Ativar";
+
 export const AdminUsersPage = () => {
   const [draftFilters, setDraftFilters] = useState<DraftFilters>(DEFAULT_DRAFT);
   const [appliedQuery, setAppliedQuery] = useState<AppliedQuery>(DEFAULT_QUERY);
   const [state, setState] = useState<PageState>({ status: "loading" });
+  const [confirmation, setConfirmation] = useState<StatusConfirmation | null>(null);
+  const [actionInFlight, setActionInFlight] = useState<StatusConfirmation | null>(null);
+  const [actionNotice, setActionNotice] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<ActionFeedback | null>(null);
   const mountedRef = useRef(false);
   const requestIdRef = useRef(0);
+  const actionInFlightRef = useRef(false);
 
   const loadUsers = useCallback(
     async (
@@ -340,9 +419,94 @@ export const AdminUsersPage = () => {
     applyQuery({ ...appliedQuery, page });
   };
 
+  const openStatusConfirmation = (
+    user: AdminUserListItem,
+    nextStatus: AdminUserStatusMutation,
+  ) => {
+    if (actionInFlightRef.current || appConfig.appMode === "demo" || appConfig.isGithubPages) {
+      return;
+    }
+
+    if (user.status !== "inactive" && nextStatus === "active") {
+      return;
+    }
+
+    if (user.status !== "active" && nextStatus === "inactive") {
+      return;
+    }
+
+    if (nextStatus === "inactive" && getCurrentUserId() === user.id) {
+      return;
+    }
+
+    setActionError(null);
+    setActionNotice(null);
+    setConfirmation({
+      user: {
+        id: user.id,
+        name: user.name,
+        emailMasked: user.emailMasked,
+        status: user.status,
+      },
+      nextStatus,
+    });
+  };
+
+  const closeStatusConfirmation = () => {
+    if (actionInFlightRef.current) {
+      return;
+    }
+
+    setConfirmation(null);
+  };
+
+  const handleConfirmStatusChange = async () => {
+    if (!confirmation || actionInFlightRef.current) {
+      return;
+    }
+
+    actionInFlightRef.current = true;
+    setActionInFlight(confirmation);
+    setActionError(null);
+    setActionNotice(null);
+
+    try {
+      await updateAdminUserStatus(confirmation.user.id, confirmation.nextStatus);
+
+      if (!mountedRef.current) {
+        return;
+      }
+
+      setConfirmation(null);
+      setActionNotice(
+        confirmation.nextStatus === "inactive"
+          ? "Usuário inativado com sucesso."
+          : "Usuário ativado com sucesso.",
+      );
+      void loadUsers(appliedQuery, { showLoading: false });
+    } catch (error) {
+      if (!mountedRef.current) {
+        return;
+      }
+
+      setActionError({
+        title: "Não foi possível alterar o status",
+        message: getStatusActionErrorMessage(error),
+      });
+    } finally {
+      actionInFlightRef.current = false;
+
+      if (mountedRef.current) {
+        setActionInFlight(null);
+      }
+    }
+  };
+
   const currentMeta = state.status === "success" || state.status === "empty" ? state.meta : null;
   const currentSource = state.status === "success" || state.status === "empty" ? state.source : null;
   const isLoading = state.status === "loading";
+  const currentUserId = getCurrentUserId();
+  const canMutateStatus = currentSource === "api" && appConfig.appMode !== "demo" && !appConfig.isGithubPages;
   const canGoPrevious = Boolean(currentMeta && currentMeta.page > 1 && !isLoading);
   const canGoNext = Boolean(
     currentMeta &&
@@ -375,6 +539,43 @@ export const AdminUsersPage = () => {
       </div>
     </nav>
   );
+
+  const renderStatusAction = (user: AdminUserListItem) => {
+    const nextStatus = getNextStatusForUser(user);
+
+    if (!canMutateStatus) {
+      return <p className="card-subtitle">Alteração indisponível no modo demonstrativo.</p>;
+    }
+
+    if (!nextStatus) {
+      return <p className="card-subtitle">Sem ação de status disponível.</p>;
+    }
+
+    const isSelfDeactivation = nextStatus === "inactive" && currentUserId === user.id;
+    const disabledReasonId = `admin-user-status-disabled-${user.id}`;
+    const isSubmitting = actionInFlight?.user.id === user.id;
+    const actionLabel = getStatusActionLabel(nextStatus);
+
+    return (
+      <div className="button-row admin-user-card__actions">
+        <Button
+          aria-describedby={isSelfDeactivation ? disabledReasonId : undefined}
+          aria-label={`${actionLabel} usuário ${user.name}`}
+          disabled={Boolean(actionInFlight) || isSelfDeactivation}
+          onClick={() => openStatusConfirmation(user, nextStatus)}
+          size="compact"
+          variant={nextStatus === "inactive" ? "secondary" : "primary"}
+        >
+          {isSubmitting ? `${actionLabel}...` : actionLabel}
+        </Button>
+        {isSelfDeactivation ? (
+          <p className="card-subtitle" id={disabledReasonId}>
+            Você não pode inativar a própria conta administrativa.
+          </p>
+        ) : null}
+      </div>
+    );
+  };
 
   const renderUser = (user: AdminUserListItem) => (
     <Card as="article" className="admin-user-card" key={user.id}>
@@ -416,6 +617,8 @@ export const AdminUsersPage = () => {
           <dd>{formatDate(user.createdAt)}</dd>
         </div>
       </dl>
+
+      <div aria-label={`Ações para ${user.name}`}>{renderStatusAction(user)}</div>
     </Card>
   );
 
@@ -438,6 +641,12 @@ export const AdminUsersPage = () => {
         {currentSource === "demo" ? (
           <AlertBox title="Modo demonstrativo" tone="info">
             Esta visualização usa apenas dados fictícios e não realiza chamadas para a API local.
+          </AlertBox>
+        ) : null}
+
+        {actionNotice ? (
+          <AlertBox title="Ação concluída" tone="success">
+            {actionNotice}
           </AlertBox>
         ) : null}
 
@@ -581,6 +790,71 @@ export const AdminUsersPage = () => {
 
         {renderPaginationControls()}
       </section>
+
+      {confirmation ? (
+        <div
+          aria-labelledby="admin-user-status-dialog-title"
+          aria-modal="true"
+          className="admin-modal-backdrop"
+          role="dialog"
+        >
+          <Card className="admin-modal" tone="soft">
+            <p className="card-eyebrow">Status de usuário</p>
+            <h2 id="admin-user-status-dialog-title">
+              {confirmation.nextStatus === "inactive"
+                ? `Inativar ${confirmation.user.name}?`
+                : `Ativar ${confirmation.user.name}?`}
+            </h2>
+            <p>
+              {confirmation.nextStatus === "inactive"
+                ? "Esta ação inativará o acesso administrativo selecionado."
+                : "Esta ação reativará o acesso administrativo selecionado."}
+            </p>
+            <p>
+              <strong>Usuário:</strong> {confirmation.user.name} ({confirmation.user.emailMasked})
+            </p>
+
+            {confirmation.nextStatus === "inactive" ? (
+              <AlertBox title="Efeito da inativação" tone="warning">
+                As sessões atuais do usuário serão revogadas. Após eventual reativação, o usuário
+                precisará autenticar-se novamente, e tokens antigos permanecerão inválidos.
+              </AlertBox>
+            ) : (
+              <AlertBox title="Confirmação necessária" tone="info">
+                A API administrativa validará se a reativação ainda é permitida para esta conta.
+              </AlertBox>
+            )}
+
+            {actionError ? (
+              <AlertBox title={actionError.title} tone="warning">
+                {actionError.message}
+              </AlertBox>
+            ) : null}
+
+            <div className="button-row">
+              <Button
+                disabled={Boolean(actionInFlight)}
+                onClick={() => void handleConfirmStatusChange()}
+              >
+                {actionInFlight
+                  ? confirmation.nextStatus === "inactive"
+                    ? "Inativando..."
+                    : "Ativando..."
+                  : confirmation.nextStatus === "inactive"
+                    ? "Confirmar inativação"
+                    : "Confirmar ativação"}
+              </Button>
+              <Button
+                disabled={Boolean(actionInFlight)}
+                onClick={closeStatusConfirmation}
+                variant="secondary"
+              >
+                Cancelar
+              </Button>
+            </div>
+          </Card>
+        </div>
+      ) : null}
     </div>
   );
 };
