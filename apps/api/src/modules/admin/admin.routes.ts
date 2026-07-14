@@ -4,8 +4,12 @@ import { AppError } from "../../lib/app-error";
 import { sendSuccess } from "../../lib/api-response";
 import { asyncHandler } from "../../lib/async-handler";
 import { requireRole } from "../auth/auth.middleware";
-import { parseAdminUsersListQuery } from "./users/query";
-import { listAdminUsers } from "./users/service";
+import {
+  parseAdminUserStatusBody,
+  parseAdminUserStatusPathParam,
+  parseAdminUsersListQuery,
+} from "./users/query";
+import { listAdminUsers, updateAdminUserStatus } from "./users/service";
 import type {
   AccountInvitationDeliveryStatus,
   AccountInvitationLifecycleStatus,
@@ -222,6 +226,31 @@ adminRouter.get(
         total: result.total,
         totalPages: result.totalPages,
       },
+    });
+  }),
+);
+
+adminRouter.patch(
+  "/users/:userId/status",
+  ...requireRole(["admin"]),
+  asyncHandler(async (request, response) => {
+    if (!request.authUser) {
+      throw new AppError({
+        statusCode: 401,
+        code: "AUTH_REQUIRED",
+        message: "Faça login no ambiente local para continuar.",
+      });
+    }
+
+    const result = await updateAdminUserStatus(
+      request.authUser,
+      parseAdminUserStatusPathParam(request.params.userId),
+      parseAdminUserStatusBody(request.body),
+    );
+
+    return sendSuccess(response, {
+      message: "Status do usuário atualizado com sucesso.",
+      data: result,
     });
   }),
 );

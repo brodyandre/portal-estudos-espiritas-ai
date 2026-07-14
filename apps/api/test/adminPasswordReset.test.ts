@@ -268,6 +268,42 @@ const createCustomAdminRepository = (): AuthRepository => {
     async resetPasswordWithRecoveryToken() {
       return { status: "invalid_token" } as const;
     },
+    async listAccountInvitations() {
+      return {
+        items: [],
+        page: 1,
+        pageSize: 10,
+        total: 0,
+        totalPages: 0,
+      };
+    },
+    async listAdminUsers() {
+      return {
+        records: [],
+        page: 1,
+        pageSize: 10,
+        total: 0,
+        totalPages: 0,
+      };
+    },
+    async updateAdminUserStatus() {
+      return { status: "conflict" } as const;
+    },
+    async getAccountInvitationResendContext() {
+      return null;
+    },
+    async cancelAccountInvitation() {
+      return false;
+    },
+    async replaceAccountInvitation() {
+      throw new Error("Nao utilizado neste teste.");
+    },
+    async markAccountInvitationDelivered() {
+      return false;
+    },
+    async markAccountInvitationFailed() {
+      return false;
+    },
   };
 };
 
@@ -489,6 +525,30 @@ describe("admin password reset endpoint", () => {
       },
       async resetPasswordWithRecoveryToken(input) {
         return baseRepository.resetPasswordWithRecoveryToken(input);
+      },
+      async listAccountInvitations(input, now) {
+        return baseRepository.listAccountInvitations(input, now);
+      },
+      async listAdminUsers(input) {
+        return baseRepository.listAdminUsers(input);
+      },
+      async updateAdminUserStatus(input) {
+        return baseRepository.updateAdminUserStatus(input);
+      },
+      async getAccountInvitationResendContext(invitationId) {
+        return baseRepository.getAccountInvitationResendContext(invitationId);
+      },
+      async cancelAccountInvitation(input) {
+        return baseRepository.cancelAccountInvitation(input);
+      },
+      async replaceAccountInvitation(input) {
+        return baseRepository.replaceAccountInvitation(input);
+      },
+      async markAccountInvitationDelivered(input) {
+        return baseRepository.markAccountInvitationDelivered(input);
+      },
+      async markAccountInvitationFailed(input) {
+        return baseRepository.markAccountInvitationFailed(input);
       },
     });
 

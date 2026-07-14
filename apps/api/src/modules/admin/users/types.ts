@@ -7,6 +7,7 @@ import type {
 export type AdminUserActivationStatus = "activated" | "not_activated";
 export type AdminUserSortField = "name" | "createdAt" | "role" | "status";
 export type AdminUserSortOrder = "asc" | "desc";
+export type AdminUserStatusMutation = "active" | "inactive";
 
 export interface AdminUserGroupSummary {
   name: string;
@@ -22,6 +23,18 @@ export interface AdminUserListItem {
   activationStatus: AdminUserActivationStatus;
   group: AdminUserGroupSummary | null;
   createdAt: Date;
+}
+
+export interface UpdateAdminUserStatusInput {
+  status: AdminUserStatusMutation;
+}
+
+export interface UpdateAdminUserStatusResult {
+  user: {
+    id: string;
+    status: AdminUserStatusMutation;
+  };
+  revokedSessions: number;
 }
 
 export type ListAdminUsersInput = AdminUserListInput;

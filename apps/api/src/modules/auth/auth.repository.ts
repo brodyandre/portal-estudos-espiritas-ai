@@ -89,6 +89,30 @@ export interface AdminUserListResult {
   totalPages: number;
 }
 
+export interface AdminUserStatusUpdateInput {
+  actorUserId: string;
+  actorName: string;
+  actorRole: UserRole;
+  targetUserId: string;
+  nextStatus: "active" | "inactive";
+}
+
+export type AdminUserStatusUpdateResult =
+  | {
+      status: "updated";
+      userId: string;
+      previousStatus: "active" | "inactive";
+      currentStatus: "active" | "inactive";
+      revokedSessions: number;
+    }
+  | { status: "actor_not_authorized" }
+  | { status: "not_found" }
+  | { status: "already_set"; currentStatus: UserStatus }
+  | { status: "transition_not_allowed"; currentStatus: UserStatus }
+  | { status: "account_not_activated" }
+  | { status: "self_deactivation_not_allowed" }
+  | { status: "conflict" };
+
 export interface AuthRepository {
   getByEmail(email: string): Promise<StoredAuthUser | null>;
   getById(id: string): Promise<StoredAuthUser | null>;
@@ -118,6 +142,7 @@ export interface AuthRepository {
     now: Date,
   ): Promise<ListAccountInvitationsResult>;
   listAdminUsers(input: AdminUserListInput): Promise<AdminUserListResult>;
+  updateAdminUserStatus(input: AdminUserStatusUpdateInput): Promise<AdminUserStatusUpdateResult>;
   getAccountInvitationResendContext(invitationId: string): Promise<AccountInvitationResendContext | null>;
   cancelAccountInvitation(input: CancelAccountInvitationInput): Promise<boolean>;
 }
@@ -126,6 +151,25 @@ type AuthPersistenceClient = Pick<
   Prisma.TransactionClient,
   "user" | "auditLog" | "authSession" | "passwordResetToken" | "accountInvitation"
 >;
+
+type AdminUserStatusPersistenceClient = AuthPersistenceClient;
+
+type AdminUserStatusTransactionRunner = {
+  $transaction<T>(
+    callback: (transaction: AdminUserStatusPersistenceClient) => Promise<T>,
+    options: {
+      isolationLevel: Prisma.TransactionIsolationLevel;
+    },
+  ): Promise<T>;
+};
+
+type UpdateAdminUserStatusWithPrismaOptions = {
+  revokeActiveSessions?: (
+    transaction: AdminUserStatusPersistenceClient,
+    userId: string,
+    revokedAt: Date,
+  ) => Promise<number>;
+};
 
 const prismaRoleToRole: Record<PrismaUserRole, UserRole> = {
   ADMIN: "admin",
@@ -147,6 +191,8 @@ const statusToPrismaStatus: Record<UserStatus, PrismaUserStatus> = {
   inactive: PrismaUserStatus.INACTIVE,
   rejected: PrismaUserStatus.REJECTED,
 };
+
+const ADMIN_USER_STATUS_UPDATE_MAX_RETRIES = 3;
 
 const invitationTypeToPrisma: Record<StoredAccountInvitation["invitationType"], PrismaInvitationType> = {
   enrollment_approval: PrismaInvitationType.ENROLLMENT_APPROVAL,
@@ -460,6 +506,25 @@ const assertValidAdminUsersListInput = (input: AdminUserListInput) => {
   }
 };
 
+const isAuthenticatableAdminRecord = (input: {
+  role: UserRole | PrismaUserRole;
+  status: UserStatus | PrismaUserStatus;
+  accountActivatedAt?: Date | string | null;
+}) => {
+  const role = input.role === PrismaUserRole.ADMIN ? "admin" : input.role;
+  const status = input.status === PrismaUserStatus.ACTIVE
+    ? "active"
+    : input.status === PrismaUserStatus.INACTIVE
+      ? "inactive"
+      : input.status === PrismaUserStatus.PENDING
+        ? "pending"
+        : input.status === PrismaUserStatus.REJECTED
+          ? "rejected"
+          : input.status;
+
+  return role === "admin" && status === "active" && Boolean(input.accountActivatedAt);
+};
+
 const buildAccountInvitationLifecycleWhere = (
   lifecycleStatus: ListAccountInvitationsInput["lifecycleStatus"],
   now: Date,
@@ -481,6 +546,138 @@ const buildAccountInvitationLifecycleWhere = (
   }
 
   return {};
+};
+
+export const updateAdminUserStatusWithPrisma = async (
+  prisma: AdminUserStatusTransactionRunner,
+  input: AdminUserStatusUpdateInput,
+  options: UpdateAdminUserStatusWithPrismaOptions = {},
+): Promise<AdminUserStatusUpdateResult> => {
+  const revokeActiveSessions = options.revokeActiveSessions ?? revokeActiveSessionsWithPrisma;
+
+  for (let attempt = 1; attempt <= ADMIN_USER_STATUS_UPDATE_MAX_RETRIES; attempt += 1) {
+    try {
+      return await prisma.$transaction(
+        async (transaction) => {
+          const actor = await transaction.user.findUnique({
+            where: {
+              id: input.actorUserId,
+            },
+            select: {
+              id: true,
+              role: true,
+              status: true,
+              accountActivatedAt: true,
+            },
+          });
+
+          if (!actor || !isAuthenticatableAdminRecord(actor)) {
+            return { status: "actor_not_authorized" } as const;
+          }
+
+          const target = await transaction.user.findUnique({
+            where: {
+              id: input.targetUserId,
+            },
+            select: {
+              id: true,
+              role: true,
+              status: true,
+              accountActivatedAt: true,
+            },
+          });
+
+          if (!target) {
+            return { status: "not_found" } as const;
+          }
+
+          const currentStatus = prismaStatusToStatus[target.status];
+
+          if (currentStatus !== "active" && currentStatus !== "inactive") {
+            return {
+              status: "transition_not_allowed",
+              currentStatus,
+            } as const;
+          }
+
+          if (currentStatus === input.nextStatus) {
+            return {
+              status: "already_set",
+              currentStatus,
+            } as const;
+          }
+
+          if (input.nextStatus === "active" && !target.accountActivatedAt) {
+            return { status: "account_not_activated" } as const;
+          }
+
+          if (input.nextStatus === "inactive" && actor.id === target.id) {
+            return { status: "self_deactivation_not_allowed" } as const;
+          }
+
+          const nextStatus = statusToPrismaStatus[input.nextStatus];
+          const updateResult = await transaction.user.updateMany({
+            where: {
+              id: target.id,
+              status: target.status,
+            },
+            data: {
+              status: nextStatus,
+            },
+          });
+
+          if (updateResult.count !== 1) {
+            return { status: "conflict" } as const;
+          }
+
+          const revokedAt = new Date();
+          const revokedSessions =
+            input.nextStatus === "inactive"
+              ? await revokeActiveSessions(transaction, target.id, revokedAt)
+              : 0;
+
+          await transaction.auditLog.create({
+            data: {
+              actorName: input.actorName,
+              actorRole: toPrismaUserRole(input.actorRole),
+              action: "Status de usuário alterado por admin",
+              entity: `User ${target.id}`,
+              note: `Status alterado de ${currentStatus} para ${input.nextStatus}. ${revokedSessions} sessoes revogadas.`,
+            },
+          });
+
+          return {
+            status: "updated",
+            userId: target.id,
+            previousStatus: currentStatus,
+            currentStatus: input.nextStatus,
+            revokedSessions,
+          } as const;
+        },
+        {
+          isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+        },
+      );
+    } catch (error) {
+      const canRetry =
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2034" &&
+        attempt < ADMIN_USER_STATUS_UPDATE_MAX_RETRIES;
+
+      if (!canRetry) {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === "P2034"
+        ) {
+          return { status: "conflict" } as const;
+        }
+
+        throw error;
+      }
+    }
+  }
+
+  return { status: "conflict" };
 };
 
 export const provisionStudentAccessWithPrisma = async (
@@ -1601,6 +1798,60 @@ export const createMemoryAuthRepository = (
         totalPages: Math.ceil(total / input.pageSize),
       };
     },
+    async updateAdminUserStatus(input) {
+      const actor = memoryAuthUsers.find((user) => user.id === input.actorUserId);
+
+      if (!actor || !isAuthenticatableAdminRecord(actor)) {
+        return { status: "actor_not_authorized" };
+      }
+
+      const target = memoryAuthUsers.find((user) => user.id === input.targetUserId);
+
+      if (!target) {
+        return { status: "not_found" };
+      }
+
+      if (target.status !== "active" && target.status !== "inactive") {
+        return { status: "transition_not_allowed", currentStatus: target.status };
+      }
+
+      if (target.status === input.nextStatus) {
+        return { status: "already_set", currentStatus: target.status };
+      }
+
+      if (input.nextStatus === "active" && !target.accountActivatedAt) {
+        return { status: "account_not_activated" };
+      }
+
+      if (input.nextStatus === "inactive" && actor.id === target.id) {
+        return { status: "self_deactivation_not_allowed" };
+      }
+
+      const previousStatus = target.status;
+      target.status = input.nextStatus;
+
+      const revokedAt = new Date().toISOString();
+      const revokedSessions =
+        input.nextStatus === "inactive"
+          ? revokeActiveSessionsInMemory(target.id, revokedAt)
+          : 0;
+
+      memoryAuthAuditLogs.unshift({
+        actorName: input.actorName,
+        actorRole: input.actorRole,
+        action: "Status de usuário alterado por admin",
+        entity: `User ${target.id}`,
+        note: `Status alterado de ${previousStatus} para ${input.nextStatus}. ${revokedSessions} sessoes revogadas.`,
+      });
+
+      return {
+        status: "updated",
+        userId: target.id,
+        previousStatus,
+        currentStatus: input.nextStatus,
+        revokedSessions,
+      };
+    },
     async getAccountInvitationResendContext(invitationId) {
       const invitation = memoryAccountInvitations.find((item) => item.id === invitationId);
 
@@ -2435,6 +2686,9 @@ export const createPrismaAuthRepository = (): AuthRepository => {
         total,
         totalPages: Math.ceil(total / input.pageSize),
       };
+    },
+    async updateAdminUserStatus(input) {
+      return updateAdminUserStatusWithPrisma(prisma, input);
     },
     async getAccountInvitationResendContext(invitationId) {
       const invitation = await prisma.accountInvitation.findUnique({
