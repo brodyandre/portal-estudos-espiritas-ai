@@ -11,6 +11,7 @@ import { TeacherLayout } from "./components/layout/TeacherLayout";
 import { AccountSecurityPage } from "./pages/AccountSecurityPage";
 import { ActivateAccountPage } from "./pages/ActivateAccountPage";
 import { AdminAccountInvitationsPage } from "./pages/AdminAccountInvitationsPage";
+import { AdminGroupsPage } from "./pages/AdminGroupsPage";
 import { AdminPage } from "./pages/AdminPage";
 import { AdminUsersPage } from "./pages/AdminUsersPage";
 import { AlunoPage } from "./pages/AlunoPage";
@@ -70,7 +71,7 @@ export const App = () => {
               <Route element={<AdminPage section="dashboard" />} path="/admin/dashboard" />
               <Route element={<AdminUsersPage />} path="/admin/usuarios" />
               <Route element={<AdminAccountInvitationsPage />} path="/admin/convites" />
-              <Route element={<AdminPage section="grupos" />} path="/admin/grupos" />
+              <Route element={<AdminGroupsPage />} path="/admin/grupos" />
               <Route element={<AdminPage section="conteudos" />} path="/admin/conteudos" />
               <Route element={<AdminPage section="configuracoes" />} path="/admin/configuracoes" />
               <Route element={<AdminPage section="auditoria" />} path="/admin/auditoria" />
