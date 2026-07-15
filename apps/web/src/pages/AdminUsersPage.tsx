@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 
+import {
+  AdminUserGroupDialog,
+  WITHOUT_GROUP_VALUE,
+  type GroupOptionsState,
+} from "../components/admin/AdminUserGroupDialog";
 import { ProfileHeader } from "../components/display/ProfileHeader";
 import { AlertBox } from "../components/ui/AlertBox";
 import { Badge } from "../components/ui/Badge";
@@ -14,13 +19,17 @@ import { TextInput } from "../components/ui/TextInput";
 import { readStoredAuthSession } from "../auth/storage";
 import { appConfig } from "../config/appMode";
 import { ServiceRequestError, formatRetryAfterLabel } from "../services/api";
+import { listAdminSelectableGroups } from "../services/adminGroupsService";
+import { updateAdminUserGroup } from "../services/adminUserGroupService";
 import { listAdminUsersList } from "../services/adminUsersListService";
 import {
   updateAdminUserStatus,
   type AdminUserStatusMutation,
 } from "../services/adminUserStatusService";
+import type { AdminSelectableGroup } from "../types/adminGroups";
 import type {
   AdminUserActivationStatus,
+  AdminUserGroupSummary,
   AdminUserListItem,
   AdminUserListMeta,
   AdminUserListParams,
@@ -84,6 +93,10 @@ type PageState =
 type StatusConfirmation = {
   user: Pick<AdminUserListItem, "id" | "name" | "emailMasked" | "status">;
   nextStatus: AdminUserStatusMutation;
+};
+
+type GroupDialogState = {
+  user: Pick<AdminUserListItem, "id" | "name" | "emailMasked" | "group" | "status">;
 };
 
 type ActionFeedback = {
@@ -307,6 +320,73 @@ const getStatusActionErrorMessage = (error: unknown) => {
   return "Não foi possível alterar o status agora. Atualize a lista e tente novamente.";
 };
 
+const getGroupListErrorMessage = (error: unknown) => {
+  if (error instanceof ServiceRequestError) {
+    if (error.code === "AUTH_REQUIRED") {
+      return "Sua sessão expirou. Faça login novamente.";
+    }
+
+    if (error.code === "FORBIDDEN") {
+      return "Seu perfil não pode consultar grupos de usuários.";
+    }
+
+    if (error.code === "PASSWORD_CHANGE_REQUIRED") {
+      return "Troque sua senha temporária antes de continuar.";
+    }
+
+    if (error.kind === "network") {
+      return "Não foi possível carregar os grupos agora. Verifique a API local e tente novamente.";
+    }
+  }
+
+  return "Não foi possível carregar os grupos agora. Tente novamente.";
+};
+
+const getGroupActionErrorMessage = (error: unknown) => {
+  if (error instanceof ServiceRequestError) {
+    if (error.retryAfterSeconds) {
+      return `Muitas alterações foram solicitadas. Aguarde cerca de ${formatRetryAfterLabel(error.retryAfterSeconds)} e tente novamente.`;
+    }
+
+    if (error.kind === "network") {
+      return "Não foi possível alterar o grupo do usuário. Tente novamente.";
+    }
+
+    switch (error.code) {
+      case "AUTH_REQUIRED":
+        return "Sua sessão expirou. Faça login novamente.";
+      case "FORBIDDEN":
+        return "Seu perfil não pode alterar grupos de usuários.";
+      case "PASSWORD_CHANGE_REQUIRED":
+        return "Troque sua senha temporária antes de continuar.";
+      case "ADMIN_USER_GROUP_ACTOR_NOT_AUTHORIZED":
+        return "Seu perfil não pode alterar o grupo deste usuário.";
+      case "ADMIN_USER_NOT_FOUND":
+        return "O usuário não foi encontrado. Atualize a listagem.";
+      case "ADMIN_USER_GROUP_NOT_FOUND":
+        return "O grupo não está mais disponível. Atualize a lista de grupos e tente novamente.";
+      case "ADMIN_USER_GROUP_INACTIVE":
+        return "Este grupo ficou inativo e não pode ser vinculado. Escolha outro grupo.";
+      case "ADMIN_USER_GROUP_ALREADY_SET":
+        return "O usuário já está vinculado a esse grupo. A listagem será atualizada.";
+      case "ADMIN_USER_GROUP_ALREADY_EMPTY":
+        return "O usuário já está sem grupo. A listagem será atualizada.";
+      case "ADMIN_USER_GROUP_CONFLICT":
+        return "O vínculo foi alterado por outra operação. Atualize os dados e tente novamente.";
+      case "INVALID_ADMIN_USER_GROUP_INPUT":
+        return "A seleção de grupo é inválida. Atualize os dados e tente novamente.";
+      case "ADMIN_USER_GROUP_RATE_LIMITED":
+        return "Muitas alterações foram solicitadas. Aguarde e tente novamente.";
+      case "ADMIN_USER_GROUP_UNAVAILABLE_IN_DEMO":
+        return "A alteração de grupo não está disponível no modo de demonstração.";
+      default:
+        return "Não foi possível alterar o grupo do usuário. Tente novamente.";
+    }
+  }
+
+  return "Não foi possível alterar o grupo do usuário. Tente novamente.";
+};
+
 const getCurrentUserId = () => readStoredAuthSession()?.user.id ?? null;
 
 const getNextStatusForUser = (user: AdminUserListItem): AdminUserStatusMutation | null => {
@@ -321,6 +401,40 @@ const getNextStatusForUser = (user: AdminUserListItem): AdminUserStatusMutation 
   return null;
 };
 
+const canChangeUserGroup = (user: AdminUserListItem) =>
+  user.status === "active" || user.status === "inactive";
+
+const hasSelectableGroup = (
+  groups: AdminSelectableGroup[],
+  slug: string | null | undefined,
+) => {
+  if (!slug) {
+    return false;
+  }
+
+  return groups.some((group) => group.slug === slug);
+};
+
+const normalizeSelectedGroupValue = (
+  selectedValue: string,
+  currentGroup: AdminUserGroupSummary | null,
+  groups: AdminSelectableGroup[],
+) => {
+  if (selectedValue === WITHOUT_GROUP_VALUE) {
+    return selectedValue;
+  }
+
+  if (hasSelectableGroup(groups, selectedValue)) {
+    return selectedValue;
+  }
+
+  if (currentGroup?.slug === selectedValue) {
+    return WITHOUT_GROUP_VALUE;
+  }
+
+  return WITHOUT_GROUP_VALUE;
+};
+
 const getStatusActionLabel = (status: AdminUserStatusMutation) =>
   status === "inactive" ? "Inativar" : "Ativar";
 
@@ -329,12 +443,30 @@ export const AdminUsersPage = () => {
   const [appliedQuery, setAppliedQuery] = useState<AppliedQuery>(DEFAULT_QUERY);
   const [state, setState] = useState<PageState>({ status: "loading" });
   const [confirmation, setConfirmation] = useState<StatusConfirmation | null>(null);
+  const [groupDialog, setGroupDialog] = useState<GroupDialogState | null>(null);
+  const [groupOptionsState, setGroupOptionsState] = useState<GroupOptionsState>({
+    status: "idle",
+    items: [],
+  });
+  const [selectedGroupValue, setSelectedGroupValue] = useState(WITHOUT_GROUP_VALUE);
+  const [groupDialogError, setGroupDialogError] = useState<string | null>(null);
+  const [groupFieldError, setGroupFieldError] = useState<string | null>(null);
+  const [groupActionInFlightUserId, setGroupActionInFlightUserId] = useState<string | null>(null);
+  const [groupActionNotice, setGroupActionNotice] = useState<string | null>(null);
+  const [groupActionError, setGroupActionError] = useState<ActionFeedback | null>(null);
   const [actionInFlight, setActionInFlight] = useState<StatusConfirmation | null>(null);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
   const [actionError, setActionError] = useState<ActionFeedback | null>(null);
   const mountedRef = useRef(false);
   const requestIdRef = useRef(0);
+  const groupRequestIdRef = useRef(0);
   const actionInFlightRef = useRef(false);
+  const groupOptionsStateRef = useRef<GroupOptionsState>({
+    status: "idle",
+    items: [],
+  });
+  const groupActionInFlightRef = useRef(false);
+  const groupDialogTriggerRef = useRef<HTMLButtonElement | null>(null);
 
   const loadUsers = useCallback(
     async (
@@ -382,6 +514,55 @@ export const AdminUsersPage = () => {
     [],
   );
 
+  const syncGroupOptionsState = useCallback((nextState: GroupOptionsState) => {
+    groupOptionsStateRef.current = nextState;
+    setGroupOptionsState(nextState);
+  }, []);
+
+  const loadSelectableGroups = useCallback(
+    async (options: { force?: boolean } = {}) => {
+      const currentState = groupOptionsStateRef.current;
+      const requestId = groupRequestIdRef.current + 1;
+      groupRequestIdRef.current = requestId;
+
+      if (!options.force) {
+        if (currentState.status === "loading" || currentState.status === "success") {
+          return;
+        }
+      }
+
+      syncGroupOptionsState({
+        status: "loading",
+        items: currentState.items,
+      });
+
+      try {
+        const result = await listAdminSelectableGroups("active");
+
+        if (!mountedRef.current || requestId !== groupRequestIdRef.current) {
+          return;
+        }
+
+        syncGroupOptionsState({
+          status: "success",
+          items: result.items,
+          source: result.source,
+        });
+      } catch (error) {
+        if (!mountedRef.current || requestId !== groupRequestIdRef.current) {
+          return;
+        }
+
+        syncGroupOptionsState({
+          status: "error",
+          items: currentState.items,
+          message: getGroupListErrorMessage(error),
+        });
+      }
+    },
+    [syncGroupOptionsState],
+  );
+
   useEffect(() => {
     mountedRef.current = true;
     void loadUsers(DEFAULT_QUERY);
@@ -390,6 +571,47 @@ export const AdminUsersPage = () => {
       mountedRef.current = false;
     };
   }, [loadUsers]);
+
+  useEffect(() => {
+    if (!groupDialog) {
+      return;
+    }
+
+    if (groupOptionsState.status !== "success") {
+      return;
+    }
+
+    setSelectedGroupValue((current) =>
+      normalizeSelectedGroupValue(current, groupDialog.user.group, groupOptionsState.items),
+    );
+  }, [groupDialog, groupOptionsState]);
+
+  useEffect(() => {
+    if (!groupDialog) {
+      return;
+    }
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || groupActionInFlightRef.current) {
+        return;
+      }
+
+      event.preventDefault();
+      setGroupDialog(null);
+      setGroupDialogError(null);
+      setGroupFieldError(null);
+
+      window.requestAnimationFrame(() => {
+        groupDialogTriggerRef.current?.focus();
+      });
+    };
+
+    window.addEventListener("keydown", handleEscape);
+
+    return () => {
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [groupDialog]);
 
   const applyQuery = (query: AppliedQuery) => {
     setAppliedQuery(query);
@@ -460,6 +682,57 @@ export const AdminUsersPage = () => {
     setConfirmation(null);
   };
 
+  const closeGroupDialog = () => {
+    if (groupActionInFlightRef.current) {
+      return;
+    }
+
+    setGroupDialog(null);
+    setGroupDialogError(null);
+    setGroupFieldError(null);
+
+    window.requestAnimationFrame(() => {
+      groupDialogTriggerRef.current?.focus();
+    });
+  };
+
+  const openGroupDialog = (
+    user: AdminUserListItem,
+    triggerButton: HTMLButtonElement,
+  ) => {
+    if (
+      !canMutateStatus ||
+      !canChangeUserGroup(user) ||
+      actionInFlightRef.current ||
+      groupActionInFlightRef.current ||
+      confirmation
+    ) {
+      return;
+    }
+
+    groupDialogTriggerRef.current = triggerButton;
+    setActionNotice(null);
+    setActionError(null);
+    setGroupActionNotice(null);
+    setGroupActionError(null);
+    setGroupDialogError(null);
+    setGroupFieldError(null);
+    setSelectedGroupValue(user.group?.slug ?? WITHOUT_GROUP_VALUE);
+    setGroupDialog({
+      user: {
+        id: user.id,
+        name: user.name,
+        emailMasked: user.emailMasked,
+        group: user.group,
+        status: user.status,
+      },
+    });
+
+    void loadSelectableGroups({
+      force: groupOptionsStateRef.current.status === "error",
+    });
+  };
+
   const handleConfirmStatusChange = async () => {
     if (!confirmation || actionInFlightRef.current) {
       return;
@@ -502,11 +775,135 @@ export const AdminUsersPage = () => {
     }
   };
 
+  const handleConfirmGroupChange = async () => {
+    if (
+      !groupDialog ||
+      groupActionInFlightRef.current ||
+      groupOptionsState.status !== "success"
+    ) {
+      return;
+    }
+
+    const nextGroupSlug =
+      selectedGroupValue === WITHOUT_GROUP_VALUE ? null : selectedGroupValue;
+
+    groupActionInFlightRef.current = true;
+    setGroupActionInFlightUserId(groupDialog.user.id);
+    setGroupDialogError(null);
+    setGroupFieldError(null);
+    setGroupActionNotice(null);
+    setGroupActionError(null);
+
+    try {
+      await updateAdminUserGroup(groupDialog.user.id, {
+        groupSlug: nextGroupSlug,
+      });
+
+      if (!mountedRef.current) {
+        return;
+      }
+
+      setGroupDialog(null);
+      setGroupActionNotice("Grupo do usuário atualizado com sucesso.");
+      window.requestAnimationFrame(() => {
+        groupDialogTriggerRef.current?.focus();
+      });
+      void loadUsers(appliedQuery, { showLoading: false });
+    } catch (error) {
+      if (!mountedRef.current) {
+        return;
+      }
+
+      const message = getGroupActionErrorMessage(error);
+      const errorCode = error instanceof ServiceRequestError ? error.code : undefined;
+
+      if (
+        errorCode === "AUTH_REQUIRED" ||
+        errorCode === "FORBIDDEN" ||
+        errorCode === "PASSWORD_CHANGE_REQUIRED" ||
+        errorCode === "ADMIN_USER_GROUP_ACTOR_NOT_AUTHORIZED"
+      ) {
+        setGroupDialog(null);
+        setGroupActionError({
+          title: "Não foi possível alterar o grupo",
+          message,
+        });
+        window.requestAnimationFrame(() => {
+          groupDialogTriggerRef.current?.focus();
+        });
+        return;
+      }
+
+      if (errorCode === "ADMIN_USER_NOT_FOUND") {
+        setGroupDialog(null);
+        setGroupActionError({
+          title: "Usuário atualizado",
+          message,
+        });
+        window.requestAnimationFrame(() => {
+          groupDialogTriggerRef.current?.focus();
+        });
+        void loadUsers(appliedQuery, { showLoading: false });
+        return;
+      }
+
+      if (
+        errorCode === "ADMIN_USER_GROUP_ALREADY_SET" ||
+        errorCode === "ADMIN_USER_GROUP_ALREADY_EMPTY"
+      ) {
+        setGroupDialog(null);
+        setGroupActionError({
+          title: "Informação atualizada",
+          message,
+        });
+        window.requestAnimationFrame(() => {
+          groupDialogTriggerRef.current?.focus();
+        });
+        void loadUsers(appliedQuery, { showLoading: false });
+        return;
+      }
+
+      if (errorCode === "ADMIN_USER_GROUP_CONFLICT") {
+        setGroupDialog(null);
+        setGroupActionError({
+          title: "Dados atualizados",
+          message,
+        });
+        window.requestAnimationFrame(() => {
+          groupDialogTriggerRef.current?.focus();
+        });
+        void loadSelectableGroups({ force: true });
+        void loadUsers(appliedQuery, { showLoading: false });
+        return;
+      }
+
+      if (
+        errorCode === "ADMIN_USER_GROUP_NOT_FOUND" ||
+        errorCode === "ADMIN_USER_GROUP_INACTIVE" ||
+        errorCode === "INVALID_ADMIN_USER_GROUP_INPUT"
+      ) {
+        setGroupDialogError(message);
+        setGroupFieldError(message);
+        void loadSelectableGroups({ force: true });
+        return;
+      }
+
+      setGroupDialogError(message);
+    } finally {
+      groupActionInFlightRef.current = false;
+
+      if (mountedRef.current) {
+        setGroupActionInFlightUserId(null);
+      }
+    }
+  };
+
   const currentMeta = state.status === "success" || state.status === "empty" ? state.meta : null;
   const currentSource = state.status === "success" || state.status === "empty" ? state.source : null;
   const isLoading = state.status === "loading";
   const currentUserId = getCurrentUserId();
   const canMutateStatus = currentSource === "api" && appConfig.appMode !== "demo" && !appConfig.isGithubPages;
+  const canMutateGroups = canMutateStatus;
   const canGoPrevious = Boolean(currentMeta && currentMeta.page > 1 && !isLoading);
   const canGoNext = Boolean(
     currentMeta &&
@@ -514,6 +911,18 @@ export const AdminUsersPage = () => {
       currentMeta.page < currentMeta.totalPages &&
       !isLoading,
   );
+  const currentGroupUnavailable = Boolean(
+    groupDialog?.user.group && groupOptionsState.status === "success"
+      ? !hasSelectableGroup(groupOptionsState.items, groupDialog.user.group.slug)
+      : false,
+  );
+  const currentGroupValue = groupDialog?.user.group?.slug ?? WITHOUT_GROUP_VALUE;
+  const isGroupSelectionUnchanged = selectedGroupValue === currentGroupValue;
+  const isGroupDialogSubmitting = groupActionInFlightUserId === groupDialog?.user.id;
+  const isGroupDialogSubmitDisabled =
+    isGroupDialogSubmitting ||
+    groupOptionsState.status !== "success" ||
+    isGroupSelectionUnchanged;
 
   const renderPaginationSummary = (meta: AdminUserListMeta) => (
     <p className="card-subtitle">{formatPaginationSummary(meta)}</p>
@@ -561,7 +970,12 @@ export const AdminUsersPage = () => {
         <Button
           aria-describedby={isSelfDeactivation ? disabledReasonId : undefined}
           aria-label={`${actionLabel} usuário ${user.name}`}
-          disabled={Boolean(actionInFlight) || isSelfDeactivation}
+          disabled={
+            Boolean(actionInFlight) ||
+            Boolean(groupDialog) ||
+            Boolean(groupActionInFlightUserId) ||
+            isSelfDeactivation
+          }
           onClick={() => openStatusConfirmation(user, nextStatus)}
           size="compact"
           variant={nextStatus === "inactive" ? "secondary" : "primary"}
@@ -573,6 +987,48 @@ export const AdminUsersPage = () => {
             Você não pode inativar a própria conta administrativa.
           </p>
         ) : null}
+      </div>
+    );
+  };
+
+  const renderGroupAction = (user: AdminUserListItem) => {
+    if (!canMutateGroups) {
+      return null;
+    }
+
+    if (!canChangeUserGroup(user)) {
+      return null;
+    }
+
+    const isSubmitting = groupActionInFlightUserId === user.id;
+
+    return (
+      <Button
+        aria-label={`Alterar grupo de ${user.name}`}
+        disabled={Boolean(confirmation) || Boolean(actionInFlight) || Boolean(groupDialog)}
+        onClick={(event) => openGroupDialog(user, event.currentTarget)}
+        size="compact"
+        variant="secondary"
+      >
+        {isSubmitting ? "Salvando..." : "Alterar grupo"}
+      </Button>
+    );
+  };
+
+  const renderUserActions = (user: AdminUserListItem) => {
+    const statusAction = renderStatusAction(user);
+    const groupAction = renderGroupAction(user);
+
+    return (
+      <div aria-label={`Ações para ${user.name}`}>
+        {groupAction ? (
+          <div className="button-row admin-user-card__actions">
+            {statusAction}
+            {groupAction}
+          </div>
+        ) : (
+          statusAction
+        )}
       </div>
     );
   };
@@ -618,7 +1074,7 @@ export const AdminUsersPage = () => {
         </div>
       </dl>
 
-      <div aria-label={`Ações para ${user.name}`}>{renderStatusAction(user)}</div>
+      {renderUserActions(user)}
     </Card>
   );
 
@@ -647,6 +1103,18 @@ export const AdminUsersPage = () => {
         {actionNotice ? (
           <AlertBox title="Ação concluída" tone="success">
             {actionNotice}
+          </AlertBox>
+        ) : null}
+
+        {groupActionNotice ? (
+          <AlertBox title="Grupo atualizado" tone="success">
+            {groupActionNotice}
+          </AlertBox>
+        ) : null}
+
+        {groupActionError ? (
+          <AlertBox title={groupActionError.title} tone="warning">
+            {groupActionError.message}
           </AlertBox>
         ) : null}
 
@@ -854,6 +1322,30 @@ export const AdminUsersPage = () => {
             </div>
           </Card>
         </div>
+      ) : null}
+
+      {groupDialog ? (
+        <AdminUserGroupDialog
+          currentGroup={groupDialog.user.group}
+          currentGroupUnavailable={currentGroupUnavailable}
+          description={`Selecione o grupo de estudo de ${groupDialog.user.name}. Escolha “Sem grupo” para remover somente o vínculo atual.`}
+          dialogError={groupDialogError}
+          fieldError={groupFieldError}
+          groupsState={groupOptionsState}
+          isSubmitting={isGroupDialogSubmitting}
+          isSubmitDisabled={isGroupDialogSubmitDisabled}
+          onCancel={closeGroupDialog}
+          onConfirm={() => void handleConfirmGroupChange()}
+          onRetryLoad={() => void loadSelectableGroups({ force: true })}
+          onValueChange={(value) => {
+            setSelectedGroupValue(value);
+            setGroupDialogError(null);
+            setGroupFieldError(null);
+          }}
+          selectedValue={selectedGroupValue}
+          userEmailMasked={groupDialog.user.emailMasked}
+          userName={groupDialog.user.name}
+        />
       ) : null}
     </div>
   );

@@ -1,11 +1,18 @@
 import { DEMO_MODE_NOTICE, appConfig } from "../config/appMode";
-import { loadWithFallback } from "./api";
+import { loadWithFallback, requestJson, ServiceRequestError } from "./api";
 import {
   listMockAdminGroups,
   toggleMockAdminGroupStatus,
   updateMockAdminGroup,
 } from "../mocks/adminGroups";
-import type { AdminGroup, AdminGroupStatus, AdminGroupUpdateInput } from "../types/adminGroups";
+import type {
+  AdminGroup,
+  AdminGroupsListStatus,
+  AdminGroupStatus,
+  AdminGroupUpdateInput,
+  AdminSelectableGroup,
+  AdminSelectableGroupsResult,
+} from "../types/adminGroups";
 
 interface ApiAdminGroup {
   id: AdminGroup["id"];
@@ -18,6 +25,10 @@ interface ApiAdminGroup {
   meetUrl: string;
   demoMeetUrl?: string;
   welcomeMessage: string;
+}
+
+interface ApiAdminSelectableGroupsData {
+  items: unknown;
 }
 
 const FALLBACK_NOTICE =
@@ -38,6 +49,64 @@ const mapAdminGroup = (item: ApiAdminGroup): AdminGroup => {
   };
 };
 
+const invalidSelectableGroupsEnvelopeError = () =>
+  new ServiceRequestError({
+    kind: "api",
+    message: "Resposta inválida do servidor para grupos administrativos.",
+  });
+
+const isRecord = (value: unknown): value is Record<string, unknown> => {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+};
+
+const isNonEmptyString = (value: unknown): value is string => {
+  return typeof value === "string" && value.length > 0;
+};
+
+const isAdminGroupStatus = (value: unknown): value is AdminGroupStatus => {
+  return value === "active" || value === "inactive";
+};
+
+const mapSelectableGroup = (value: unknown): AdminSelectableGroup => {
+  if (!isRecord(value)) {
+    throw invalidSelectableGroupsEnvelopeError();
+  }
+
+  const { name, slug, status } = value;
+
+  if (!isNonEmptyString(name) || !isNonEmptyString(slug) || !isAdminGroupStatus(status)) {
+    throw invalidSelectableGroupsEnvelopeError();
+  }
+
+  return {
+    name,
+    slug,
+    status,
+  };
+};
+
+const mapMockSelectableGroups = (status: AdminGroupsListStatus): AdminSelectableGroup[] => {
+  const groups = listMockAdminGroups()
+    .filter((group) => status === "all" || group.status === status)
+    .sort((first, second) => {
+      const nameComparison = first.name.localeCompare(second.name, "pt-BR", {
+        sensitivity: "base",
+      });
+
+      if (nameComparison !== 0) {
+        return nameComparison;
+      }
+
+      return first.id.localeCompare(second.id);
+    });
+
+  return groups.map((group) => ({
+    name: group.name,
+    slug: group.id,
+    status: group.status,
+  }));
+};
+
 export const listAdminGroups = () => {
   if (!appConfig.canUseAdminFeatures) {
     return Promise.resolve({
@@ -53,6 +122,33 @@ export const listAdminGroups = () => {
     mapData: (items) => items.map(mapAdminGroup),
     friendlyMessage: FALLBACK_NOTICE,
   });
+};
+
+export const listAdminSelectableGroups = async (
+  status: AdminGroupsListStatus = "active",
+): Promise<AdminSelectableGroupsResult> => {
+  if (appConfig.appMode === "demo" || appConfig.isGithubPages || !appConfig.canUseAdminFeatures) {
+    return {
+      items: mapMockSelectableGroups(status),
+      source: "demo",
+    };
+  }
+
+  const payload = await requestJson<ApiAdminSelectableGroupsData>({
+    path: "/api/admin/groups",
+    query: {
+      status,
+    },
+  });
+
+  if (!payload.data || !Array.isArray(payload.data.items)) {
+    throw invalidSelectableGroupsEnvelopeError();
+  }
+
+  return {
+    items: payload.data.items.map(mapSelectableGroup),
+    source: "api",
+  };
 };
 
 export const updateAdminGroup = (id: AdminGroup["id"], input: AdminGroupUpdateInput) => {

@@ -221,6 +221,55 @@ Rate limit:
 - a chave usa e-mail normalizado apenas em memória interna
 - login bem-sucedido limpa o contador dessa identidade
 
+### `GET /api/admin/groups`
+
+Lista grupos administrativos de forma segura para seletores e vínculos de usuários.
+
+Acesso:
+
+- exige `Authorization: Bearer <token>`;
+- exige usuário com papel `admin`;
+- usuários sem sessão recebem `AUTH_REQUIRED`;
+- usuários autenticados sem papel administrativo recebem `FORBIDDEN`;
+- usuários com troca obrigatória de senha recebem `PASSWORD_CHANGE_REQUIRED`.
+
+Query parameters aceitos:
+
+- `status`: `active`, `inactive` ou `all`;
+- valor padrão: `active`.
+
+Resposta:
+
+- `data.items`: lista ordenada por `name` e depois por `slug`;
+- cada item contém apenas `name`, `slug` e `status`;
+- campos internos como `meetUrl`, horários, descrição e contagem de participantes não são expostos.
+- este endpoint usa `StudyGroup` como fonte de verdade administrativa e não substitui `GET /api/knowledge/groups`, que pertence ao domínio da base de conhecimento.
+
+Erros esperados:
+
+- `AUTH_REQUIRED`
+- `FORBIDDEN`
+- `PASSWORD_CHANGE_REQUIRED`
+- `INVALID_ADMIN_GROUPS_QUERY`
+
+Exemplo:
+
+```json
+{
+  "success": true,
+  "message": "Grupos administrativos listados com sucesso.",
+  "data": {
+    "items": [
+      {
+        "name": "Emmanuel",
+        "slug": "emmanuel",
+        "status": "active"
+      }
+    ]
+  }
+}
+```
+
 ### `GET /api/admin/users`
 
 Lista usuários para a área administrativa local.

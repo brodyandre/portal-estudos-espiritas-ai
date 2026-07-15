@@ -4,6 +4,8 @@ import { AppError } from "../../lib/app-error";
 import { sendSuccess } from "../../lib/api-response";
 import { asyncHandler } from "../../lib/async-handler";
 import { requireRole } from "../auth/auth.middleware";
+import { parseAdminGroupsListQuery } from "./groups/query";
+import { listAdminGroups } from "./groups/service";
 import {
   parseAdminUserGroupBody,
   parseAdminUserGroupPathParam,
@@ -198,6 +200,29 @@ adminRouter.get(
         pageSize: result.pageSize,
         total: result.total,
         totalPages: result.totalPages,
+      },
+    });
+  }),
+);
+
+adminRouter.get(
+  "/groups",
+  ...requireRole(["admin"]),
+  asyncHandler(async (request, response) => {
+    if (!request.authUser) {
+      throw new AppError({
+        statusCode: 401,
+        code: "AUTH_REQUIRED",
+        message: "Faça login no ambiente local para continuar.",
+      });
+    }
+
+    const result = await listAdminGroups(request.authUser, parseAdminGroupsListQuery(request.query));
+
+    return sendSuccess(response, {
+      message: "Grupos administrativos listados com sucesso.",
+      data: {
+        items: result.items,
       },
     });
   }),
