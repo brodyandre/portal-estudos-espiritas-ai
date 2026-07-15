@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { FlowStepCard } from "../components/display/FlowStepCard";
+import { UserMeetingsPanel } from "../components/meetings/UserMeetingsPanel";
 import { AlertBox } from "../components/ui/AlertBox";
 import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
@@ -14,6 +15,7 @@ import { StatusTag } from "../components/ui/StatusTag";
 import { TextArea } from "../components/ui/TextArea";
 import { TextInput } from "../components/ui/TextInput";
 import type { DemoFlowStep, DemoGroup, DemoQuestion } from "../mocks";
+import { useUserStudyMeetings } from "../hooks/useUserStudyMeetings";
 import type {
   Enrollment,
   EnrollmentGroupInterest,
@@ -207,7 +209,7 @@ const createDefaultWorkspace = (
   return {
     selectedBook: group.name,
     themeChapter: defaultThemes[group.slug],
-    meetLink: group.meetUrl,
+    meetLink: "",
     selectedSupportFileIds: supportFiles.slice(0, 2).map((file) => file.id),
     preview: {
       outline: "",
@@ -395,6 +397,7 @@ export const ProfessorPage = () => {
   const [studentAccessByEnrollment, setStudentAccessByEnrollment] = useState<
     Record<string, StudentAccessInfo>
   >({});
+  const userMeetings = useUserStudyMeetings({ limit: 3 });
 
   useEffect(() => {
     let isActive = true;
@@ -655,7 +658,7 @@ export const ProfessorPage = () => {
       supportFiles: selectedSupportFiles,
       theme: themeChapter.trim() || activeGroup.nextLesson.title,
       bookTitle: selectedBook.trim() || activeGroup.name,
-      meetLink: meetLink.trim() || activeGroup.meetUrl,
+      meetLink: meetLink.trim(),
     };
   };
 
@@ -839,6 +842,20 @@ export const ProfessorPage = () => {
           {DEMO_MODE_NOTICE} {PUBLIC_MEET_NOTICE}
         </AlertBox>
       ) : null}
+
+      <section className="page-section">
+        <SectionTitle
+          description="Agenda carregada pelo vínculo autenticado. O workspace abaixo continua separado para preparação de materiais."
+          title="Agenda do seu grupo"
+        />
+        <UserMeetingsPanel
+          audience="teacher"
+          data={userMeetings.data}
+          error={userMeetings.error}
+          isLoading={userMeetings.isLoading}
+          onRetry={userMeetings.refetch}
+        />
+      </section>
 
       <section className="page-section">
         <SectionTitle

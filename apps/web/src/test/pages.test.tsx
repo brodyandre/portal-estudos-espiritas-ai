@@ -18,6 +18,7 @@ import { resetMockEnrollments } from "../mocks/enrollments";
 import { PortalPage } from "../pages/PortalPage";
 import { ProfessorPage } from "../pages/ProfessorPage";
 import { listAdminUsersList } from "../services/adminUsersListService";
+import * as questionsService from "../services/questionsService";
 
 vi.mock("../services/adminUsersListService", () => ({
   listAdminUsersList: vi.fn(),
@@ -42,6 +43,76 @@ const renderRoute = (path: string, element: ReactNode) => {
     </AuthProvider>,
   );
 };
+
+const getFetchUrl = (input: unknown) => {
+  if (typeof input === "string") {
+    return input;
+  }
+
+  if (input instanceof URL) {
+    return input.toString();
+  }
+
+  if (typeof input === "object" && input && "url" in input) {
+    return String((input as { url: string }).url);
+  }
+
+  return "";
+};
+
+const createUserStudyMeetingsEnvelope = (overrides?: {
+  group?: { id: string; name: string; status: "active" | "inactive" } | null;
+  items?: Array<Record<string, unknown>>;
+}) => ({
+  success: true,
+  message: "Encontros do grupo listados com sucesso.",
+  data: {
+    group: overrides?.group ?? { id: "group-001", name: "Grupo autenticado", status: "active" },
+    items: overrides?.items ?? [
+      {
+        id: "meeting-001",
+        title: "Encontro autenticado",
+        description: "Agenda real do grupo autenticado.",
+        startsAt: "2026-07-15T20:00:00.000-03:00",
+        endsAt: "2026-07-15T21:00:00.000-03:00",
+        status: "scheduled",
+        meetUrl: "https://meet.google.com/abc-defg-hij",
+      },
+    ],
+  },
+  meta: { limit: 3 },
+});
+
+const createUserStudyMeetingsErrorEnvelope = (code: string, message: string) => ({
+  success: false,
+  error: {
+    code,
+    message,
+  },
+});
+
+const mockFetchWithUserStudyMeetings = (
+  responses: Array<{ ok: boolean; payload: unknown }> = [
+    { ok: true, payload: createUserStudyMeetingsEnvelope() },
+  ],
+) =>
+  vi.fn(async (input: unknown) => {
+    const url = getFetchUrl(input);
+
+    if (url.includes("/api/me/study-meetings/upcoming")) {
+      const response = responses.shift() ?? responses[responses.length - 1] ?? {
+        ok: true,
+        payload: createUserStudyMeetingsEnvelope(),
+      };
+
+      return {
+        ok: response.ok,
+        json: async () => response.payload,
+      };
+    }
+
+    throw new Error("backend offline");
+  });
 
 describe("paginas principais com fallback local", () => {
   beforeEach(() => {
@@ -93,6 +164,7 @@ describe("paginas principais com fallback local", () => {
 
   afterEach(() => {
     cleanup();
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
     window.localStorage.clear();
     window.sessionStorage.clear();
@@ -155,7 +227,9 @@ describe("paginas principais com fallback local", () => {
       screen.getByRole("heading", { name: "Educação Continuada" }),
     ).toBeInTheDocument();
     expect(await screen.findByText("Modo demonstrativo ativo")).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: "Entrar no Google Meet" }).length).toBeGreaterThan(0);
+    expect(await screen.findByText("Não foi possível carregar a agenda")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Tentar novamente" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Entrar no Google Meet" })).not.toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "Materiais de apoio" })).toBeInTheDocument();
     expect(await screen.findByText("Emmanuel - visao geral")).toBeInTheDocument();
 
@@ -164,6 +238,138 @@ describe("paginas principais com fallback local", () => {
     });
 
     expect(await screen.findByText("A Caminho da Luz - visao geral")).toBeInTheDocument();
+  });
+
+  it("/aluno exibe agenda autenticada sem depender do grupo legado selecionado", async () => {
+    window.localStorage.setItem("portal-estudos-espiritas-ai:student-access", "approved");
+    vi.stubGlobal("fetch", mockFetchWithUserStudyMeetings());
+
+    renderRoute("/aluno?grupo=emmanuel", <AlunoPage />);
+
+    expect(await screen.findByText("Encontro autenticado")).toBeInTheDocument();
+    expect(screen.getByText("Grupo autenticado")).toBeInTheDocument();
+    const meetLink = screen.getByRole("link", { name: "Entrar no Google Meet" });
+    expect(meetLink).toHaveAttribute("href", "https://meet.google.com/abc-defg-hij");
+
+    fireEvent.change(screen.getByLabelText("Livro ou grupo"), {
+      target: { value: "a-caminho-da-luz" },
+    });
+
+    expect(await screen.findByText("A Caminho da Luz - visao geral")).toBeInTheDocument();
+    expect(screen.getByText("Grupo autenticado")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Entrar no Google Meet" })).toHaveAttribute(
+      "href",
+      "https://meet.google.com/abc-defg-hij",
+    );
+  });
+
+  it("/aluno trata 401 e 403 sem mock nem link", async () => {
+    window.localStorage.setItem("portal-estudos-espiritas-ai:student-access", "approved");
+    vi.stubGlobal(
+      "fetch",
+      mockFetchWithUserStudyMeetings([
+        {
+          ok: false,
+          payload: createUserStudyMeetingsErrorEnvelope("AUTH_REQUIRED", "Autenticação necessária."),
+        },
+        {
+          ok: false,
+          payload: createUserStudyMeetingsErrorEnvelope("FORBIDDEN", "Acesso negado."),
+        },
+      ]),
+    );
+
+    const { unmount } = renderRoute("/aluno?grupo=emmanuel", <AlunoPage />);
+
+    expect(await screen.findByText("Sessão necessária")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Entrar no Google Meet" })).not.toBeInTheDocument();
+
+    unmount();
+    renderRoute("/aluno?grupo=emmanuel", <AlunoPage />);
+
+    expect(await screen.findByText("Acesso não autorizado")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Entrar no Google Meet" })).not.toBeInTheDocument();
+  });
+
+  it("/aluno recupera agenda no retry e não cria link quando meetUrl está ausente", async () => {
+    window.localStorage.setItem("portal-estudos-espiritas-ai:student-access", "approved");
+    vi.stubGlobal(
+      "fetch",
+      mockFetchWithUserStudyMeetings([
+        {
+          ok: false,
+          payload: createUserStudyMeetingsErrorEnvelope("AUTH_REQUIRED", "Autenticação necessária."),
+        },
+        {
+          ok: true,
+          payload: createUserStudyMeetingsEnvelope({
+            items: [
+              {
+                id: "meeting-sem-link",
+                title: "Encontro sem link",
+                description: null,
+                startsAt: "2026-07-15T20:00:00.000-03:00",
+                endsAt: "2026-07-15T21:00:00.000-03:00",
+                status: "scheduled",
+                meetUrl: null,
+              },
+            ],
+          }),
+        },
+      ]),
+    );
+
+    renderRoute("/aluno?grupo=emmanuel", <AlunoPage />);
+
+    expect(await screen.findByText("Sessão necessária")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Tentar novamente" }));
+
+    expect(await screen.findByText("Encontro sem link")).toBeInTheDocument();
+    expect(screen.getByText("Link do encontro indisponível para esta visualização.")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Entrar no Google Meet" })).not.toBeInTheDocument();
+  });
+
+  it("/aluno envia dúvida com groupId e lessonId legados, sem StudyMeeting.id", async () => {
+    window.localStorage.setItem("portal-estudos-espiritas-ai:student-access", "approved");
+    vi.stubGlobal("fetch", mockFetchWithUserStudyMeetings());
+    const createQuestionSpy = vi.spyOn(questionsService, "createQuestion").mockResolvedValue({
+      data: {
+        id: "question-test",
+        authorName: "Marina Costa",
+        groupSlug: "a-caminho-da-luz",
+        lessonId: "lesson-a-caminho-da-luz-2026-07-15",
+        lessonTitle: "Civilização e responsabilidade espiritual",
+        question: "Como revisar este tema com calma?",
+        status: "new",
+        createdAt: "2026-07-15T12:00:00.000Z",
+        visibility: "teacher",
+      },
+      source: "api",
+      notice: null,
+    });
+
+    renderRoute("/aluno?grupo=a-caminho-da-luz", <AlunoPage />);
+
+    expect(await screen.findByText("Encontro autenticado")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Sua duvida"), {
+      target: { value: "Como revisar este tema com calma?" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Enviar" }));
+    expect(await screen.findByRole("button", { name: "Enviar dúvida ao professor" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Enviar dúvida ao professor" }));
+
+    await waitFor(() => {
+      expect(createQuestionSpy).toHaveBeenCalledWith(
+        expect.not.objectContaining({ lessonId: "meeting-001" }),
+      );
+    });
+    expect(createQuestionSpy).toHaveBeenCalledWith({
+      groupId: "a-caminho-da-luz",
+      lessonId: "lesson-a-caminho-da-luz-2026-07-15",
+      authorName: "Joao Pedro",
+      question: "Como revisar este tema com calma?",
+      visibility: "teacher",
+    });
   });
 
   it("/aluno bloqueia visitantes e oculta a area quando o acesso nao foi aprovado", async () => {
@@ -206,6 +412,157 @@ describe("paginas principais com fallback local", () => {
     await waitFor(() => {
       expect(screen.getByText("A Caminho da Luz - visao geral")).toBeInTheDocument();
     });
+  });
+
+  it("/professor exibe agenda autenticada e mantém workspace sem link legado", async () => {
+    vi.stubGlobal("fetch", mockFetchWithUserStudyMeetings());
+
+    renderRoute("/professor?grupo=emmanuel", <ProfessorPage />);
+
+    expect(await screen.findByText("Encontro autenticado")).toBeInTheDocument();
+    expect(screen.getByText("Grupo autenticado")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Entrar no Google Meet" })).toHaveAttribute(
+      "href",
+      "https://meet.google.com/abc-defg-hij",
+    );
+    expect(await screen.findByText("Base de apoio da aula")).toBeInTheDocument();
+    expect(screen.getByLabelText("Link do Google Meet")).toHaveValue("");
+  });
+
+  it("/professor trata 401 e 403 sem mock nem link", async () => {
+    vi.stubGlobal(
+      "fetch",
+      mockFetchWithUserStudyMeetings([
+        {
+          ok: false,
+          payload: createUserStudyMeetingsErrorEnvelope("AUTH_REQUIRED", "Autenticação necessária."),
+        },
+        {
+          ok: false,
+          payload: createUserStudyMeetingsErrorEnvelope("FORBIDDEN", "Acesso negado."),
+        },
+      ]),
+    );
+
+    const { unmount } = renderRoute("/professor?grupo=emmanuel", <ProfessorPage />);
+
+    expect(await screen.findByText("Sessão necessária")).toBeInTheDocument();
+    expect(await screen.findByText("Base de apoio da aula")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Entrar no Google Meet" })).not.toBeInTheDocument();
+
+    unmount();
+    renderRoute("/professor?grupo=emmanuel", <ProfessorPage />);
+
+    expect(await screen.findByText("Acesso não autorizado")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Entrar no Google Meet" })).not.toBeInTheDocument();
+  });
+
+  it("/professor recupera agenda no retry sem bloquear workspace e sem link ausente", async () => {
+    vi.stubGlobal(
+      "fetch",
+      mockFetchWithUserStudyMeetings([
+        {
+          ok: false,
+          payload: createUserStudyMeetingsErrorEnvelope("FORBIDDEN", "Acesso negado."),
+        },
+        {
+          ok: true,
+          payload: createUserStudyMeetingsEnvelope({
+            items: [
+              {
+                id: "meeting-sem-link",
+                title: "Agenda recuperada",
+                description: null,
+                startsAt: "2026-07-15T20:00:00.000-03:00",
+                endsAt: "2026-07-15T21:00:00.000-03:00",
+                status: "scheduled",
+                meetUrl: null,
+              },
+            ],
+          }),
+        },
+      ]),
+    );
+
+    renderRoute("/professor?grupo=emmanuel", <ProfessorPage />);
+
+    expect(await screen.findByText("Acesso não autorizado")).toBeInTheDocument();
+    expect(await screen.findByText("Base de apoio da aula")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Tentar novamente" }));
+
+    expect(await screen.findByText("Agenda recuperada")).toBeInTheDocument();
+    expect(screen.getByText("Link do encontro indisponível para esta visualização.")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Entrar no Google Meet" })).not.toBeInTheDocument();
+  });
+
+  it("/professor preserva localStorage antigo e não persiste agenda autenticada", async () => {
+    vi.stubGlobal("fetch", mockFetchWithUserStudyMeetings());
+    window.localStorage.setItem(
+      "portal-estudos:teacher-workspace:emmanuel",
+      JSON.stringify({
+        selectedBook: "Emmanuel",
+        themeChapter: "Tema antigo salvo",
+        meetLink: "https://example.com/link-antigo",
+        selectedSupportFileIds: [],
+        preview: {
+          outline: "Roteiro antigo",
+          questions: "",
+          summary: "",
+          message: "",
+          review: "",
+        },
+        reviewState: "draft",
+        actionMessage: "Workspace antigo salvo.",
+      }),
+    );
+    window.localStorage.setItem(
+      "portal-estudos:teacher-workspace:a-caminho-da-luz",
+      JSON.stringify({
+        selectedBook: "A Caminho da Luz",
+        themeChapter: "Tema antigo do outro grupo",
+        meetLink: "https://example.com/link-antigo-outro-grupo",
+        selectedSupportFileIds: [],
+        preview: {
+          outline: "",
+          questions: "",
+          summary: "",
+          message: "",
+          review: "",
+        },
+        reviewState: "draft",
+        actionMessage: "Workspace antigo do outro grupo.",
+      }),
+    );
+
+    renderRoute("/professor?grupo=emmanuel", <ProfessorPage />);
+
+    expect(await screen.findByText("Encontro autenticado")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByLabelText("Tema ou capitulo")).toHaveValue("Tema antigo salvo");
+      expect(screen.getByLabelText("Link do Google Meet")).toHaveValue("https://example.com/link-antigo");
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Salvar rascunho" }));
+
+    const storedWorkspace = JSON.parse(
+      window.localStorage.getItem("portal-estudos:teacher-workspace:emmanuel") ?? "{}",
+    ) as Record<string, unknown>;
+
+    expect(storedWorkspace.meetLink).toBe("https://example.com/link-antigo");
+    expect(storedWorkspace.themeChapter).toBe("Tema antigo salvo");
+    expect(JSON.stringify(storedWorkspace)).not.toContain("https://meet.google.com/abc-defg-hij");
+    expect(JSON.stringify(storedWorkspace)).not.toContain("Encontro autenticado");
+
+    fireEvent.change(screen.getByLabelText("Grupo ou livro", { selector: "#teacher-book" }), {
+      target: { value: "a-caminho-da-luz" },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Link do Google Meet")).toHaveValue(
+        "https://example.com/link-antigo-outro-grupo",
+      );
+    });
+    expect(screen.getByText("Encontro autenticado")).toBeInTheDocument();
   });
 
   it("/admin/dashboard renderiza os indicadores com fallback demonstrativo", async () => {
@@ -366,6 +723,7 @@ describe("paginas principais com fallback local", () => {
     renderRoute("/aluno", <AlunoPage />);
 
     expect(await screen.findByText("Painel do Aluno")).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: "Entrar no Google Meet" }).length).toBeGreaterThan(0);
+    expect(await screen.findByText("Não foi possível carregar a agenda")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Entrar no Google Meet" })).not.toBeInTheDocument();
   });
 });

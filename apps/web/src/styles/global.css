@@ -913,6 +913,55 @@ img {
   color: var(--color-warning-700);
 }
 
+.user-meetings,
+.user-meetings-card,
+.user-meetings-list-card,
+.user-meetings-list {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.user-meetings-card__header,
+.user-meetings-list-card__header,
+.user-meetings-list__header {
+  align-items: flex-start;
+  display: flex;
+  gap: var(--space-3);
+  justify-content: space-between;
+}
+
+.user-meetings-card__meta {
+  align-items: center;
+  color: var(--color-text-muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.user-meetings-card__description,
+.user-meetings__note {
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.user-meetings-list__item {
+  align-items: center;
+  border-top: 1px solid var(--color-border-soft);
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding-block: var(--space-3);
+}
+
+.user-meetings-list__item:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.user-meetings__actions {
+  margin-top: var(--space-3);
+}
+
 .section-title {
   display: flex;
   flex-direction: column;

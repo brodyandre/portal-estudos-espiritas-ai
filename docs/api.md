@@ -344,7 +344,23 @@ Rate limit das mutações:
 Lista os encontros atuais e futuros do grupo do usuário autenticado.
 
 Esta rota foi criada para a Entrega 5A como contrato compartilhado entre aluno e professor. A
-integração visual nas telas `/aluno` e `/professor` fica para a Entrega 5B.
+Entrega 5B consome este contrato nas telas `/aluno` e `/professor`, sempre com `limit=3`, em um
+bloco de agenda separado da seleção manual de livro/grupo.
+
+Integração visual da Entrega 5B:
+
+- `/aluno` mostra a agenda em "Encontros do seu grupo" somente após acesso de aluno aprovado;
+- `/professor` mostra a agenda em "Agenda do seu grupo" sem sobrescrever o workspace manual do
+  professor;
+- o botão "Entrar no Google Meet" é exibido somente quando vem de `meetUrl` desta rota;
+- a seleção manual de grupo/livro permanece apenas para materiais, resumos, perguntas e conteúdo
+  legado;
+- dúvidas continuam usando o `lessonId` legado da próxima aula do grupo selecionado, sem usar
+  `StudyMeeting.id`;
+- o modo demonstrativo usa agenda fictícia segura, sem link real;
+- datas e horários da UI são formatados no fuso `America/Sao_Paulo`;
+- estados de loading, sem grupo, grupo inativo, vazio, erro, `401`, `403` e retry são tratados no
+  frontend.
 
 Acesso:
 
