@@ -113,14 +113,20 @@ Escopo atual entregue:
 - protecao contra respostas antigas
 - protecao contra atualizacao depois da desmontagem
 - e-mail mascarado
+- acao visual `Alterar grupo` para usuarios ativos e inativos
+- dialog acessivel para associar, substituir ou remover vinculo de grupo
+- carregamento sob demanda apenas de grupos administrativos ativos
+- opcao explicita `Sem grupo` sem enviar valor sentinela ao backend
+- feedback local de sucesso e erro para alteracao de grupo
+- refetch da listagem preservando filtros, ordenacao e paginacao apos a mutacao
+- preservacao do status da conta ao alterar somente o vinculo de grupo
 - modo demonstrativo do GitHub Pages com dados ficticios
 - ausencia de fallback silencioso para mocks no modo local
 
 Fora do escopo desta entrega:
 
-- controles de ativacao ou inativacao na interface de `/admin/usuarios`
+- novas alteracoes no fluxo de ativacao ou inativacao; os controles ja existentes em `/admin/usuarios` permanecem disponiveis e inalterados
 - alteracao de papel
-- vinculo ou desvinculo de grupo
 - observacao administrativa
 - detalhes administrativos expandidos
 - auditoria na tela
@@ -135,7 +141,7 @@ Limite importante:
 
 Evolucoes futuras planejadas - ainda nao implementadas:
 
-- acionar pela interface a mutacao `PATCH /api/admin/users/:userId/status`, com confirmacao, estados transientes e tratamento de conflitos
+- ampliar o fluxo de ativacao e inativacao com novas regras, estados transientes adicionais e tratamento expandido de conflitos
 - simulacao de alteracao de perfil, vinculo com grupo e observacao administrativa
 - redefinicao de senha por admin em fluxo dedicado
 - registro dessas acoes em um audit log demonstrativo local
@@ -144,7 +150,8 @@ Observacao de escopo backend atual:
 
 - o backend local ja expoe `PATCH /api/admin/users/:userId/status` para alternar entre `active` e `inactive`;
 - a mutacao revalida o admin ator dentro da propria transacao, revoga sessoes ao inativar e trata conflitos concorrentes;
-- a pagina `/admin/usuarios` continua read-only para status nesta entrega e nao renderiza botoes de ativacao ou inativacao.
+- a pagina `/admin/usuarios` ja renderiza botoes de ativacao ou inativacao com confirmacao e feedback seguro;
+- a mesma pagina permite vincular, substituir ou remover o grupo do usuario sem alterar o status da conta.
 
 Regras previstas para futura redefinicao de senha:
 
@@ -397,7 +404,7 @@ No ambiente local:
 - a area administrativa pode consumir a API local
 - usa autenticacao local simples nesta fase
 - serve apenas como MVP de operacao interna
-- a tela `/admin/usuarios` consome a listagem administrativa real no modo local e usa dados ficticios no GitHub Pages, sem mutacoes na nova pagina
+- a tela `/admin/usuarios` consome a listagem administrativa real no modo local, permite mutacoes administrativas locais e usa dados ficticios no GitHub Pages
 - a tela `/admin/convites` consome endpoints administrativos reais da API local e preserva respostas seguras
 - a tela `/admin/grupos` pode revisar configuracoes do grupo e mostrar o Meet real apenas no ambiente local autorizado
 
