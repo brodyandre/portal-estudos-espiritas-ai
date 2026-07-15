@@ -128,7 +128,7 @@ model AccountInvitation {
   @@index([invalidatedAt])
   @@index([deliveryStatus])
   @@index([invitedByUserId])
-  @@index([userId, invitationType, acceptedAt, invalidatedAt])
+  @@index([userId, invitationType, acceptedAt, invalidatedAt], map: "AccountInvitation_userId_invitationType_acceptedAt_invalidatedA")
 }
 
 model Enrollment {
@@ -162,6 +162,23 @@ model StudyGroup {
   status           GroupStatus @default(ACTIVE)
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
+  meetings         StudyMeeting[]
+}
+
+model StudyMeeting {
+  id                 String     @id @default(cuid())
+  groupId            String
+  title              String
+  description        String?
+  startsAt           DateTime
+  endsAt             DateTime
+  canceledAt         DateTime?
+  cancellationReason String?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+  group              StudyGroup @relation(fields: [groupId], references: [id], onDelete: Restrict)
+
+  @@index([groupId, startsAt])
 }
 
 model AuditLog {

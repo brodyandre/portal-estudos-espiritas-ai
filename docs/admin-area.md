@@ -262,6 +262,44 @@ Testes de frontend cobrem:
 
 ### `/admin/grupos`
 
+Gestao administrativa dos grupos e, na Entrega 4A, exposicao HTTP administrativa da agenda de encontros.
+
+API de encontros implementada:
+
+- `GET /api/admin/groups/:groupId/meetings`;
+- `POST /api/admin/groups/:groupId/meetings`;
+- `GET /api/admin/groups/:groupId/meetings/:meetingId`;
+- `PATCH /api/admin/groups/:groupId/meetings/:meetingId`;
+- `POST /api/admin/groups/:groupId/meetings/:meetingId/cancel`.
+
+Todas exigem autenticacao local e papel `admin`. Visitantes, alunos, professores e admins com troca obrigatoria de senha sao bloqueados pelo fluxo existente.
+
+Contrato seguro:
+
+- a API retorna somente campos do encontro permitidos por presenter;
+- a resposta nao inclui grupo completo, `meetUrl`, auditoria, tokens, sessoes ou objetos Prisma;
+- cancelamento e atualizacao sao logicos, sem exclusao fisica;
+- mutacoes possuem rate limit por admin e alvo: 20 tentativas por admin e 5 por alvo em 15 minutos;
+- leituras nao consomem cota de mutacao.
+
+Escopo atual:
+
+- listagem paginada;
+- consulta individual;
+- criacao administrativa;
+- atualizacao administrativa;
+- cancelamento administrativo com motivo;
+- validacao estrita de params, query e body;
+- datas ISO 8601 com timezone explicito.
+
+Fora do escopo atual:
+
+- calendario visual na interface;
+- rotas para aluno, professor ou publico;
+- presenca, frequencia, progresso e recorrencia;
+- integracao com Google Calendar;
+- criacao automatica ou exposicao de link de reuniao.
+
 Gestao dos grupos de estudo.
 
 Escopo do MVP atual:

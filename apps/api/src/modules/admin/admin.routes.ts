@@ -3,7 +3,32 @@ import { Router } from "express";
 import { AppError } from "../../lib/app-error";
 import { sendSuccess } from "../../lib/api-response";
 import { asyncHandler } from "../../lib/async-handler";
+import {
+  assertAdminStudyMeetingRateLimit,
+  recordAdminStudyMeetingAttempt,
+} from "../../security/auth-rate-limit";
 import { requireRole } from "../auth/auth.middleware";
+import type { AuthUser } from "../auth/auth.types";
+import {
+  cancelAdminStudyMeeting,
+  createAdminStudyMeeting,
+  getAdminStudyMeeting,
+  listAdminStudyMeetings,
+  updateAdminStudyMeeting,
+} from "../study-meetings/study-meetings.service";
+import {
+  parseCancelStudyMeetingBody,
+  parseCreateStudyMeetingBody,
+  parseUpdateStudyMeetingBody,
+} from "../study-meetings/study-meetings.input";
+import {
+  presentStudyMeeting,
+  presentStudyMeetingList,
+} from "../study-meetings/study-meetings.presenter";
+import {
+  parseStudyMeetingRouteParam,
+  parseStudyMeetingsListQuery,
+} from "../study-meetings/study-meetings.query";
 import { parseAdminGroupsListQuery } from "./groups/query";
 import { listAdminGroups } from "./groups/service";
 import {
@@ -171,6 +196,20 @@ const assertNoUnexpectedBody = (
   }
 };
 
+const requireAuthenticatedAdminRequestUser = (
+  authUser: AuthUser | undefined,
+) => {
+  if (!authUser) {
+    throw new AppError({
+      statusCode: 401,
+      code: "AUTH_REQUIRED",
+      message: "Faça login no ambiente local para continuar.",
+    });
+  }
+
+  return authUser;
+};
+
 export const adminRouter = Router();
 
 adminRouter.get(
@@ -224,6 +263,107 @@ adminRouter.get(
       data: {
         items: result.items,
       },
+    });
+  }),
+);
+
+adminRouter.get(
+  "/groups/:groupId/meetings",
+  ...requireRole(["admin"]),
+  asyncHandler(async (request, response) => {
+    const authUser = requireAuthenticatedAdminRequestUser(request.authUser);
+    const groupId = parseStudyMeetingRouteParam(request.params.groupId, "groupId");
+    const result = await listAdminStudyMeetings(
+      authUser,
+      parseStudyMeetingsListQuery(groupId, request.query),
+    );
+    const presentedResult = presentStudyMeetingList(result);
+
+    return sendSuccess(response, {
+      message: "Encontros listados com sucesso.",
+      data: {
+        items: presentedResult.items,
+      },
+      meta: presentedResult.meta,
+    });
+  }),
+);
+
+adminRouter.post(
+  "/groups/:groupId/meetings",
+  ...requireRole(["admin"]),
+  asyncHandler(async (request, response) => {
+    const authUser = requireAuthenticatedAdminRequestUser(request.authUser);
+    const groupId = parseStudyMeetingRouteParam(request.params.groupId, "groupId");
+    const input = parseCreateStudyMeetingBody(groupId, request.body);
+
+    assertAdminStudyMeetingRateLimit(authUser.id, groupId);
+    recordAdminStudyMeetingAttempt(authUser.id, groupId);
+
+    const meeting = await createAdminStudyMeeting(authUser, input);
+
+    return sendSuccess(response, {
+      status: 201,
+      message: "Encontro criado com sucesso.",
+      data: presentStudyMeeting(meeting),
+    });
+  }),
+);
+
+adminRouter.get(
+  "/groups/:groupId/meetings/:meetingId",
+  ...requireRole(["admin"]),
+  asyncHandler(async (request, response) => {
+    const authUser = requireAuthenticatedAdminRequestUser(request.authUser);
+    const groupId = parseStudyMeetingRouteParam(request.params.groupId, "groupId");
+    const meetingId = parseStudyMeetingRouteParam(request.params.meetingId, "meetingId");
+    const meeting = await getAdminStudyMeeting(authUser, { groupId, meetingId });
+
+    return sendSuccess(response, {
+      message: "Encontro consultado com sucesso.",
+      data: presentStudyMeeting(meeting),
+    });
+  }),
+);
+
+adminRouter.patch(
+  "/groups/:groupId/meetings/:meetingId",
+  ...requireRole(["admin"]),
+  asyncHandler(async (request, response) => {
+    const authUser = requireAuthenticatedAdminRequestUser(request.authUser);
+    const groupId = parseStudyMeetingRouteParam(request.params.groupId, "groupId");
+    const meetingId = parseStudyMeetingRouteParam(request.params.meetingId, "meetingId");
+    const input = parseUpdateStudyMeetingBody(groupId, meetingId, request.body);
+
+    assertAdminStudyMeetingRateLimit(authUser.id, `${groupId}:${meetingId}`);
+    recordAdminStudyMeetingAttempt(authUser.id, `${groupId}:${meetingId}`);
+
+    const meeting = await updateAdminStudyMeeting(authUser, input);
+
+    return sendSuccess(response, {
+      message: "Encontro atualizado com sucesso.",
+      data: presentStudyMeeting(meeting),
+    });
+  }),
+);
+
+adminRouter.post(
+  "/groups/:groupId/meetings/:meetingId/cancel",
+  ...requireRole(["admin"]),
+  asyncHandler(async (request, response) => {
+    const authUser = requireAuthenticatedAdminRequestUser(request.authUser);
+    const groupId = parseStudyMeetingRouteParam(request.params.groupId, "groupId");
+    const meetingId = parseStudyMeetingRouteParam(request.params.meetingId, "meetingId");
+    const input = parseCancelStudyMeetingBody(groupId, meetingId, request.body);
+
+    assertAdminStudyMeetingRateLimit(authUser.id, `${groupId}:${meetingId}:cancel`);
+    recordAdminStudyMeetingAttempt(authUser.id, `${groupId}:${meetingId}:cancel`);
+
+    const meeting = await cancelAdminStudyMeeting(authUser, input);
+
+    return sendSuccess(response, {
+      message: "Encontro cancelado com sucesso.",
+      data: presentStudyMeeting(meeting),
     });
   }),
 );

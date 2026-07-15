@@ -80,6 +80,8 @@ const adminUserStatusTargetPolicy: RateLimitPolicy = {
 
 const adminUserGroupActorPolicy: RateLimitPolicy = adminUserStatusActorPolicy;
 const adminUserGroupTargetPolicy: RateLimitPolicy = adminUserStatusTargetPolicy;
+const adminStudyMeetingActorPolicy: RateLimitPolicy = adminUserStatusActorPolicy;
+const adminStudyMeetingTargetPolicy: RateLimitPolicy = adminUserStatusTargetPolicy;
 
 const loginLimiter = new MemorySlidingWindowRateLimiter();
 const passwordChangeLimiter = new MemorySlidingWindowRateLimiter();
@@ -101,6 +103,8 @@ const adminUserStatusActorLimiter = new MemorySlidingWindowRateLimiter();
 const adminUserStatusTargetLimiter = new MemorySlidingWindowRateLimiter();
 const adminUserGroupActorLimiter = new MemorySlidingWindowRateLimiter();
 const adminUserGroupTargetLimiter = new MemorySlidingWindowRateLimiter();
+const adminStudyMeetingActorLimiter = new MemorySlidingWindowRateLimiter();
+const adminStudyMeetingTargetLimiter = new MemorySlidingWindowRateLimiter();
 
 const toHashedIdentity = (value: string) => {
   return createHmac("sha256", env.jwtSecret).update(value).digest("hex");
@@ -122,7 +126,8 @@ const buildRateLimitError = (
     | "ADMIN_INVITATION_CANCEL_RATE_LIMITED"
     | "ADMIN_INVITATION_RESEND_RATE_LIMITED"
     | "ADMIN_USER_STATUS_RATE_LIMITED"
-    | "ADMIN_USER_GROUP_RATE_LIMITED",
+    | "ADMIN_USER_GROUP_RATE_LIMITED"
+    | "ADMIN_STUDY_MEETING_RATE_LIMITED",
   retryAfterSeconds: number,
 ) => {
   return new AppError({
@@ -222,6 +227,17 @@ export const buildAdminUserGroupActorKey = (adminUserId: string) => {
 
 export const buildAdminUserGroupTargetKey = (targetUserId: string) => {
   return `admin-user-group-target:${targetUserId}`;
+};
+
+export const buildAdminStudyMeetingActorKey = (adminUserId: string) => {
+  return `admin-study-meeting:${adminUserId}`;
+};
+
+export const buildAdminStudyMeetingTargetKey = (
+  adminUserId: string,
+  targetId: string,
+) => {
+  return `admin-study-meeting-target:${adminUserId}:${toHashedIdentity(targetId)}`;
 };
 
 export const assertLoginRateLimit = (ipAddress: string, email: string) => {
@@ -541,6 +557,49 @@ export const recordAdminUserGroupAttempt = (adminUserId: string, targetUserId: s
   );
 };
 
+export const assertAdminStudyMeetingRateLimit = (
+  adminUserId: string,
+  targetId: string,
+) => {
+  const actorDecision = adminStudyMeetingActorLimiter.peek(
+    buildAdminStudyMeetingActorKey(adminUserId),
+    adminStudyMeetingActorPolicy,
+  );
+
+  if (!actorDecision.allowed) {
+    throw buildRateLimitError(
+      "ADMIN_STUDY_MEETING_RATE_LIMITED",
+      actorDecision.retryAfterSeconds,
+    );
+  }
+
+  const targetDecision = adminStudyMeetingTargetLimiter.peek(
+    buildAdminStudyMeetingTargetKey(adminUserId, targetId),
+    adminStudyMeetingTargetPolicy,
+  );
+
+  if (!targetDecision.allowed) {
+    throw buildRateLimitError(
+      "ADMIN_STUDY_MEETING_RATE_LIMITED",
+      targetDecision.retryAfterSeconds,
+    );
+  }
+};
+
+export const recordAdminStudyMeetingAttempt = (
+  adminUserId: string,
+  targetId: string,
+) => {
+  adminStudyMeetingActorLimiter.record(
+    buildAdminStudyMeetingActorKey(adminUserId),
+    adminStudyMeetingActorPolicy,
+  );
+  adminStudyMeetingTargetLimiter.record(
+    buildAdminStudyMeetingTargetKey(adminUserId, targetId),
+    adminStudyMeetingTargetPolicy,
+  );
+};
+
 export const resetAuthRateLimitStore = () => {
   loginLimiter.resetAll();
   passwordChangeLimiter.resetAll();
@@ -562,6 +621,8 @@ export const resetAuthRateLimitStore = () => {
   adminUserStatusTargetLimiter.resetAll();
   adminUserGroupActorLimiter.resetAll();
   adminUserGroupTargetLimiter.resetAll();
+  adminStudyMeetingActorLimiter.resetAll();
+  adminStudyMeetingTargetLimiter.resetAll();
 };
 
 export const setAuthRateLimitNowProviderForTesting = (nowProvider: () => number) => {
@@ -585,6 +646,8 @@ export const setAuthRateLimitNowProviderForTesting = (nowProvider: () => number)
   adminUserStatusTargetLimiter.setNowProvider(nowProvider);
   adminUserGroupActorLimiter.setNowProvider(nowProvider);
   adminUserGroupTargetLimiter.setNowProvider(nowProvider);
+  adminStudyMeetingActorLimiter.setNowProvider(nowProvider);
+  adminStudyMeetingTargetLimiter.setNowProvider(nowProvider);
 };
 
 export const restoreAuthRateLimitNowProvider = () => {
@@ -608,6 +671,8 @@ export const restoreAuthRateLimitNowProvider = () => {
   adminUserStatusTargetLimiter.restoreDefaultNowProvider();
   adminUserGroupActorLimiter.restoreDefaultNowProvider();
   adminUserGroupTargetLimiter.restoreDefaultNowProvider();
+  adminStudyMeetingActorLimiter.restoreDefaultNowProvider();
+  adminStudyMeetingTargetLimiter.restoreDefaultNowProvider();
 };
 
 export const getAuthRateLimitEntryCounts = () => ({
@@ -631,4 +696,6 @@ export const getAuthRateLimitEntryCounts = () => ({
   adminUserStatusTarget: adminUserStatusTargetLimiter.getEntryCount(),
   adminUserGroupActor: adminUserGroupActorLimiter.getEntryCount(),
   adminUserGroupTarget: adminUserGroupTargetLimiter.getEntryCount(),
+  adminStudyMeetingActor: adminStudyMeetingActorLimiter.getEntryCount(),
+  adminStudyMeetingTarget: adminStudyMeetingTargetLimiter.getEntryCount(),
 });
