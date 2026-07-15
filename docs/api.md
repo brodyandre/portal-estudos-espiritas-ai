@@ -221,6 +221,124 @@ Rate limit:
 - a chave usa e-mail normalizado apenas em memória interna
 - login bem-sucedido limpa o contador dessa identidade
 
+### Encontros administrativos da Entrega 4A
+
+As rotas de encontros ficam sob `/api/admin` e exigem autenticação local com papel `admin`.
+
+Rotas implementadas:
+
+- `GET /api/admin/groups/:groupId/meetings`
+- `POST /api/admin/groups/:groupId/meetings`
+- `GET /api/admin/groups/:groupId/meetings/:meetingId`
+- `PATCH /api/admin/groups/:groupId/meetings/:meetingId`
+- `POST /api/admin/groups/:groupId/meetings/:meetingId/cancel`
+
+Fora do escopo atual:
+
+- rota pública, de aluno ou de professor;
+- `DELETE`, exclusão física, publicação, presença, frequência, recorrência e calendário visual;
+- criação automática de Google Meet ou integração com Google Calendar;
+- exposição de link de reunião.
+
+Parâmetros:
+
+- `groupId` e `meetingId` são strings simples, com `trim`, não vazias e limite de 160 caracteres;
+- valores repetidos, arrays, objetos e valores vazios são rejeitados com `INVALID_STUDY_MEETING_INPUT`.
+
+Listagem:
+
+- aceita somente `page`, `pageSize`, `sortOrder` e `includeCanceled`;
+- defaults: `page=1`, `pageSize=10`, `sortOrder=asc`, `includeCanceled=false`;
+- `page` e `pageSize` aceitam apenas inteiros positivos;
+- `pageSize` máximo: `50`;
+- `sortOrder`: `asc` ou `desc`;
+- `includeCanceled`: somente `true` ou `false`;
+- qualquer query extra, repetida ou inválida retorna `INVALID_STUDY_MEETING_LIST_INPUT`.
+
+Body de criação:
+
+```json
+{
+  "title": "Aula semanal",
+  "description": "Opcional ou null",
+  "startsAt": "2026-07-15T20:00:00Z",
+  "endsAt": "2026-07-15T21:00:00Z"
+}
+```
+
+- `title`, `startsAt` e `endsAt` são obrigatórios;
+- `description` é opcional e pode ser `null`;
+- `title` tem limite de 120 caracteres;
+- `description` tem limite de 320 caracteres;
+- campos desconhecidos ou internos, como `groupId`, `canceledAt`, `cancellationReason`, `meetUrl`, `status`, `createdAt` e `updatedAt`, são rejeitados.
+
+Body de atualização:
+
+```json
+{
+  "title": "Novo título",
+  "description": null,
+  "startsAt": "2026-07-15T20:30:00Z",
+  "endsAt": "2026-07-15T21:30:00Z"
+}
+```
+
+- aceita somente `title`, `description`, `startsAt` e `endsAt`;
+- pelo menos um campo deve estar presente;
+- `description: null` limpa a descrição;
+- `title`, `startsAt` e `endsAt` não aceitam `null`;
+- campos imutáveis e internos são rejeitados.
+
+Body de cancelamento:
+
+```json
+{
+  "cancellationReason": "Recesso do grupo"
+}
+```
+
+- `cancellationReason` é obrigatório, recebe `trim`, não pode ser vazio e tem limite de 320 caracteres;
+- a data de cancelamento vem exclusivamente do serviço;
+- campos como `canceledAt`, `actorUserId`, `meetingId` e `groupId` são rejeitados.
+
+Datas:
+
+- aceitas somente strings ISO 8601 com timezone explícito, como `2026-07-15T20:00:00Z` e `2026-07-15T17:00:00-03:00`;
+- datas são normalizadas para ISO UTC na fronteira HTTP;
+- formatos ambíguos ou sem timezone, como `2026-07-15T20:00:00`, `2026-07-15`, `07/15/2026` e `July 15 2026`, são rejeitados;
+- a validação não depende do timezone da máquina.
+
+Presenter:
+
+- retorna somente `id`, `groupId`, `title`, `description`, `startsAt`, `endsAt`, `canceledAt`, `cancellationReason`, `createdAt` e `updatedAt`;
+- não retorna grupo completo, `meetUrl`, `meetingUrl`, senhas, hashes, tokens, sessões, auditoria ou objetos Prisma.
+
+Respostas:
+
+- listagem: `200`, mensagem `Encontros listados com sucesso.`, `data.items` e paginação em `meta`;
+- consulta: `200`, mensagem `Encontro consultado com sucesso.`;
+- criação: `201`, mensagem `Encontro criado com sucesso.`;
+- atualização: `200`, mensagem `Encontro atualizado com sucesso.`;
+- cancelamento: `200`, mensagem `Encontro cancelado com sucesso.`.
+
+Erros principais:
+
+- `AUTH_REQUIRED`: `401`;
+- `FORBIDDEN`: `403`;
+- `STUDY_GROUP_NOT_FOUND` e `STUDY_MEETING_NOT_FOUND`: `404`;
+- `INVALID_STUDY_MEETING_LIST_INPUT`, `INVALID_STUDY_MEETING_INPUT`, `INVALID_STUDY_MEETING_UPDATE_INPUT` e `INVALID_STUDY_MEETING_CANCEL_INPUT`: `400`;
+- `STUDY_GROUP_INACTIVE`, `STUDY_MEETING_ALREADY_CANCELED`, `STUDY_MEETING_ALREADY_STARTED`, `STUDY_MEETING_ALREADY_ENDED`, `STUDY_MEETING_STARTS_IN_PAST`, `STUDY_MEETING_NO_CHANGES` e `STUDY_MEETING_CONFLICT`: `409`;
+- `ADMIN_STUDY_MEETING_RATE_LIMITED`: `429`.
+
+Rate limit das mutações:
+
+- protege `POST /api/admin/groups/:groupId/meetings`, `PATCH /api/admin/groups/:groupId/meetings/:meetingId` e `POST /api/admin/groups/:groupId/meetings/:meetingId/cancel`;
+- limite por ator admin: 20 tentativas em 15 minutos;
+- limite por alvo da mutação: 5 tentativas em 15 minutos;
+- a chave usa o usuário autenticado e o alvo, com hash para identificadores de encontro;
+- leituras não consomem cota;
+- quando bloqueado, retorna `429`, `ADMIN_STUDY_MEETING_RATE_LIMITED`, `retryAfterSeconds` e header `Retry-After`.
+
 ### `GET /api/admin/groups`
 
 Lista grupos administrativos de forma segura para seletores e vínculos de usuários.
