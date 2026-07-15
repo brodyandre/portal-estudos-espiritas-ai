@@ -233,12 +233,12 @@ Rotas implementadas:
 - `PATCH /api/admin/groups/:groupId/meetings/:meetingId`
 - `POST /api/admin/groups/:groupId/meetings/:meetingId/cancel`
 
-Fora do escopo atual:
+Fora do escopo das rotas administrativas:
 
-- rota pública, de aluno ou de professor;
 - `DELETE`, exclusão física, publicação, presença, frequência, recorrência e calendário visual;
 - criação automática de Google Meet ou integração com Google Calendar;
 - exposição de link de reunião.
+- consulta de aluno ou professor, que usa o contrato autenticado compartilhado `GET /api/me/study-meetings/upcoming`.
 
 Parâmetros:
 
@@ -338,6 +338,135 @@ Rate limit das mutações:
 - a chave usa o usuário autenticado e o alvo, com hash para identificadores de encontro;
 - leituras não consomem cota;
 - quando bloqueado, retorna `429`, `ADMIN_STUDY_MEETING_RATE_LIMITED`, `retryAfterSeconds` e header `Retry-After`.
+
+### `GET /api/me/study-meetings/upcoming`
+
+Lista os encontros atuais e futuros do grupo do usuário autenticado.
+
+Esta rota foi criada para a Entrega 5A como contrato compartilhado entre aluno e professor. A
+integração visual nas telas `/aluno` e `/professor` fica para a Entrega 5B.
+
+Acesso:
+
+- exige `Authorization: Bearer <token>`;
+- aceita somente usuários com papel `student` ou `teacher`;
+- usuários sem sessão recebem `AUTH_REQUIRED`;
+- usuários autenticados com outro papel recebem `FORBIDDEN`;
+- usuários com troca obrigatória de senha recebem `PASSWORD_CHANGE_REQUIRED` antes do service.
+
+Resolução do grupo:
+
+- o grupo é resolvido exclusivamente pelo usuário autenticado no backend;
+- a rota consulta o vínculo canônico atual do usuário (`groupSlug`/`groupName`) e depois o
+  `StudyGroup`;
+- não aceita `groupId`, `groupSlug` nem qualquer identificador de grupo enviado pelo cliente;
+- query inesperada é rejeitada com `INVALID_USER_STUDY_MEETINGS_QUERY`.
+
+Query parameters aceitos:
+
+- `limit`: opcional, inteiro entre `1` e `10`;
+- valor padrão: `3`;
+- valores repetidos, arrays, decimais, strings inválidas, valores vazios ou fora da faixa são
+  rejeitados com `INVALID_USER_STUDY_MEETINGS_QUERY`.
+
+Seleção dos encontros:
+
+- usa o schema atual, sem migration e sem enum persistido;
+- considera elegível encontro em andamento: `startsAt <= now && endsAt > now`;
+- considera elegível encontro futuro: `startsAt > now`;
+- exclui encontros cancelados (`canceledAt` preenchido);
+- exclui encontros encerrados;
+- exclui encontros de outro grupo;
+- exclui encontros de grupo inativo;
+- ordena por `startsAt` crescente e depois por `id`;
+- aplica `limit` após filtro e ordenação;
+- status é derivado em tempo de resposta como `ongoing` ou `scheduled`.
+
+Regra de `meetUrl`:
+
+- o backend é a autoridade para expor o link;
+- `meetUrl` só aparece nos encontros retornados quando o usuário está autenticado, tem papel
+  permitido, está vinculado ao grupo, o grupo está ativo e o encontro pertence ao mesmo grupo;
+- usuário sem grupo retorna sucesso com `group: null`, lista vazia e sem `meetUrl`;
+- vínculo inválido para grupo inexistente retorna sucesso com `group: null`, lista vazia e sem
+  `meetUrl`;
+- grupo inativo retorna sucesso com resumo do grupo, lista vazia e sem `meetUrl`;
+- o link continua pertencendo a `StudyGroup`; ele não foi movido para `StudyMeeting`.
+
+Resposta:
+
+```json
+{
+  "success": true,
+  "message": "Encontros do seu grupo carregados com sucesso.",
+  "data": {
+    "group": {
+      "id": "emmanuel",
+      "name": "Emmanuel",
+      "status": "active"
+    },
+    "items": [
+      {
+        "id": "meeting-001",
+        "title": "Encontro sobre constância no estudo",
+        "description": "Preparação da semana.",
+        "startsAt": "2026-07-20T20:00:00.000Z",
+        "endsAt": "2026-07-20T21:00:00.000Z",
+        "status": "ongoing",
+        "meetUrl": "https://meet.google.com/demo-emmanuel"
+      }
+    ]
+  },
+  "meta": {
+    "limit": 3
+  }
+}
+```
+
+Estados sem dados:
+
+- usuário sem grupo:
+
+```json
+{
+  "success": true,
+  "message": "Encontros do seu grupo carregados com sucesso.",
+  "data": {
+    "group": null,
+    "items": []
+  },
+  "meta": {
+    "limit": 3
+  }
+}
+```
+
+- grupo inativo:
+
+```json
+{
+  "success": true,
+  "message": "Encontros do seu grupo carregados com sucesso.",
+  "data": {
+    "group": {
+      "id": "emmanuel",
+      "name": "Emmanuel",
+      "status": "inactive"
+    },
+    "items": []
+  },
+  "meta": {
+    "limit": 3
+  }
+}
+```
+
+Erros esperados:
+
+- `AUTH_REQUIRED`: `401`;
+- `FORBIDDEN`: `403`;
+- `PASSWORD_CHANGE_REQUIRED`: `403`;
+- `INVALID_USER_STUDY_MEETINGS_QUERY`: `400`.
 
 ### `GET /api/admin/groups`
 
@@ -1444,6 +1573,7 @@ Testes basicos implementados:
 - `GET /api/knowledge/a_caminho_da_luz`
 - `GET /api/knowledge/search?q=prece`
 - `GET /api/knowledge/search?q=capela`
+- `GET /api/me/study-meetings/upcoming`
 - `POST /api/agent/lesson-plan`
 - `POST /api/agent/answer`
 
