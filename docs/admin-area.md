@@ -262,61 +262,140 @@ Testes de frontend cobrem:
 
 ### `/admin/grupos`
 
-Gestao administrativa dos grupos e, na Entrega 4A, exposicao HTTP administrativa da agenda de encontros.
+Gestao administrativa dos encontros dos grupos de estudo.
 
-API de encontros implementada:
+Acesso:
 
-- `GET /api/admin/groups/:groupId/meetings`;
-- `POST /api/admin/groups/:groupId/meetings`;
-- `GET /api/admin/groups/:groupId/meetings/:meetingId`;
-- `PATCH /api/admin/groups/:groupId/meetings/:meetingId`;
-- `POST /api/admin/groups/:groupId/meetings/:meetingId/cancel`.
+- rota React em `/admin/grupos`;
+- no GitHub Pages, o `HashRouter` publica a mesma tela como `/#/admin/grupos`;
+- rota protegida pelo fluxo local de autenticacao;
+- exige usuario com papel `admin`;
+- professores, alunos e usuarios anonimos nao devem acessar a tela nem os endpoints administrativos.
 
-Todas exigem autenticacao local e papel `admin`. Visitantes, alunos, professores e admins com troca obrigatoria de senha sao bloqueados pelo fluxo existente.
+Finalidade da tela:
 
-Contrato seguro:
+- selecionar um grupo administrativo pelo `slug`;
+- listar encontros do grupo com paginacao;
+- ordenar por data de inicio;
+- incluir ou ocultar encontros cancelados;
+- criar encontro futuro em grupo ativo;
+- editar somente encontro futuro ainda nao iniciado;
+- cancelar encontro futuro com motivo obrigatorio;
+- preservar o historico de cancelamento sem exclusao fisica.
 
-- a API retorna somente campos do encontro permitidos por presenter;
-- a resposta nao inclui grupo completo, `meetUrl`, auditoria, tokens, sessoes ou objetos Prisma;
-- cancelamento e atualizacao sao logicos, sem exclusao fisica;
-- mutacoes possuem rate limit por admin e alvo: 20 tentativas por admin e 5 por alvo em 15 minutos;
-- leituras nao consomem cota de mutacao.
+Consulta e filtros:
 
-Escopo atual:
+- o seletor de grupos usa a listagem administrativa de grupos como fonte de verdade;
+- o `slug` do grupo selecionado e usado como `groupId` no contrato da API;
+- a agenda usa `GET /api/admin/groups/:groupId/meetings`;
+- os filtros permanecem em rascunho ate o admin acionar `Aplicar filtros`;
+- `Limpar filtros` restaura `includeCanceled=false`, `sortOrder=asc`, `pageSize=10` e `page=1`;
+- a paginacao preserva grupo, ordenacao, inclusao de cancelados e tamanho de pagina;
+- se a pagina atual ficar invalida apos uma resposta da API, a tela corrige para a ultima pagina valida.
 
-- listagem paginada;
-- consulta individual;
-- criacao administrativa;
-- atualizacao administrativa;
-- cancelamento administrativo com motivo;
-- validacao estrita de params, query e body;
-- datas ISO 8601 com timezone explicito.
+Estados exibidos:
 
-Fora do escopo atual:
+- `Agendado`: encontro futuro e nao cancelado;
+- `Em andamento`: horario atual igual ou posterior ao inicio e anterior ao termino;
+- `Encerrado`: horario atual igual ou posterior ao termino;
+- `Cancelado`: cancelamento registrado, com precedencia sobre os demais estados.
 
-- calendario visual na interface;
-- rotas para aluno, professor ou publico;
-- presenca, frequencia, progresso e recorrencia;
-- integracao com Google Calendar;
-- criacao automatica ou exposicao de link de reuniao.
+O status e derivado na interface a partir de `startsAt`, `endsAt` e `canceledAt`; ele nao e persistido no estado local nem enviado ao backend.
 
-Gestao dos grupos de estudo.
+Criacao:
 
-Escopo do MVP atual:
+- disponivel apenas para grupo ativo;
+- indisponivel no modo demonstrativo;
+- exige titulo, inicio e termino;
+- aceita descricao opcional;
+- titulo recebe `trim` e tem limite de 120 caracteres;
+- descricao recebe `trim`, tem limite de 320 caracteres e valor vazio e enviado como `null`;
+- `startsAt` precisa estar no futuro;
+- `endsAt` precisa ser posterior a `startsAt`;
+- o formulario usa `input type="datetime-local"`, mas a tela converte para ISO com timezone explicito antes do envio.
 
-- listar os grupos `Emmanuel` e `A Caminho da Luz`
-- editar nome do grupo, livro base, professor responsavel, dia, horario e mensagem de boas-vindas
-- ativar ou inativar grupo
-- exibir o Google Meet com protecao por ambiente
-- copiar mensagem de convite
-- abrir uma visualizacao como aluno aprovado
+Edicao:
 
-Regras de exibicao do Meet:
+- disponivel apenas para grupo ativo;
+- disponivel apenas para encontro futuro com status derivado `Agendado`;
+- indisponivel para encontros em andamento, encerrados ou cancelados;
+- indisponivel no modo demonstrativo;
+- o formulario e preenchido com os dados atuais;
+- somente `title`, `description`, `startsAt` e `endsAt` podem ser enviados;
+- campos imutaveis como `id`, `groupId`, `createdAt`, `updatedAt`, `canceledAt`, `cancellationReason` e status derivado nao sao enviados;
+- submit sem mudanca real e bloqueado na interface, sem substituir a validacao final da API.
 
-- o link real nao deve aparecer em paginas publicas
-- no GitHub Pages, a area admin usa link demonstrativo ou indicacao segura
-- no ambiente local, o link real deve vir do backend ou da configuracao local autorizada
-- em producao, a entrega segura do link depende de backend autenticado
+Cancelamento:
+
+- disponivel apenas para encontro futuro com status derivado `Agendado`;
+- continua disponivel mesmo se o grupo estiver inativo, conforme o contrato administrativo atual;
+- indisponivel no modo demonstrativo;
+- exige motivo obrigatorio;
+- motivo recebe `trim`, nao pode ser vazio e tem limite de 320 caracteres;
+- usa `POST /api/admin/groups/:groupId/meetings/:meetingId/cancel`;
+- nao existe `DELETE` e o encontro nao e removido localmente antes do refetch.
+
+Grupo inativo:
+
+- a listagem continua disponivel;
+- criacao fica indisponivel;
+- edicao fica indisponivel;
+- cancelamento de encontro futuro pode continuar disponivel;
+- a tela exibe aviso explicito para diferenciar consulta de alteracoes administrativas.
+
+Modo demonstrativo:
+
+- mostra aviso de ambiente demonstrativo;
+- lista grupos e encontros demonstrativos;
+- preserva filtros, ordenacao e paginacao;
+- nao exibe `Novo encontro`, `Editar` ou `Cancelar encontro`;
+- nao abre dialogs de mutacao;
+- nao executa chamadas de criacao, edicao ou cancelamento;
+- os mocks de leitura nao mantem persistencia compartilhada entre acoes.
+
+Atualizacao apos mutacoes:
+
+- a tela nao faz atualizacao otimista;
+- apos criacao, edicao ou cancelamento bem-sucedido, o dialog fecha, uma mensagem de sucesso e exibida e a agenda e consultada novamente;
+- o refetch preserva grupo, filtros aplicados, ordenacao, tamanho de pagina e pagina atual quando ela continua valida;
+- erros de rede mantem o formulario aberto para nova tentativa;
+- limite de uso orienta o admin a aguardar antes de tentar novamente.
+
+Datas e timezone:
+
+- o valor de `datetime-local` representa horario local do navegador;
+- antes de enviar ao backend, a tela converte o valor para ISO com timezone explicito por meio de `Date.toISOString()`;
+- valores vindos da API sao convertidos para `datetime-local` considerando o timezone local do navegador;
+- comparacoes de data usam timestamps, nao comparacao textual;
+- datas invalidas, inicio no passado e termino anterior ou igual ao inicio sao rejeitados antes do envio.
+
+Erros principais tratados na interface:
+
+- sessao ausente ou expirada;
+- falta de permissao;
+- filtros ou campos invalidos;
+- grupo ou encontro nao encontrado;
+- grupo inativo para criacao ou edicao;
+- encontro ja cancelado, iniciado ou encerrado;
+- inicio no passado;
+- ausencia de mudanca em edicao;
+- conflito temporal entre encontros;
+- limite administrativo de requisicoes;
+- falha de rede.
+
+Escopo excluido:
+
+- alteracao do contrato da API;
+- alteracao de Prisma;
+- integracao com Google Calendar ou Google Meet;
+- recorrencia;
+- presenca ou frequencia;
+- notificacoes;
+- link de reuniao;
+- exclusao fisica;
+- calendario visual completo.
+
+O contrato HTTP detalhado permanece documentado em `docs/api.md`.
 
 ### `/admin/conteudos`
 
