@@ -29,12 +29,23 @@ export interface UpdateAdminUserStatusInput {
   status: AdminUserStatusMutation;
 }
 
+export interface UpdateAdminUserGroupInput {
+  groupSlug: string | null;
+}
+
 export interface UpdateAdminUserStatusResult {
   user: {
     id: string;
     status: AdminUserStatusMutation;
   };
   revokedSessions: number;
+}
+
+export interface UpdateAdminUserGroupResult {
+  user: {
+    id: string;
+    group: AdminUserGroupSummary | null;
+  };
 }
 
 export type ListAdminUsersInput = AdminUserListInput;

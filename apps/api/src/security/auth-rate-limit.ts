@@ -78,6 +78,9 @@ const adminUserStatusTargetPolicy: RateLimitPolicy = {
   windowMs: FIFTEEN_MINUTES_MS,
 };
 
+const adminUserGroupActorPolicy: RateLimitPolicy = adminUserStatusActorPolicy;
+const adminUserGroupTargetPolicy: RateLimitPolicy = adminUserStatusTargetPolicy;
+
 const loginLimiter = new MemorySlidingWindowRateLimiter();
 const passwordChangeLimiter = new MemorySlidingWindowRateLimiter();
 const adminPasswordResetLimiter = new MemorySlidingWindowRateLimiter();
@@ -96,6 +99,8 @@ const adminInvitationResendActorLimiter = new MemorySlidingWindowRateLimiter();
 const adminInvitationResendTargetLimiter = new MemorySlidingWindowRateLimiter();
 const adminUserStatusActorLimiter = new MemorySlidingWindowRateLimiter();
 const adminUserStatusTargetLimiter = new MemorySlidingWindowRateLimiter();
+const adminUserGroupActorLimiter = new MemorySlidingWindowRateLimiter();
+const adminUserGroupTargetLimiter = new MemorySlidingWindowRateLimiter();
 
 const toHashedIdentity = (value: string) => {
   return createHmac("sha256", env.jwtSecret).update(value).digest("hex");
@@ -116,7 +121,8 @@ const buildRateLimitError = (
     | "ADMIN_INVITATION_RATE_LIMITED"
     | "ADMIN_INVITATION_CANCEL_RATE_LIMITED"
     | "ADMIN_INVITATION_RESEND_RATE_LIMITED"
-    | "ADMIN_USER_STATUS_RATE_LIMITED",
+    | "ADMIN_USER_STATUS_RATE_LIMITED"
+    | "ADMIN_USER_GROUP_RATE_LIMITED",
   retryAfterSeconds: number,
 ) => {
   return new AppError({
@@ -208,6 +214,14 @@ export const buildAdminUserStatusActorKey = (adminUserId: string) => {
 
 export const buildAdminUserStatusTargetKey = (targetUserId: string) => {
   return `admin-user-status-target:${targetUserId}`;
+};
+
+export const buildAdminUserGroupActorKey = (adminUserId: string) => {
+  return `admin-user-group:${adminUserId}`;
+};
+
+export const buildAdminUserGroupTargetKey = (targetUserId: string) => {
+  return `admin-user-group-target:${targetUserId}`;
 };
 
 export const assertLoginRateLimit = (ipAddress: string, email: string) => {
@@ -496,6 +510,37 @@ export const recordAdminUserStatusAttempt = (adminUserId: string, targetUserId: 
   );
 };
 
+export const assertAdminUserGroupRateLimit = (adminUserId: string, targetUserId: string) => {
+  const actorDecision = adminUserGroupActorLimiter.peek(
+    buildAdminUserGroupActorKey(adminUserId),
+    adminUserGroupActorPolicy,
+  );
+
+  if (!actorDecision.allowed) {
+    throw buildRateLimitError("ADMIN_USER_GROUP_RATE_LIMITED", actorDecision.retryAfterSeconds);
+  }
+
+  const targetDecision = adminUserGroupTargetLimiter.peek(
+    buildAdminUserGroupTargetKey(targetUserId),
+    adminUserGroupTargetPolicy,
+  );
+
+  if (!targetDecision.allowed) {
+    throw buildRateLimitError("ADMIN_USER_GROUP_RATE_LIMITED", targetDecision.retryAfterSeconds);
+  }
+};
+
+export const recordAdminUserGroupAttempt = (adminUserId: string, targetUserId: string) => {
+  adminUserGroupActorLimiter.record(
+    buildAdminUserGroupActorKey(adminUserId),
+    adminUserGroupActorPolicy,
+  );
+  adminUserGroupTargetLimiter.record(
+    buildAdminUserGroupTargetKey(targetUserId),
+    adminUserGroupTargetPolicy,
+  );
+};
+
 export const resetAuthRateLimitStore = () => {
   loginLimiter.resetAll();
   passwordChangeLimiter.resetAll();
@@ -515,6 +560,8 @@ export const resetAuthRateLimitStore = () => {
   adminInvitationResendTargetLimiter.resetAll();
   adminUserStatusActorLimiter.resetAll();
   adminUserStatusTargetLimiter.resetAll();
+  adminUserGroupActorLimiter.resetAll();
+  adminUserGroupTargetLimiter.resetAll();
 };
 
 export const setAuthRateLimitNowProviderForTesting = (nowProvider: () => number) => {
@@ -536,6 +583,8 @@ export const setAuthRateLimitNowProviderForTesting = (nowProvider: () => number)
   adminInvitationResendTargetLimiter.setNowProvider(nowProvider);
   adminUserStatusActorLimiter.setNowProvider(nowProvider);
   adminUserStatusTargetLimiter.setNowProvider(nowProvider);
+  adminUserGroupActorLimiter.setNowProvider(nowProvider);
+  adminUserGroupTargetLimiter.setNowProvider(nowProvider);
 };
 
 export const restoreAuthRateLimitNowProvider = () => {
@@ -557,6 +606,8 @@ export const restoreAuthRateLimitNowProvider = () => {
   adminInvitationResendTargetLimiter.restoreDefaultNowProvider();
   adminUserStatusActorLimiter.restoreDefaultNowProvider();
   adminUserStatusTargetLimiter.restoreDefaultNowProvider();
+  adminUserGroupActorLimiter.restoreDefaultNowProvider();
+  adminUserGroupTargetLimiter.restoreDefaultNowProvider();
 };
 
 export const getAuthRateLimitEntryCounts = () => ({
@@ -578,4 +629,6 @@ export const getAuthRateLimitEntryCounts = () => ({
   adminInvitationResendTarget: adminInvitationResendTargetLimiter.getEntryCount(),
   adminUserStatusActor: adminUserStatusActorLimiter.getEntryCount(),
   adminUserStatusTarget: adminUserStatusTargetLimiter.getEntryCount(),
+  adminUserGroupActor: adminUserGroupActorLimiter.getEntryCount(),
+  adminUserGroupTarget: adminUserGroupTargetLimiter.getEntryCount(),
 });

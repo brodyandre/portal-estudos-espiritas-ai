@@ -350,6 +350,96 @@ Resposta de sucesso:
 }
 ```
 
+### `PATCH /api/admin/users/:userId/group`
+
+Atualiza o vínculo administrativo entre um usuário e um grupo de estudo.
+
+Acesso:
+
+- exige `Authorization: Bearer <token>`;
+- exige usuário com papel `admin`;
+- usuários sem sessão recebem `AUTH_REQUIRED`;
+- usuários autenticados sem papel administrativo recebem `FORBIDDEN` na camada de rota;
+- o service e a transação revalidam que o ator continua `admin`, `active` e com `accountActivatedAt` preenchido;
+- usuários com troca de senha obrigatória recebem `PASSWORD_CHANGE_REQUIRED` antes da mutação.
+
+Body para associar ou substituir:
+
+```json
+{
+  "groupSlug": "emmanuel"
+}
+```
+
+Body para remover o vínculo:
+
+```json
+{
+  "groupSlug": null
+}
+```
+
+Contratos de entrada:
+
+- aceita somente um objeto JSON simples com a chave `groupSlug`;
+- aceita string não vazia, normalizada com `trim`, ou `null`;
+- rejeita body ausente, arrays, `null`, objeto vazio, chaves extras, string vazia, string em branco e tipos fora de string/null com `400` e `INVALID_ADMIN_USER_GROUP_INPUT`;
+- rejeita `userId` vazio, em branco ou acima de 160 caracteres com `400` e `INVALID_ADMIN_USER_GROUP_INPUT`.
+
+Regras de negócio:
+
+- associa usuário sem grupo a um grupo ativo;
+- substitui o grupo atual por outro grupo ativo;
+- remove o vínculo quando `groupSlug` é `null`;
+- corrige estados parciais de grupo persistido;
+- rejeita usuário inexistente com `404` e `ADMIN_USER_NOT_FOUND`;
+- rejeita grupo inexistente com `404` e `ADMIN_USER_GROUP_NOT_FOUND`;
+- rejeita grupo inativo com `409` e `ADMIN_USER_GROUP_INACTIVE`;
+- rejeita o mesmo grupo já associado de forma íntegra com `409` e `ADMIN_USER_GROUP_ALREADY_SET`;
+- rejeita remoção quando não existe vínculo com `409` e `ADMIN_USER_GROUP_ALREADY_EMPTY`;
+- permite alterar vínculo de usuário inativo sem ativar a conta;
+- não altera status, senha, sessões, papel ou dados de autenticação;
+- grava auditoria na mesma transação serializable;
+- conflitos concorrentes retornam `409` e `ADMIN_USER_GROUP_CONFLICT`.
+
+Rate limit:
+
+- aplica limite por admin ator e por usuário alvo;
+- quando excedido, retorna `429` com `ADMIN_USER_GROUP_RATE_LIMITED` e `Retry-After`.
+
+Resposta de sucesso com grupo:
+
+```json
+{
+  "success": true,
+  "message": "Grupo do usuário atualizado com sucesso.",
+  "data": {
+    "user": {
+      "id": "user-aluno-demo",
+      "group": {
+        "name": "Emmanuel",
+        "slug": "emmanuel"
+      }
+    }
+  }
+}
+```
+
+Resposta de sucesso sem grupo:
+
+```json
+{
+  "success": true,
+  "message": "Grupo do usuário atualizado com sucesso.",
+  "data": {
+    "user": {
+      "id": "user-aluno-demo",
+      "group": null
+    }
+  }
+}
+```
+
 Sessão local:
 
 - cada login cria uma sessão individual com `jti`

@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import bcrypt from "bcryptjs";
 import {
   DeliveryStatus as PrismaDeliveryStatus,
+  GroupStatus as PrismaGroupStatus,
   InvitationType as PrismaInvitationType,
   UserRole as PrismaUserRole,
   UserStatus as PrismaUserStatus,
@@ -16,6 +17,7 @@ import { env } from "../../config/env";
 import { getPrismaClient } from "../../database/prisma";
 import { getRolePermissions } from "../../auth/roles";
 import type { UserRole, UserStatus } from "../../auth/types";
+import { studyGroups } from "../../data/studies";
 import type {
   AcceptAccountInvitationPersistenceInput,
   AcceptAccountInvitationResult,
@@ -97,6 +99,14 @@ export interface AdminUserStatusUpdateInput {
   nextStatus: "active" | "inactive";
 }
 
+export interface AdminUserGroupUpdateInput {
+  actorUserId: string;
+  actorName: string;
+  actorRole: UserRole;
+  targetUserId: string;
+  nextGroupSlug: string | null;
+}
+
 export type AdminUserStatusUpdateResult =
   | {
       status: "updated";
@@ -111,6 +121,23 @@ export type AdminUserStatusUpdateResult =
   | { status: "transition_not_allowed"; currentStatus: UserStatus }
   | { status: "account_not_activated" }
   | { status: "self_deactivation_not_allowed" }
+  | { status: "conflict" };
+
+export type AdminUserGroupUpdateResult =
+  | {
+      status: "updated";
+      userId: string;
+      previousGroupName: string | null;
+      previousGroupSlug: string | null;
+      groupName: string | null;
+      groupSlug: string | null;
+    }
+  | { status: "actor_not_authorized" }
+  | { status: "not_found" }
+  | { status: "group_not_found" }
+  | { status: "group_inactive" }
+  | { status: "already_set" }
+  | { status: "already_empty" }
   | { status: "conflict" };
 
 export interface AuthRepository {
@@ -143,6 +170,7 @@ export interface AuthRepository {
   ): Promise<ListAccountInvitationsResult>;
   listAdminUsers(input: AdminUserListInput): Promise<AdminUserListResult>;
   updateAdminUserStatus(input: AdminUserStatusUpdateInput): Promise<AdminUserStatusUpdateResult>;
+  updateAdminUserGroup(input: AdminUserGroupUpdateInput): Promise<AdminUserGroupUpdateResult>;
   getAccountInvitationResendContext(invitationId: string): Promise<AccountInvitationResendContext | null>;
   cancelAccountInvitation(input: CancelAccountInvitationInput): Promise<boolean>;
 }
@@ -154,9 +182,23 @@ type AuthPersistenceClient = Pick<
 
 type AdminUserStatusPersistenceClient = AuthPersistenceClient;
 
+type AdminUserGroupPersistenceClient = Pick<
+  Prisma.TransactionClient,
+  "user" | "auditLog" | "studyGroup"
+>;
+
 type AdminUserStatusTransactionRunner = {
   $transaction<T>(
     callback: (transaction: AdminUserStatusPersistenceClient) => Promise<T>,
+    options: {
+      isolationLevel: Prisma.TransactionIsolationLevel;
+    },
+  ): Promise<T>;
+};
+
+type AdminUserGroupTransactionRunner = {
+  $transaction<T>(
+    callback: (transaction: AdminUserGroupPersistenceClient) => Promise<T>,
     options: {
       isolationLevel: Prisma.TransactionIsolationLevel;
     },
@@ -193,6 +235,7 @@ const statusToPrismaStatus: Record<UserStatus, PrismaUserStatus> = {
 };
 
 const ADMIN_USER_STATUS_UPDATE_MAX_RETRIES = 3;
+const ADMIN_USER_GROUP_UPDATE_MAX_RETRIES = 3;
 
 const invitationTypeToPrisma: Record<StoredAccountInvitation["invitationType"], PrismaInvitationType> = {
   enrollment_approval: PrismaInvitationType.ENROLLMENT_APPROVAL,
@@ -680,6 +723,141 @@ export const updateAdminUserStatusWithPrisma = async (
   return { status: "conflict" };
 };
 
+export const updateAdminUserGroupWithPrisma = async (
+  prisma: AdminUserGroupTransactionRunner,
+  input: AdminUserGroupUpdateInput,
+): Promise<AdminUserGroupUpdateResult> => {
+  for (let attempt = 1; attempt <= ADMIN_USER_GROUP_UPDATE_MAX_RETRIES; attempt += 1) {
+    try {
+      return await prisma.$transaction(
+        async (transaction) => {
+          const actor = await transaction.user.findUnique({
+            where: {
+              id: input.actorUserId,
+            },
+            select: {
+              id: true,
+              role: true,
+              status: true,
+              accountActivatedAt: true,
+            },
+          });
+
+          if (!actor || !isAuthenticatableAdminRecord(actor)) {
+            return { status: "actor_not_authorized" } as const;
+          }
+
+          const target = await transaction.user.findUnique({
+            where: {
+              id: input.targetUserId,
+            },
+            select: {
+              id: true,
+              groupName: true,
+              groupSlug: true,
+            },
+          });
+
+          if (!target) {
+            return { status: "not_found" } as const;
+          }
+
+          const previousGroupName = target.groupName ?? null;
+          const previousGroupSlug = target.groupSlug ?? null;
+          let nextGroupName: string | null = null;
+          let nextGroupSlug: string | null = null;
+
+          if (input.nextGroupSlug) {
+            const group = await transaction.studyGroup.findUnique({
+              where: {
+                id: input.nextGroupSlug,
+              },
+              select: {
+                id: true,
+                name: true,
+                status: true,
+              },
+            });
+
+            if (!group) {
+              return { status: "group_not_found" } as const;
+            }
+
+            if (group.status !== PrismaGroupStatus.ACTIVE) {
+              return { status: "group_inactive" } as const;
+            }
+
+            nextGroupName = group.name;
+            nextGroupSlug = group.id;
+
+            if (previousGroupName === nextGroupName && previousGroupSlug === nextGroupSlug) {
+              return { status: "already_set" } as const;
+            }
+          } else if (previousGroupName === null && previousGroupSlug === null) {
+            return { status: "already_empty" } as const;
+          }
+
+          const updateResult = await transaction.user.updateMany({
+            where: {
+              id: target.id,
+              groupName: previousGroupName,
+              groupSlug: previousGroupSlug,
+            },
+            data: {
+              groupName: nextGroupName,
+              groupSlug: nextGroupSlug,
+            },
+          });
+
+          if (updateResult.count !== 1) {
+            return { status: "conflict" } as const;
+          }
+
+          await transaction.auditLog.create({
+            data: {
+              actorName: input.actorName,
+              actorRole: toPrismaUserRole(input.actorRole),
+              action: "Grupo de usuário alterado por admin",
+              entity: `User ${target.id}`,
+              note: `Grupo alterado de ${previousGroupSlug ?? "sem grupo"} para ${nextGroupSlug ?? "sem grupo"}.`,
+            },
+          });
+
+          return {
+            status: "updated",
+            userId: target.id,
+            previousGroupName,
+            previousGroupSlug,
+            groupName: nextGroupName,
+            groupSlug: nextGroupSlug,
+          } as const;
+        },
+        {
+          isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+        },
+      );
+    } catch (error) {
+      const canRetry =
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2034" &&
+        attempt < ADMIN_USER_GROUP_UPDATE_MAX_RETRIES;
+
+      if (!canRetry) {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === "P2034"
+        ) {
+          return { status: "conflict" } as const;
+        }
+
+        throw error;
+      }
+    }
+  }
+
+  return { status: "conflict" };
+};
+
 export const provisionStudentAccessWithPrisma = async (
   transaction: AuthPersistenceClient,
   input: StudentAccessProvisionInput,
@@ -991,6 +1169,11 @@ let memoryAuthUsers: StoredAuthUser[] = [];
 let memoryAuthSessions: StoredAuthSession[] = [];
 let memoryPasswordResetTokens: StoredPasswordResetToken[] = [];
 let memoryAccountInvitations: StoredAccountInvitation[] = [];
+type MemoryStudyGroup = {
+  id: string;
+  name: string;
+  status: "active" | "inactive";
+};
 type MemoryAuthAuditEntry = {
   actorName: string;
   actorRole: UserRole;
@@ -999,6 +1182,12 @@ type MemoryAuthAuditEntry = {
   note: string;
 };
 let memoryAuthAuditLogs: MemoryAuthAuditEntry[] = [];
+const defaultMemoryStudyGroups: MemoryStudyGroup[] = studyGroups.map((group) => ({
+  id: group.id,
+  name: group.name,
+  status: "active",
+}));
+let memoryStudyGroups: MemoryStudyGroup[] = defaultMemoryStudyGroups.map((group) => ({ ...group }));
 const demoUserCreatedAtById: Record<string, string> = {
   "user-admin-demo": "2026-07-10T09:00:00.000Z",
   "user-professor-demo": "2026-07-10T09:05:00.000Z",
@@ -1084,6 +1273,8 @@ const setMemoryUserCreatedAt = (userId: string, createdAt: string) => {
 
   memoryUserCreatedAtById.set(userId, createdAt);
 };
+
+const cloneMemoryStudyGroup = (group: MemoryStudyGroup): MemoryStudyGroup => ({ ...group });
 
 const seedMemoryUserCreatedAt = (users: StoredAuthUser[]) => {
   memoryUserCreatedAtById = new Map(
@@ -1850,6 +2041,65 @@ export const createMemoryAuthRepository = (
         previousStatus,
         currentStatus: input.nextStatus,
         revokedSessions,
+      };
+    },
+    async updateAdminUserGroup(input) {
+      const actor = memoryAuthUsers.find((user) => user.id === input.actorUserId);
+
+      if (!actor || !isAuthenticatableAdminRecord(actor)) {
+        return { status: "actor_not_authorized" };
+      }
+
+      const target = memoryAuthUsers.find((user) => user.id === input.targetUserId);
+
+      if (!target) {
+        return { status: "not_found" };
+      }
+
+      const previousGroupName = target.groupName ?? null;
+      const previousGroupSlug = target.groupSlug ?? null;
+      let nextGroupName: string | null = null;
+      let nextGroupSlug: string | null = null;
+
+      if (input.nextGroupSlug) {
+        const group = memoryStudyGroups.find((item) => item.id === input.nextGroupSlug);
+
+        if (!group) {
+          return { status: "group_not_found" };
+        }
+
+        if (group.status !== "active") {
+          return { status: "group_inactive" };
+        }
+
+        nextGroupName = group.name;
+        nextGroupSlug = group.id;
+
+        if (previousGroupName === nextGroupName && previousGroupSlug === nextGroupSlug) {
+          return { status: "already_set" };
+        }
+      } else if (previousGroupName === null && previousGroupSlug === null) {
+        return { status: "already_empty" };
+      }
+
+      target.groupName = nextGroupName;
+      target.groupSlug = nextGroupSlug;
+
+      memoryAuthAuditLogs.unshift({
+        actorName: input.actorName,
+        actorRole: input.actorRole,
+        action: "Grupo de usuário alterado por admin",
+        entity: `User ${target.id}`,
+        note: `Grupo alterado de ${previousGroupSlug ?? "sem grupo"} para ${nextGroupSlug ?? "sem grupo"}.`,
+      });
+
+      return {
+        status: "updated",
+        userId: target.id,
+        previousGroupName,
+        previousGroupSlug,
+        groupName: nextGroupName,
+        groupSlug: nextGroupSlug,
       };
     },
     async getAccountInvitationResendContext(invitationId) {
@@ -2690,6 +2940,9 @@ export const createPrismaAuthRepository = (): AuthRepository => {
     async updateAdminUserStatus(input) {
       return updateAdminUserStatusWithPrisma(prisma, input);
     },
+    async updateAdminUserGroup(input) {
+      return updateAdminUserGroupWithPrisma(prisma, input);
+    },
     async getAccountInvitationResendContext(invitationId) {
       const invitation = await prisma.accountInvitation.findUnique({
         where: {
@@ -3089,8 +3342,13 @@ export const resetMemoryAuthRepositoryStore = () => {
   memoryAuthSessions = [];
   memoryPasswordResetTokens = [];
   memoryAccountInvitations = [];
+  memoryStudyGroups = defaultMemoryStudyGroups.map(cloneMemoryStudyGroup);
   memoryAuthAuditLogs = [];
   seedMemoryUserCreatedAt(memoryAuthUsers);
+};
+
+export const setMemoryStudyGroupsForTesting = (groups: MemoryStudyGroup[]) => {
+  memoryStudyGroups = groups.map(cloneMemoryStudyGroup);
 };
 
 export const getMemoryAuthAuditLogs = () => {
