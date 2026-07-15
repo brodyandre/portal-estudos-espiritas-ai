@@ -58,6 +58,21 @@ import type {
 export type AdminUserActivationStatus = "activated" | "not_activated";
 export type AdminUserSortField = "name" | "createdAt" | "role" | "status";
 export type AdminUserSortOrder = "asc" | "desc";
+export type AdminGroupListStatusFilter = "active" | "inactive" | "all";
+
+export interface AdminGroupListInput {
+  status: AdminGroupListStatusFilter;
+}
+
+export interface AdminSelectableGroupRecord {
+  name: string;
+  slug: string;
+  status: "active" | "inactive";
+}
+
+export interface AdminGroupListResult {
+  items: AdminSelectableGroupRecord[];
+}
 
 export interface AdminUserListInput {
   page: number;
@@ -168,6 +183,7 @@ export interface AuthRepository {
     input: ListAccountInvitationsInput,
     now: Date,
   ): Promise<ListAccountInvitationsResult>;
+  listAdminGroups(input: AdminGroupListInput): Promise<AdminGroupListResult>;
   listAdminUsers(input: AdminUserListInput): Promise<AdminUserListResult>;
   updateAdminUserStatus(input: AdminUserStatusUpdateInput): Promise<AdminUserStatusUpdateResult>;
   updateAdminUserGroup(input: AdminUserGroupUpdateInput): Promise<AdminUserGroupUpdateResult>;
@@ -203,6 +219,20 @@ type AdminUserGroupTransactionRunner = {
       isolationLevel: Prisma.TransactionIsolationLevel;
     },
   ): Promise<T>;
+};
+
+type AdminGroupsListQueryRunner = {
+  studyGroup: {
+    findMany(args: {
+      where?: Prisma.StudyGroupWhereInput;
+      orderBy: Prisma.StudyGroupOrderByWithRelationInput[];
+      select: {
+        id: true;
+        name: true;
+        status: true;
+      };
+    }): Promise<Array<{ id: string; name: string; status: PrismaGroupStatus }>>;
+  };
 };
 
 type UpdateAdminUserStatusWithPrismaOptions = {
@@ -526,6 +556,24 @@ const PRISMA_USER_STATUS_SORT_ORDER: Record<UserStatus, number> = {
   active: 1,
   inactive: 2,
   rejected: 3,
+};
+
+const prismaGroupStatusToGroupStatus: Record<PrismaGroupStatus, AdminSelectableGroupRecord["status"]> = {
+  ACTIVE: "active",
+  INACTIVE: "inactive",
+};
+
+const groupStatusFilterToPrismaStatus: Record<Exclude<AdminGroupListStatusFilter, "all">, PrismaGroupStatus> = {
+  active: PrismaGroupStatus.ACTIVE,
+  inactive: PrismaGroupStatus.INACTIVE,
+};
+
+const assertValidAdminGroupsListInput = (input: AdminGroupListInput) => {
+  const allowedStatuses: AdminGroupListStatusFilter[] = ["active", "inactive", "all"];
+
+  if (!allowedStatuses.includes(input.status)) {
+    throw new RangeError("Admin groups status filter must be active, inactive or all.");
+  }
 };
 
 const assertValidAdminUsersListInput = (input: AdminUserListInput) => {
@@ -1276,6 +1324,48 @@ const setMemoryUserCreatedAt = (userId: string, createdAt: string) => {
 
 const cloneMemoryStudyGroup = (group: MemoryStudyGroup): MemoryStudyGroup => ({ ...group });
 
+const buildAdminSelectableGroupRecord = (input: {
+  id: string;
+  name: string;
+  status: AdminSelectableGroupRecord["status"];
+}): AdminSelectableGroupRecord => ({
+  name: input.name,
+  slug: input.id,
+  status: input.status,
+});
+
+export const listAdminGroupsWithPrisma = async (
+  runner: AdminGroupsListQueryRunner,
+  input: AdminGroupListInput,
+): Promise<AdminGroupListResult> => {
+  assertValidAdminGroupsListInput(input);
+
+  const groups = await runner.studyGroup.findMany({
+    where:
+      input.status === "all"
+        ? undefined
+        : {
+            status: groupStatusFilterToPrismaStatus[input.status],
+          },
+    orderBy: [{ name: "asc" }, { id: "asc" }],
+    select: {
+      id: true,
+      name: true,
+      status: true,
+    },
+  });
+
+  return {
+    items: groups.map((group) =>
+      buildAdminSelectableGroupRecord({
+        id: group.id,
+        name: group.name,
+        status: prismaGroupStatusToGroupStatus[group.status],
+      }),
+    ),
+  };
+};
+
 const seedMemoryUserCreatedAt = (users: StoredAuthUser[]) => {
   memoryUserCreatedAtById = new Map(
     users.map((user, index) => [
@@ -1899,6 +1989,33 @@ export const createMemoryAuthRepository = (
         pageSize: input.pageSize,
         total,
         totalPages: Math.ceil(total / input.pageSize),
+      };
+    },
+    async listAdminGroups(input) {
+      assertValidAdminGroupsListInput(input);
+
+      const filteredGroups = memoryStudyGroups
+        .filter((group) => input.status === "all" || group.status === input.status)
+        .sort((first, second) => {
+          const nameComparison = first.name.localeCompare(second.name, "pt-BR", {
+            sensitivity: "base",
+          });
+
+          if (nameComparison !== 0) {
+            return nameComparison;
+          }
+
+          return first.id.localeCompare(second.id);
+        });
+
+      return {
+        items: filteredGroups.map((group) =>
+          buildAdminSelectableGroupRecord({
+            id: group.id,
+            name: group.name,
+            status: group.status,
+          }),
+        ),
       };
     },
     async listAdminUsers(input) {
@@ -2857,6 +2974,9 @@ export const createPrismaAuthRepository = (): AuthRepository => {
         total,
         totalPages: Math.ceil(total / input.pageSize),
       };
+    },
+    async listAdminGroups(input) {
+      return listAdminGroupsWithPrisma(prisma, input);
     },
     async listAdminUsers(input) {
       assertValidAdminUsersListInput(input);

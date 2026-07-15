@@ -47,3 +47,10 @@ export interface AdminUsersListResult {
   meta: AdminUserListMeta;
   source: AdminUsersListSource;
 }
+
+export interface AdminUserGroupMutationResult {
+  user: {
+    id: string;
+    group: AdminUserGroupSummary | null;
+  };
+}
