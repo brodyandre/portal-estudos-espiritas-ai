@@ -4,6 +4,7 @@ import { useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/useAuth";
 import { StudentAccessGate } from "../components/access/StudentAccessGate";
 import { FlowStepCard } from "../components/display/FlowStepCard";
+import { UserMeetingsPanel } from "../components/meetings/UserMeetingsPanel";
 import { AlertBox } from "../components/ui/AlertBox";
 import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
@@ -22,6 +23,7 @@ import type {
   GroupSlug,
 } from "../mocks";
 import { groups as demoGroups } from "../mocks";
+import { useUserStudyMeetings } from "../hooks/useUserStudyMeetings";
 import { collectServiceNotice } from "../services/api";
 import {
   askStudyAssistant,
@@ -43,7 +45,7 @@ import {
   type StudentAccessStatus,
 } from "../services/studentAccessService";
 import { listSummaries } from "../services/summariesService";
-import { PUBLIC_MEET_NOTICE, appConfig } from "../config/appMode";
+import { appConfig } from "../config/appMode";
 
 type AssistantFeedback = "helpful" | "not-helpful" | null;
 
@@ -154,6 +156,10 @@ export const AlunoPage = () => {
   const [lastSubmittedQuestion, setLastSubmittedQuestion] = useState("");
   const [isAssistantLoading, setIsAssistantLoading] = useState(false);
   const [isSendingTeacherQuestion, setIsSendingTeacherQuestion] = useState(false);
+  const userMeetings = useUserStudyMeetings({
+    enabled: studentAccessStatus === "approved",
+    limit: 3,
+  });
 
   useEffect(() => {
     if (user?.role === "student" || user?.role === "teacher" || user?.role === "admin") {
@@ -412,6 +418,20 @@ export const AlunoPage = () => {
         </AlertBox>
       ) : null}
 
+      <section className="student-page__meetings-section page-section">
+        <SectionTitle
+          description="Agenda carregada pelo vínculo autenticado. A seleção de livro abaixo continua servindo apenas para materiais e dúvidas."
+          title="Encontros do seu grupo"
+        />
+        <UserMeetingsPanel
+          audience="student"
+          data={userMeetings.data}
+          error={userMeetings.error}
+          isLoading={userMeetings.isLoading}
+          onRetry={userMeetings.refetch}
+        />
+      </section>
+
       <section className="student-page__groups-section page-section">
         <SectionTitle
           action={
@@ -493,13 +513,9 @@ export const AlunoPage = () => {
                   </dl>
 
                   <div className="button-row">
-                    {appConfig.canShowRealMeetLink ? (
-                      <Button href={group.meetUrl} rel="noreferrer" target="_blank">
-                        Entrar no Google Meet
-                      </Button>
-                    ) : (
-                      <p className="student-panel__note">{PUBLIC_MEET_NOTICE}</p>
-                    )}
+                    <p className="student-panel__note">
+                      A agenda e o Meet real aparecem no bloco Encontros do seu grupo.
+                    </p>
                     <Button
                       onClick={() => setActiveGroupSlug(group.slug)}
                       variant={isActive ? "primary" : "secondary"}
@@ -540,13 +556,9 @@ export const AlunoPage = () => {
                 </p>
                 <p className="student-panel__note">Leitura recomendada: {recommendedReading}</p>
                 <div className="button-row">
-                  {appConfig.canShowRealMeetLink ? (
-                    <Button href={activeGroup.meetUrl} rel="noreferrer" target="_blank">
-                      Entrar no Google Meet
-                    </Button>
-                  ) : (
-                    <p className="student-panel__note">{PUBLIC_MEET_NOTICE}</p>
-                  )}
+                  <p className="student-panel__note">
+                    Use o bloco Encontros do seu grupo para acessar o Meet real.
+                  </p>
                   <Button to={`/materiais/${activeGroup.slug}`} variant="secondary">
                     Ver materiais do livro
                   </Button>
