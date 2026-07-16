@@ -25,6 +25,12 @@ Na Entrega 7A foi adicionada uma fronteira interna para manifesto editorial segu
 
 Falhas de catalogo ou de validacao nao abrem fallback para varrer todos os arquivos do filesystem. Quando nao houver fonte elegivel comprovada, o manifesto permanece vazio. O manifesto tambem possui fingerprint deterministico para permitir reconstrucao futura do corpus em memoria quando suas fontes mudarem. A ativacao obrigatoria desse manifesto em `/api/knowledge/search`, `/api/agent/answer`, cache do retriever e respostas publicas fica para a Entrega 7B.
 
+Na Entrega 7B.1 foi adicionada a fronteira interna `governedCorpusService`. Ela transforma o manifesto editorial seguro em um snapshot imutavel de documentos autorizados, sem varrer diretorios livremente e sem usar `index.json` ou o loader legado como autoridade editorial. O manifesto continua governando inclusao, elegibilidade, fingerprint e resolucao segura de caminhos.
+
+O corpus governado falha fechado: inconsistencias bloqueantes do manifesto, duplicidades, caminhos invalidos, arquivos autorizados ausentes e falhas de leitura impedem a publicacao de snapshot parcial. O cache em memoria guarda somente o snapshot atual, e sua validade depende exclusivamente do fingerprint do manifesto. Quando o fingerprint muda, a reconstrucao precisa terminar com sucesso antes de substituir o snapshot anterior; chamadas simultaneas para o mesmo fingerprint compartilham a mesma reconstrucao em andamento.
+
+A Entrega 7B.1 nao altera `/api/knowledge/search`, `/api/agent/answer`, o `answer-graph`, a proveniencia publica, embeddings ou vector store. Esses fluxos continuam usando o RAG legado ate a Entrega 7B.2.
+
 ## Arquivos principais
 
 ```text
@@ -38,6 +44,7 @@ apps/api/src/rag/
 apps/api/src/knowledge/
   filesystem.ts
   manifest.ts
+  governedCorpus.ts
 ```
 
 ## O que e carregado de cada documento
@@ -174,11 +181,11 @@ O GitHub Pages nao executa esse modulo. No ambiente publicado:
 ## Evolucao futura
 
 - ativar o manifesto editorial seguro nos endpoints publicos e no agente
-- reconstruir o corpus em memoria quando o fingerprint do manifesto mudar
 - expor proveniencia publica sem caminhos absolutos
-- adicionar cache em memoria para documentos e chunks
+- conectar o snapshot governado ao retriever publico sem alterar a politica editorial
+- adicionar cache em memoria para chunks quando a integracao publica exigir
 - ampliar testes de recuperacao por livro e grupo
 - trocar a busca simples por embeddings e vector database quando fizer sentido
 - manter a mesma camada de metadados para facilitar a migracao
 
-Nao ha embeddings, reranking nem vector store persistente na Entrega 7A.
+Nao ha embeddings, reranking nem vector store persistente na Entrega 7B.1.
