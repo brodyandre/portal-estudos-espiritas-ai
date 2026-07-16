@@ -52,7 +52,7 @@ No frontend publicado no GitHub Pages, a experiencia continua funcional com fall
 
 ## Uso administrativo da base
 
-A Entrega 6A adiciona persistencia editorial no PostgreSQL sem mudar a fonte do conteudo.
+A persistencia editorial no PostgreSQL organiza o catalogo sem mudar a fonte do conteudo.
 
 Responsabilidades:
 
@@ -61,6 +61,7 @@ Responsabilidades:
 - o PostgreSQL armazena catalogo, metadados administrativos e estados editoriais;
 - `filePath` relativo identifica o documento persistente;
 - a API administrativa nao cria, edita, move, renomeia, exclui nem retorna conteudo Markdown integral.
+- a interface `/admin/conteudos` consome a API persistente para administrar livros, documentos, metadados e estados editoriais.
 
 Catalogacao manual:
 
@@ -78,7 +79,7 @@ Reexecucao:
 - registra divergencias com `fileExists: false` nos endpoints de detalhe;
 - falhas individuais do indice sao reportadas sem expor caminho absoluto.
 
-A interface administrativa visual para esse fluxo pertence a Entrega 6B.
+A interface administrativa nao executa migration, seed ou catalogacao. Quando o catalogo estiver vazio, ela mostra um estado vazio normal; quando a API ou o banco estiverem indisponiveis, mostra erro operacional separado.
 
 ## Metadados do indice
 

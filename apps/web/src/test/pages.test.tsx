@@ -8,7 +8,6 @@ import { AlunoPage } from "../pages/AlunoPage";
 import { AdminPage } from "../pages/AdminPage";
 import { AdminUsersPage } from "../pages/AdminUsersPage";
 import { resetMockAdminAuditEvents } from "../mocks/adminAudit";
-import { resetMockAdminContents } from "../mocks/adminContents";
 import { resetMockAdminGroups } from "../mocks/adminGroups";
 import { resetMockAdminSettings } from "../mocks/adminSettings";
 import { EducationContinuedPage } from "../pages/EducationContinuedPage";
@@ -169,7 +168,6 @@ describe("paginas principais com fallback local", () => {
     window.localStorage.clear();
     window.sessionStorage.clear();
     resetMockAdminAuditEvents();
-    resetMockAdminContents();
     resetMockAdminGroups();
     resetMockAdminSettings();
     resetMockAdminUsers();
@@ -627,46 +625,6 @@ describe("paginas principais com fallback local", () => {
       expect(within(groupCard as HTMLElement).getByText("Inativo")).toBeInTheDocument();
     });
   });
-
-  it("/admin/conteudos renderiza a base, filtra por livro e marca revisão", async () => {
-    renderRoute("/admin/conteudos", <AdminPage section="conteudos" />);
-
-    expect(await screen.findByRole("heading", { name: "Gestão de conteúdos" })).toBeInTheDocument();
-    expect(await screen.findByText("Modo demonstrativo de conteúdos")).toBeInTheDocument();
-    expect(await screen.findByText("Emmanuel - capitulo 1 - almas enfraquecidas")).toBeInTheDocument();
-    expect((await screen.findAllByText("Exige revisão humana")).length).toBeGreaterThan(0);
-
-    fireEvent.change(screen.getByLabelText("Livro ou grupo"), {
-      target: { value: "a-caminho-da-luz" },
-    });
-
-    await waitFor(() => {
-      expect(screen.getByText("A Caminho da Luz - civilizacoes antigas")).toBeInTheDocument();
-    });
-
-    fireEvent.change(screen.getByLabelText("Tipo"), {
-      target: { value: "faq" },
-    });
-
-    await waitFor(() => {
-      expect(screen.getByText("A Caminho da Luz - duvidas frequentes")).toBeInTheDocument();
-    });
-
-    const contentCard = screen
-      .getByText("A Caminho da Luz - duvidas frequentes")
-      .closest(".admin-content-card") as HTMLElement | null;
-    expect(contentCard).not.toBeNull();
-
-    fireEvent.click(
-      within(contentCard as HTMLElement).getByRole("button", {
-        name: "Marcar A Caminho da Luz - duvidas frequentes como revisado",
-      }),
-    );
-
-    await waitFor(() => {
-      expect(within(contentCard as HTMLElement).getByText("Revisado")).toBeInTheDocument();
-    });
-  }, 10000);
 
   it("/admin/configuracoes renderiza e salva ajustes em modo demonstrativo", async () => {
     renderRoute("/admin/configuracoes", <AdminPage section="configuracoes" />);

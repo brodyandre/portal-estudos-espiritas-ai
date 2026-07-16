@@ -14,7 +14,7 @@ O modulo de RAG trabalha com:
 
 Isso permite combinar conteudo curto com metadados prontos para busca e exibicao.
 
-Na Entrega 6A, o catalogo editorial persistente em PostgreSQL nao participa da recuperacao. O RAG permanece `filesystem-first`, lendo Markdown e `index.json`; estados editoriais como `draft`, `reviewed`, `approved` ou `archived` nao filtram consultas nesta etapa.
+Nas Entregas 6A e 6B, o catalogo editorial persistente em PostgreSQL nao participa da recuperacao. O RAG permanece `filesystem-first`, lendo Markdown e `index.json`; estados editoriais como `draft`, `reviewed`, `approved` ou `archived` nao filtram consultas nesta etapa.
 
 ## Arquivos principais
 

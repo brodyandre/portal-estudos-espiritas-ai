@@ -399,32 +399,29 @@ O contrato HTTP detalhado permanece documentado em `docs/api.md`.
 
 ### `/admin/conteudos`
 
-Gestao editorial e organizacao dos materiais.
+Gestao editorial e organizacao dos materiais da base de conhecimento.
 
-Entrega 6A implementada no backend:
+Escopo implementado:
 
-- catalogo persistente de livros em `KnowledgeBook`;
-- catalogo persistente de documentos Markdown em `KnowledgeDocument`;
-- endpoints administrativos em `/api/admin/knowledge`;
-- validacao estrita de queries, bodies, enums, paginacao e versionamento;
-- protecao de filesystem para `filePath` relativo em `data/knowledge`;
-- concorrencia otimista por `version`;
-- estados editoriais `draft`, `needs_review`, `reviewed`, `approved` e `archived`;
-- catalogacao manual idempotente pelo script `npm --workspace @portal-estudos-espiritas-ai/api run knowledge:catalog`;
-- colecao reservada `shared` para conteudos compartilhados.
-
-Escopo da Entrega 6B:
-
-- interface administrativa para operar esses contratos;
-- telas, formularios, filtros visuais e fluxos de revisao;
-- integracao da pagina `/admin/conteudos` com a API 6A.
+- consome os endpoints persistentes de `/api/admin/knowledge`;
+- lista, busca, filtra, ordena e pagina livros e documentos;
+- cria e edita livros do catalogo editorial;
+- cadastra documentos Markdown existentes por `filePath` relativo;
+- edita metadados administrativos de documentos, sem alterar o Markdown;
+- executa transicoes editoriais permitidas pelo backend;
+- usa concorrencia otimista por `version`;
+- mostra estados de carregamento, vazio, erro, rate limit e conflito;
+- apresenta `fileExists` no detalhe do documento;
+- substitui o fluxo demonstrativo anterior baseado em mock e `sessionStorage`.
 
 Cuidados:
 
-- a API e a futura interface nao editam Markdown diretamente;
+- a API e a interface nao editam Markdown diretamente;
 - `filePath` identifica o documento persistente e nunca expõe caminho absoluto;
-- status editorial nao filtra o RAG na 6A;
+- status editorial nao filtra o RAG;
 - temas sensiveis exigem `teacherReviewRecommended=true`;
+- migration, seed e catalogacao continuam operacoes locais separadas;
+- a interface nao executa `knowledge:catalog`;
 - a base segue usando textos autorais e revisaveis, sem publicacao de PDFs.
 
 ### `/admin/configuracoes`
