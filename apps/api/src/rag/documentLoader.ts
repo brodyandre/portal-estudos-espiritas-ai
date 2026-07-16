@@ -1,6 +1,8 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 
+import { getKnowledgeRepositoryRoot, resolveKnowledgeFilePath } from "../knowledge/filesystem";
+import type { KnowledgeEditorialManifest, KnowledgeManifestSource } from "../knowledge/manifest";
 import type {
   DocumentLoadOptions,
   KnowledgeIndex,
@@ -268,9 +270,18 @@ const buildDocument = (
   absolutePath: string,
   rawContent: string,
   knowledgeDir: string,
-  indexEntry?: KnowledgeIndexEntry,
+  options: {
+    indexEntry?: KnowledgeIndexEntry;
+    manifest?: {
+      fingerprint: string;
+      source: KnowledgeManifestSource;
+    };
+    exposeAbsolutePath?: boolean;
+    sourcePathForErrors?: string;
+  } = {},
 ): KnowledgeDocument => {
-  const { frontmatter, body } = parseFrontmatter(rawContent, absolutePath);
+  const { indexEntry, manifest, exposeAbsolutePath = true, sourcePathForErrors = absolutePath } = options;
+  const { frontmatter, body } = parseFrontmatter(rawContent, sourcePathForErrors);
   const normalizedBody = normalizeText(body);
   const titleFromBody = extractTitleFromBody(body);
   const relativePath = indexEntry?.path ?? buildRelativeKnowledgePath(knowledgeDir, absolutePath);
@@ -283,7 +294,7 @@ const buildDocument = (
   const tags = uniqueStringList(indexEntry?.tags ?? []);
   const sensitiveTopics = uniqueStringList(indexEntry?.sensitiveTopics ?? []);
 
-  return {
+  const document: KnowledgeDocument = {
     id: documentId,
     title,
     group,
@@ -292,7 +303,6 @@ const buildDocument = (
     sourceLabel: buildSourceLabel(title, group, book),
     filename,
     path: relativePath,
-    absolutePath,
     type: indexEntry?.type ?? inferType(relativePath),
     tags,
     description: indexEntry?.description ?? frontmatter.purpose,
@@ -305,8 +315,40 @@ const buildDocument = (
     frontmatter,
     charCount: normalizedBody.length,
     wordCount,
+    ...(manifest
+      ? {
+          editorial: {
+            manifestFingerprint: manifest.fingerprint,
+            manifestSourceId: manifest.source.manifestSourceId,
+            documentId: manifest.source.documentId,
+            bookId: manifest.source.bookId,
+            catalogKey: manifest.source.catalogKey,
+            documentTitle: manifest.source.documentTitle,
+            bookTitle: manifest.source.bookTitle,
+            bookSlug: manifest.source.bookSlug,
+            documentVersion: manifest.source.documentVersion,
+            origin: manifest.source.origin,
+          },
+        }
+      : {}),
   };
+
+  return exposeAbsolutePath ? { ...document, absolutePath } : document;
 };
+
+const buildIndexEntryFromManifestSource = (source: KnowledgeManifestSource): KnowledgeIndexEntry => ({
+  id: source.documentId,
+  title: source.documentTitle,
+  group: source.bookTitle,
+  book: source.bookTitle,
+  filename: path.posix.basename(source.filePath),
+  path: source.filePath,
+  type: source.type,
+  tags: source.tags,
+  description: source.description || source.summary,
+  sensitiveTopics: source.sensitiveTopics,
+  teacherReviewRecommended: source.teacherReviewRecommended,
+});
 
 export const loadKnowledgeDocuments = async (
   options: DocumentLoadOptions = {},
@@ -327,12 +369,44 @@ export const loadKnowledgeDocuments = async (
         filePath,
         rawContent,
         knowledgeDir,
-        indexEntriesByPath.get(normalizeCatalogPath(relativePath)),
+        { indexEntry: indexEntriesByPath.get(normalizeCatalogPath(relativePath)) },
       );
     }),
   );
 
   return documents.sort((left, right) => left.path.localeCompare(right.path));
+};
+
+export const loadKnowledgeDocumentsFromManifest = async (
+  manifest: KnowledgeEditorialManifest,
+  options: { repositoryRoot?: string } = {},
+): Promise<KnowledgeDocument[]> => {
+  const repositoryRoot = path.resolve(options.repositoryRoot ?? getKnowledgeRepositoryRoot());
+  const knowledgeDir = path.join(repositoryRoot, ...KNOWLEDGE_DIR_SEGMENTS);
+
+  const documents = await Promise.all(
+    manifest.sources.map(async (source) => {
+      const resolvedFile = await resolveKnowledgeFilePath(source.filePath, { repositoryRoot });
+      const rawContent = await fs.readFile(resolvedFile.absolutePath, "utf8");
+
+      return buildDocument(
+        resolvedFile.absolutePath,
+        rawContent,
+        knowledgeDir,
+        {
+          indexEntry: buildIndexEntryFromManifestSource(source),
+          manifest: {
+            fingerprint: manifest.fingerprint,
+            source,
+          },
+          exposeAbsolutePath: false,
+          sourcePathForErrors: source.filePath,
+        },
+      );
+    }),
+  );
+
+  return documents;
 };
 
 const validateProtectedContentHints = (

@@ -57,11 +57,14 @@ A persistencia editorial no PostgreSQL organiza o catalogo sem mudar a fonte do 
 Responsabilidades:
 
 - `data/knowledge` continua sendo a fonte dos arquivos Markdown;
-- o RAG continua carregando Markdown e `index.json` diretamente do filesystem;
+- o carregamento RAG legado continua lendo Markdown e `index.json` diretamente do filesystem;
 - o PostgreSQL armazena catalogo, metadados administrativos e estados editoriais;
 - `filePath` relativo identifica o documento persistente;
 - a API administrativa nao cria, edita, move, renomeia, exclui nem retorna conteudo Markdown integral.
 - a interface `/admin/conteudos` consome a API persistente para administrar livros, documentos, metadados e estados editoriais.
+- o manifesto editorial seguro 7A pode montar uma lista interna de fontes a partir do catalogo persistido, apenas com livros ativos, documentos aprovados e caminhos Markdown validados em `data/knowledge`;
+- o carregador governado por manifesto nao varre o filesystem, nao usa `index.json` como fallback e falha fechado quando o catalogo ou um arquivo elegivel nao passa nas validacoes;
+- a entrega 7A nao altera endpoints publicos, agente, cache de retriever, UI, embeddings ou vector store; essa integracao fica para 7B.
 
 Catalogacao manual:
 

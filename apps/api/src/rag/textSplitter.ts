@@ -176,6 +176,7 @@ export const splitDocumentIntoChunks = (
         `${document.title} ${document.group} ${document.book} ${document.tags.join(" ")} ${document.sensitiveTopics.join(" ")} ${compactContent}`,
       ),
       vectorRef: null,
+      ...(document.editorial ? { editorial: { ...document.editorial } } : {}),
     };
   });
 };
