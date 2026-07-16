@@ -1,7 +1,133 @@
 import request from "supertest";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { app } from "../src/app";
+import {
+  resetAnswerGraphRetrieverContextForTesting,
+  setAnswerGraphRetrieverContextForTesting,
+} from "../src/agent/answer-graph";
+import { GovernedCorpusError, type GovernedCorpusDocument } from "../src/knowledge/governedCorpus";
+import type { GovernedRetrieverContext } from "../src/rag/governedRetriever";
+import { createKeywordRetriever } from "../src/rag/retriever";
+
+const buildDocument = (
+  id: string,
+  title: string,
+  group: string,
+  book: string,
+  content: string,
+  overrides: Partial<GovernedCorpusDocument> = {},
+): GovernedCorpusDocument => ({
+  id,
+  title,
+  group,
+  book,
+  source: "resumo autoral demonstrativo",
+  sourceLabel: `${book} · ${title}`,
+  filename: `${id}.md`,
+  path: `data/knowledge/${id}.md`,
+  type: "tema",
+  tags: [id, "estudo"],
+  description: `Descricao ${title}`,
+  sensitiveTopics: [],
+  teacherReviewRecommended: false,
+  purpose: "apoio para respostas simples",
+  content,
+  rawContent: content,
+  frontmatter: {
+    title,
+    group,
+    purpose: "apoio para respostas simples",
+    source: "resumo autoral demonstrativo",
+  },
+  charCount: content.length,
+  wordCount: content.split(/\s+/u).filter(Boolean).length,
+  editorial: {
+    manifestFingerprint: "test-fingerprint",
+    manifestSourceId: `${id}:1`,
+    documentId: id,
+    bookId: `book-${id}`,
+    catalogKey: id,
+    documentTitle: title,
+    bookTitle: book,
+    bookSlug: book.toLowerCase().replace(/\s+/gu, "-"),
+    documentVersion: 1,
+    origin: "catalog",
+  },
+  ...overrides,
+});
+
+const governedDocuments = [
+  buildDocument(
+    "orientacoes_do_grupo",
+    "Orientacoes do grupo",
+    "Compartilhado",
+    "Base compartilhada",
+    "prece serenidade acolhimento encontro fraterno problemas cotidianos",
+    {
+      filename: "orientacoes_do_grupo.md",
+      path: "data/knowledge/orientacoes_do_grupo.md",
+      type: "orientacoes",
+      tags: ["orientacoes", "convivio", "prece"],
+    },
+  ),
+  buildDocument(
+    "emmanuel_tema_constancia",
+    "Emmanuel - constancia no estudo",
+    "Emmanuel",
+    "Emmanuel",
+    "desanimado constancia estudo perseveranca aplicacao pratica semana",
+    {
+      filename: "emmanuel_tema_constancia.md",
+      path: "data/knowledge/emmanuel/emmanuel_tema_constancia.md",
+      tags: ["desanimado", "constancia", "emmanuel"],
+    },
+  ),
+  buildDocument(
+    "a_caminho_da_luz_tema_civilizacoes_antigas",
+    "A Caminho da Luz - civilizacoes antigas e Capela",
+    "A Caminho da Luz",
+    "A Caminho da Luz",
+    "capela racas adamicas civilizacoes antigas historia espiritual prudencia",
+    {
+      filename: "a_caminho_da_luz_tema_civilizacoes_antigas.md",
+      path: "data/knowledge/a_caminho_da_luz/a_caminho_da_luz_tema_civilizacoes_antigas.md",
+      tags: ["capela", "racas adamicas", "historia"],
+      sensitiveTopics: ["Capela", "racas adamicas"],
+      teacherReviewRecommended: true,
+    },
+  ),
+  buildDocument(
+    "a_caminho_da_luz_tema_jesus_e_evangelho",
+    "A Caminho da Luz - Jesus e Evangelho",
+    "A Caminho da Luz",
+    "A Caminho da Luz",
+    "evangelho jesus moral pratica espiritual vivencia cotidiana",
+    {
+      filename: "a_caminho_da_luz_tema_jesus_e_evangelho.md",
+      path: "data/knowledge/a_caminho_da_luz/a_caminho_da_luz_tema_jesus_e_evangelho.md",
+      tags: ["evangelho", "jesus"],
+    },
+  ),
+];
+
+const createContext = async (
+  documents: readonly GovernedCorpusDocument[] = governedDocuments,
+): Promise<GovernedRetrieverContext> => ({
+  manifestFingerprint: "test-fingerprint",
+  documents,
+  retriever: await createKeywordRetriever({ documents }),
+});
+
+beforeEach(async () => {
+  const context = await createContext();
+  setAnswerGraphRetrieverContextForTesting(async () => context);
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  resetAnswerGraphRetrieverContextForTesting();
+});
 
 describe("POST /api/agent/lesson-plan", () => {
   it("retorna fallback claro quando Ollama nao esta disponivel", async () => {
@@ -113,4 +239,85 @@ describe("POST /api/agent/answer", () => {
       );
     },
   );
+
+  it("nao expoe arquivos fora do snapshot governado nem metadados internos nas fontes", async () => {
+    const response = await request(app).post("/api/agent/answer").send({
+      groupId: "emmanuel",
+      question: "Existe algo sobre orfao draft ou prece?",
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(JSON.stringify(response.body.data.sources)).not.toContain("orfao.md");
+    expect(JSON.stringify(response.body.data.sources)).not.toContain("draft.md");
+    expect(JSON.stringify(response.body)).not.toContain("absolutePath");
+    expect(JSON.stringify(response.body)).not.toContain("test-fingerprint");
+  });
+
+  it("mantem fallback de provider quando ha contexto governado valido", async () => {
+    const response = await request(app).post("/api/agent/answer").send({
+      groupId: "emmanuel",
+      question: "Como continuar estudando mesmo desanimado?",
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(response.body.meta).toEqual(
+      expect.objectContaining({
+        provider: "fallback",
+        usedFallback: true,
+      }),
+    );
+    expect(response.body.data.sources.length).toBeGreaterThan(0);
+    expect(response.body.data.fallbackReason).toContain("Ollama desativado");
+  });
+
+  it("falha fechado quando o corpus governado esta indisponivel", async () => {
+    setAnswerGraphRetrieverContextForTesting(async () => {
+      throw new GovernedCorpusError(
+        "GOVERNED_CORPUS_MANIFEST_UNAVAILABLE",
+        "Manifesto editorial indisponivel para montar o corpus governado.",
+        { issues: [{ filePath: "/tmp/repositorio/data/knowledge/segredo.md" }] },
+      );
+    });
+
+    const response = await request(app).post("/api/agent/answer").send({
+      groupId: "emmanuel",
+      question: "A prece ajuda?",
+    });
+
+    expect(response.status).toBe(503);
+    expect(response.body).toEqual({
+      success: false,
+      error: {
+        code: "KNOWLEDGE_CORPUS_UNAVAILABLE",
+        message: "Base de conhecimento temporariamente indisponivel.",
+      },
+    });
+    expect(JSON.stringify(response.body)).not.toContain("/tmp");
+    expect(JSON.stringify(response.body)).not.toContain("usedFallback");
+  });
+
+  it("falha fechado quando a busca no retriever governado falha", async () => {
+    const context = await createContext();
+    setAnswerGraphRetrieverContextForTesting(async () => ({
+      ...context,
+      retriever: {
+        ...context.retriever,
+        search: async () => {
+          throw new Error("/tmp/repositorio/data/knowledge/segredo.md");
+        },
+      },
+    }));
+
+    const response = await request(app).post("/api/agent/answer").send({
+      groupId: "emmanuel",
+      question: "A prece ajuda?",
+    });
+
+    expect(response.status).toBe(503);
+    expect(response.body.error.code).toBe("KNOWLEDGE_CORPUS_UNAVAILABLE");
+    expect(JSON.stringify(response.body)).not.toContain("/tmp");
+    expect(JSON.stringify(response.body)).not.toContain("usedFallback");
+  });
 });

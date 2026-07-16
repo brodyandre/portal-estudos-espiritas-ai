@@ -1433,7 +1433,20 @@ Observacoes:
 
 - nao devolve conteudo integral dos arquivos;
 - usa apenas resumo curto, titulo, tags e tipo;
-- ignora arquivos de documentacao interna na listagem publica.
+- ignora arquivos de documentacao interna na listagem publica;
+- usa somente documentos presentes no snapshot do corpus governado.
+
+Se o corpus governado nao puder ser montado, as rotas publicas de conhecimento retornam:
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "KNOWLEDGE_CORPUS_UNAVAILABLE",
+    "message": "Base de conhecimento temporariamente indisponivel."
+  }
+}
+```
 
 ### `GET /api/knowledge/groups`
 
@@ -1480,7 +1493,7 @@ Campos principais por item:
 
 ### `GET /api/knowledge/search?q=&group=`
 
-Busca materiais curtos na base de conhecimento usando o retriever local por palavras-chave e similaridade simples.
+Busca materiais curtos na base de conhecimento usando o retriever governado por palavras-chave e similaridade simples. A busca e construida exclusivamente a partir do snapshot aprovado pelo manifesto editorial; arquivos fora do manifesto, documentos em rascunho ou itens inelegiveis nao entram no indice publico.
 
 Query esperada:
 
@@ -1577,7 +1590,7 @@ Body esperado:
 
 ### `POST /api/agent/answer`
 
-Gera uma resposta inicial curta com `LangGraph.js`, combinando contexto enviado na pergunta com busca simples nos arquivos Markdown autorizados.
+Gera uma resposta inicial curta com `LangGraph.js`, combinando contexto enviado na pergunta com busca simples no retriever governado. O contexto recuperado vem exclusivamente do snapshot aprovado pelo manifesto editorial.
 
 Body esperado:
 
@@ -1638,7 +1651,8 @@ Observacoes:
 - O campo `keywords` resume palavras-chave uteis para leitura e revisao.
 - O campo `suggestedTeacherFollowUp` indica como levar a duvida ao professor quando o tema pedir maior cuidado.
 - Se o contexto ainda for insuficiente, a resposta orienta levar a duvida ao professor.
-- A lista `sources` pode incluir o contexto enviado pelo proprio usuario, alem dos arquivos recuperados em `data/knowledge`.
+- A lista `sources` pode incluir o contexto enviado pelo proprio usuario, alem dos documentos autorizados pelo corpus governado.
+- Se o corpus governado ou seu retriever estiverem indisponiveis, a API retorna `503 KNOWLEDGE_CORPUS_UNAVAILABLE`; esse erro nao e mascarado como fallback do modelo.
 
 ### Fallback do modelo local
 
@@ -1666,10 +1680,10 @@ Testes basicos implementados:
 
 - Os dados usam apenas mocks locais em `apps/api/src/data`.
 - O endpoint `POST /api/questions` grava em memoria apenas durante a execucao do processo.
-- Os endpoints em `/api/knowledge/*` leem apenas a base local em `data/knowledge`, sem banco de dados.
+- Os endpoints publicos em `/api/knowledge/*` dependem do corpus governado gerado a partir do catalogo editorial e dos arquivos autorizados em `data/knowledge`.
 - A listagem da base de conhecimento nunca devolve conteudo longo dos arquivos Markdown.
-- O endpoint `GET /api/knowledge/search` reutiliza o retriever local ja usado pela resposta do assistente.
+- O endpoint `GET /api/knowledge/search` reutiliza o retriever governado usado pela resposta do assistente.
 - Os endpoints em `/api/agent/*` usam `LangChain.js + Ollama` quando o modelo local estiver disponivel.
-- O endpoint `POST /api/agent/answer` usa `LangGraph.js` para orquestrar pergunta, classificacao do grupo, busca local e revisao de seguranca.
+- O endpoint `POST /api/agent/answer` usa `LangGraph.js` para orquestrar pergunta, classificacao do grupo, busca governada e revisao de seguranca.
 - Quando o modelo local nao responde, a API usa um fallback simples e explicito para a demonstracao continuar.
-- Nao ha banco, autenticacao ou persistencia nesta etapa.
+- A indisponibilidade do corpus governado falha fechado com `503`, sem expor caminhos absolutos, fingerprints ou issues internas.

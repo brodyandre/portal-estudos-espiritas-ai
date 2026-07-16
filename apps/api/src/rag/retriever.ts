@@ -5,7 +5,7 @@ import type {
   KeywordRetriever,
   KeywordRetrieverIndex,
   KnowledgeChunk,
-  KnowledgeDocument,
+  KnowledgeDocumentForRetrieval,
   RetrieveOptions,
   RetrievedChunk,
   TextSplitterOptions,
@@ -282,7 +282,7 @@ export const searchChunks = (
 };
 
 export const buildKeywordRetrieverIndex = (
-  documents: KnowledgeDocument[],
+  documents: readonly KnowledgeDocumentForRetrieval[],
   splitterOptions: TextSplitterOptions = {},
 ): KeywordRetrieverIndex => {
   return {
@@ -294,7 +294,7 @@ export const buildKeywordRetrieverIndex = (
 };
 
 export const createKeywordRetriever = async (options: {
-  documents?: KnowledgeDocument[];
+  documents?: readonly KnowledgeDocumentForRetrieval[];
   loadOptions?: DocumentLoadOptions;
   splitterOptions?: TextSplitterOptions;
 } = {}): Promise<KeywordRetriever> => {

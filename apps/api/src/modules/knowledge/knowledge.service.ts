@@ -1,11 +1,17 @@
 import type {
-  KeywordRetriever,
-  KnowledgeDocument,
+  KnowledgeDocumentForRetrieval,
   RetrieveOptions,
   RetrievedChunk,
 } from "../../rag/types";
-import { loadKnowledgeDocuments } from "../../rag/documentLoader";
-import { createKeywordRetriever } from "../../rag/retriever";
+import {
+  getGovernedRetrieverContext,
+  type GovernedRetrieverContext,
+} from "../../rag/governedRetriever";
+import {
+  GovernedRetrieverError,
+  isGovernedRetrievalOperationalError,
+  toKnowledgeCorpusUnavailableError,
+} from "../../rag/governedRetrievalErrors";
 
 export type KnowledgeGroupId = "emmanuel" | "a_caminho_da_luz";
 
@@ -87,8 +93,9 @@ const SHARED_FILES_LIMIT = 4;
 const FEATURED_FILES_LIMIT = 6;
 const SEARCH_RESULTS_LIMIT = 6;
 
-let documentsPromise: Promise<KnowledgeDocument[]> | undefined;
-let retrieverPromise: Promise<KeywordRetriever> | undefined;
+type GetGovernedRetrieverContext = () => Promise<GovernedRetrieverContext>;
+
+let getRetrieverContext: GetGovernedRetrieverContext = getGovernedRetrieverContext;
 
 const normalizeText = (value: string): string => {
   return value
@@ -118,19 +125,19 @@ const compareByTitle = <T extends { title: string }>(left: T, right: T): number 
   return left.title.localeCompare(right.title);
 };
 
-const isSharedDocument = (document: KnowledgeDocument): boolean => {
+const isSharedDocument = (document: KnowledgeDocumentForRetrieval): boolean => {
   const normalizedGroup = normalizeText(document.group);
   const normalizedBook = normalizeText(document.book);
 
   return normalizedGroup === "geral" || normalizedGroup === "compartilhado" || normalizedBook === "base compartilhada";
 };
 
-const isPublicDocument = (document: KnowledgeDocument): boolean => {
+const isPublicDocument = (document: KnowledgeDocumentForRetrieval): boolean => {
   return document.type !== "readme";
 };
 
 const getDocumentSummary = (
-  document: Pick<KnowledgeDocument, "description" | "purpose" | "content">,
+  document: Pick<KnowledgeDocumentForRetrieval, "description" | "purpose" | "content">,
   limit = PUBLIC_SUMMARY_LIMIT,
 ): string => {
   const baseText = document.description || document.purpose || document.content;
@@ -144,7 +151,7 @@ const getSearchSummary = (
   return truncateText(result.description || result.content, SEARCH_SUMMARY_LIMIT);
 };
 
-const toFileSummary = (document: KnowledgeDocument): KnowledgeFileSummary => {
+const toFileSummary = (document: KnowledgeDocumentForRetrieval): KnowledgeFileSummary => {
   return {
     id: document.id,
     title: document.title,
@@ -152,10 +159,10 @@ const toFileSummary = (document: KnowledgeDocument): KnowledgeFileSummary => {
     group: document.group,
     book: document.book,
     type: document.type,
-    tags: document.tags.slice(0, TAG_LIMIT),
+    tags: [...document.tags].slice(0, TAG_LIMIT),
     summary: getDocumentSummary(document),
     teacherReviewRecommended: document.teacherReviewRecommended,
-    sensitiveTopics: document.sensitiveTopics,
+    sensitiveTopics: [...document.sensitiveTopics],
   };
 };
 
@@ -167,10 +174,10 @@ const toSearchItem = (result: RetrievedChunk): KnowledgeSearchItem => {
     group: result.group,
     book: result.book,
     type: result.type,
-    tags: result.tags.slice(0, TAG_LIMIT),
+    tags: [...result.tags].slice(0, TAG_LIMIT),
     summary: getSearchSummary(result),
     teacherReviewRecommended: result.teacherReviewRecommended,
-    sensitiveTopics: result.sensitiveTopics,
+    sensitiveTopics: [...result.sensitiveTopics],
     score: result.score,
     source: result.sourceLabel,
   };
@@ -198,7 +205,7 @@ const dedupeSearchItems = (items: KnowledgeSearchItem[]): KnowledgeSearchItem[] 
 
 const createGroupSummary = (
   config: KnowledgeGroupConfig,
-  documents: KnowledgeDocument[],
+  documents: readonly KnowledgeDocumentForRetrieval[],
 ): KnowledgeGroupSummary => {
   const tags = uniqueStrings(documents.flatMap((document) => document.tags)).slice(0, TAG_LIMIT);
   const types = uniqueStrings(documents.map((document) => document.type)).sort();
@@ -231,43 +238,39 @@ const resolveKnowledgeGroupConfig = (
 };
 
 const documentBelongsToGroup = (
-  document: KnowledgeDocument,
+  document: KnowledgeDocumentForRetrieval,
   group: KnowledgeGroupConfig,
 ): boolean => {
   return normalizeText(document.group) === normalizeText(group.name) || normalizeText(document.book) === normalizeText(group.book);
 };
 
-const getDocuments = async (): Promise<KnowledgeDocument[]> => {
-  documentsPromise ??= loadKnowledgeDocuments();
+const translateKnowledgeCorpusError = (error: unknown): never => {
+  if (isGovernedRetrievalOperationalError(error)) {
+    throw toKnowledgeCorpusUnavailableError();
+  }
 
-  return documentsPromise;
-};
-
-const getRetriever = async (): Promise<KeywordRetriever> => {
-  retrieverPromise ??= createKeywordRetriever();
-
-  return retrieverPromise;
+  throw error;
 };
 
 const getPublicGroupDocuments = (
-  documents: KnowledgeDocument[],
+  documents: readonly KnowledgeDocumentForRetrieval[],
   group: KnowledgeGroupConfig,
-): KnowledgeDocument[] => {
+): KnowledgeDocumentForRetrieval[] => {
   return documents
     .filter((document) => isPublicDocument(document) && documentBelongsToGroup(document, group))
     .sort(compareByTitle);
 };
 
-const getSharedPublicDocuments = (documents: KnowledgeDocument[]): KnowledgeDocument[] => {
+const getSharedPublicDocuments = (documents: readonly KnowledgeDocumentForRetrieval[]): KnowledgeDocumentForRetrieval[] => {
   return documents
     .filter((document) => isPublicDocument(document) && isSharedDocument(document))
     .sort(compareByTitle);
 };
 
-const getKnowledgeGroupSummary = async (
+const getKnowledgeGroupSummary = (
   groupId: KnowledgeGroupId,
-): Promise<KnowledgeGroupSummary> => {
-  const documents = await getDocuments();
+  documents: readonly KnowledgeDocumentForRetrieval[],
+): KnowledgeGroupSummary => {
   const group = KNOWLEDGE_GROUPS[groupId];
 
   return createGroupSummary(group, getPublicGroupDocuments(documents, group));
@@ -280,27 +283,33 @@ export const parseKnowledgeGroup = (
 };
 
 export const listKnowledgeOverview = async (): Promise<KnowledgeOverview> => {
-  const documents = await getDocuments();
-  const publicDocuments = documents.filter(isPublicDocument);
-  const groups = await Promise.all(
-    Object.values(KNOWLEDGE_GROUPS).map((group) => getKnowledgeGroupSummary(group.id)),
-  );
-  const sharedFiles = getSharedPublicDocuments(documents)
-    .map(toFileSummary)
-    .slice(0, SHARED_FILES_LIMIT);
+  try {
+    const { documents } = await getRetrieverContext();
+    const publicDocuments = documents.filter(isPublicDocument);
+    const groups = Object.values(KNOWLEDGE_GROUPS).map((group) => getKnowledgeGroupSummary(group.id, documents));
+    const sharedFiles = getSharedPublicDocuments(documents)
+      .map(toFileSummary)
+      .slice(0, SHARED_FILES_LIMIT);
 
-  return {
-    totalFiles: publicDocuments.length,
-    totalGroups: groups.length,
-    groups,
-    sharedFiles,
-  };
+    return {
+      totalFiles: publicDocuments.length,
+      totalGroups: groups.length,
+      groups,
+      sharedFiles,
+    };
+  } catch (error) {
+    return translateKnowledgeCorpusError(error);
+  }
 };
 
 export const listKnowledgeGroups = async (): Promise<KnowledgeGroupSummary[]> => {
-  return Promise.all(
-    Object.values(KNOWLEDGE_GROUPS).map((group) => getKnowledgeGroupSummary(group.id)),
-  );
+  try {
+    const { documents } = await getRetrieverContext();
+
+    return Object.values(KNOWLEDGE_GROUPS).map((group) => getKnowledgeGroupSummary(group.id, documents));
+  } catch (error) {
+    return translateKnowledgeCorpusError(error);
+  }
 };
 
 export const getKnowledgeGroupDetails = async (
@@ -312,15 +321,19 @@ export const getKnowledgeGroupDetails = async (
     return null;
   }
 
-  const documents = await getDocuments();
-  const groupDocuments = getPublicGroupDocuments(documents, group);
+  try {
+    const { documents } = await getRetrieverContext();
+    const groupDocuments = getPublicGroupDocuments(documents, group);
 
-  return {
-    group: createGroupSummary(group, groupDocuments),
-    featuredFiles: groupDocuments.map(toFileSummary).slice(0, FEATURED_FILES_LIMIT),
-    guidance:
-      "Use os materiais como apoio ao estudo. Em temas sensiveis, vale revisar a leitura com o professor.",
-  };
+    return {
+      group: createGroupSummary(group, groupDocuments),
+      featuredFiles: groupDocuments.map(toFileSummary).slice(0, FEATURED_FILES_LIMIT),
+      guidance:
+        "Use os materiais como apoio ao estudo. Em temas sensiveis, vale revisar a leitura com o professor.",
+    };
+  } catch (error) {
+    return translateKnowledgeCorpusError(error);
+  }
 };
 
 export const listKnowledgeFilesByGroup = async (
@@ -332,9 +345,13 @@ export const listKnowledgeFilesByGroup = async (
     return null;
   }
 
-  const documents = await getDocuments();
+  try {
+    const { documents } = await getRetrieverContext();
 
-  return getPublicGroupDocuments(documents, group).map(toFileSummary);
+    return getPublicGroupDocuments(documents, group).map(toFileSummary);
+  } catch (error) {
+    return translateKnowledgeCorpusError(error);
+  }
 };
 
 export const searchKnowledge = async (
@@ -343,32 +360,58 @@ export const searchKnowledge = async (
 ): Promise<KnowledgeSearchResult> => {
   const trimmedQuery = query.trim();
   const group = rawGroup ? resolveKnowledgeGroupConfig(rawGroup) : null;
-  const retriever = await getRetriever();
-  const searchOptions: RetrieveOptions = {
-    limit: SEARCH_RESULTS_LIMIT + 2,
-    minScore: 0.55,
-  };
+  try {
+    const { documents, retriever } = await getRetrieverContext();
+    const searchOptions: RetrieveOptions = {
+      limit: SEARCH_RESULTS_LIMIT + 2,
+      minScore: 0.55,
+    };
 
-  if (group) {
-    searchOptions.group = group.name;
-    searchOptions.book = group.book;
+    if (group) {
+      searchOptions.group = group.name;
+      searchOptions.book = group.book;
+    }
+
+    let retrievedChunks: RetrievedChunk[];
+    try {
+      retrievedChunks = await retriever.search(trimmedQuery, searchOptions);
+    } catch (error) {
+      if (isGovernedRetrievalOperationalError(error)) {
+        throw error;
+      }
+
+      throw new GovernedRetrieverError(
+        "GOVERNED_RETRIEVER_BUILD_FAILED",
+        "Falha ao buscar no retriever do corpus governado.",
+      );
+    }
+
+    const items = retrievedChunks
+      .filter((result) => result.type !== "readme")
+      .map(toSearchItem);
+    const dedupedItems = dedupeSearchItems(items)
+      .slice(0, SEARCH_RESULTS_LIMIT);
+
+    return {
+      query: trimmedQuery,
+      group: group ? getKnowledgeGroupSummary(group.id, documents) : null,
+      items: dedupedItems,
+      guidance:
+        dedupedItems.length === 0
+          ? "Ainda nao encontrei material suficiente para esta busca. Vale levar a duvida ao professor."
+          : dedupedItems.some((item) => item.teacherReviewRecommended)
+            ? "Alguns resultados pedem revisao do professor antes de virarem conclusao do grupo."
+            : "Resultados demonstrativos carregados com sucesso."
+    };
+  } catch (error) {
+    return translateKnowledgeCorpusError(error);
   }
+};
 
-  const items = (await retriever.search(trimmedQuery, searchOptions))
-    .filter((result) => result.type !== "readme")
-    .map(toSearchItem);
-  const dedupedItems = dedupeSearchItems(items)
-    .slice(0, SEARCH_RESULTS_LIMIT);
+export const setKnowledgeRetrieverContextForTesting = (provider: GetGovernedRetrieverContext) => {
+  getRetrieverContext = provider;
+};
 
-  return {
-    query: trimmedQuery,
-    group: group ? await getKnowledgeGroupSummary(group.id) : null,
-    items: dedupedItems,
-    guidance:
-      dedupedItems.length === 0
-        ? "Ainda nao encontrei material suficiente para esta busca. Vale levar a duvida ao professor."
-        : dedupedItems.some((item) => item.teacherReviewRecommended)
-          ? "Alguns resultados pedem revisao do professor antes de virarem conclusao do grupo."
-          : "Resultados demonstrativos carregados com sucesso."
-  };
+export const resetKnowledgeRetrieverContextForTesting = () => {
+  getRetrieverContext = getGovernedRetrieverContext;
 };
