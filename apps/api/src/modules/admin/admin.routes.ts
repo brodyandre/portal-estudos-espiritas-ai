@@ -4,7 +4,9 @@ import { AppError } from "../../lib/app-error";
 import { sendSuccess } from "../../lib/api-response";
 import { asyncHandler } from "../../lib/async-handler";
 import {
+  assertAdminKnowledgeRateLimit,
   assertAdminStudyMeetingRateLimit,
+  recordAdminKnowledgeAttempt,
   recordAdminStudyMeetingAttempt,
 } from "../../security/auth-rate-limit";
 import { requireRole } from "../auth/auth.middleware";
@@ -31,6 +33,33 @@ import {
 } from "../study-meetings/study-meetings.query";
 import { parseAdminGroupsListQuery } from "./groups/query";
 import { listAdminGroups } from "./groups/service";
+import {
+  parseCreateKnowledgeBookBody,
+  parseCreateKnowledgeDocumentBody,
+  parseKnowledgeBooksListQuery,
+  parseKnowledgeDocumentsListQuery,
+  parseKnowledgeRouteParam,
+  parseTransitionKnowledgeDocumentBody,
+  parseUpdateKnowledgeBookBody,
+  parseUpdateKnowledgeDocumentBody,
+} from "./knowledge/query";
+import {
+  presentKnowledgeBook,
+  presentKnowledgeBookList,
+  presentKnowledgeDocument,
+  presentKnowledgeDocumentList,
+} from "./knowledge/presenter";
+import {
+  createKnowledgeBook,
+  createKnowledgeDocument,
+  getKnowledgeBook,
+  getKnowledgeDocument,
+  listKnowledgeBooks,
+  listKnowledgeDocuments,
+  transitionKnowledgeDocument,
+  updateKnowledgeBook,
+  updateKnowledgeDocument,
+} from "./knowledge/service";
 import {
   parseAdminUserGroupBody,
   parseAdminUserGroupPathParam,
@@ -211,6 +240,170 @@ const requireAuthenticatedAdminRequestUser = (
 };
 
 export const adminRouter = Router();
+
+adminRouter.get(
+  "/knowledge/books",
+  ...requireRole(["admin"]),
+  asyncHandler(async (request, response) => {
+    const result = await listKnowledgeBooks(
+      requireAuthenticatedAdminRequestUser(request.authUser),
+      parseKnowledgeBooksListQuery(request.query),
+    );
+    const presented = presentKnowledgeBookList(result);
+
+    return sendSuccess(response, {
+      message: "Livros da base de conhecimento consultados com sucesso.",
+      data: { items: presented.items },
+      meta: presented.meta,
+    });
+  }),
+);
+
+adminRouter.post(
+  "/knowledge/books",
+  ...requireRole(["admin"]),
+  asyncHandler(async (request, response) => {
+    const authUser = requireAuthenticatedAdminRequestUser(request.authUser);
+    assertAdminKnowledgeRateLimit(authUser.id, "book:create");
+    recordAdminKnowledgeAttempt(authUser.id, "book:create");
+    const book = await createKnowledgeBook(authUser, parseCreateKnowledgeBookBody(request.body));
+
+    return sendSuccess(response, {
+      status: 201,
+      message: "Livro da base de conhecimento criado com sucesso.",
+      data: presentKnowledgeBook(book),
+    });
+  }),
+);
+
+adminRouter.get(
+  "/knowledge/books/:bookId",
+  ...requireRole(["admin"]),
+  asyncHandler(async (request, response) => {
+    const result = await getKnowledgeBook(
+      requireAuthenticatedAdminRequestUser(request.authUser),
+      parseKnowledgeRouteParam(request.params.bookId),
+    );
+
+    return sendSuccess(response, {
+      message: "Livro da base de conhecimento consultado com sucesso.",
+      data: presentKnowledgeBook(result.book, result.aggregate),
+    });
+  }),
+);
+
+adminRouter.patch(
+  "/knowledge/books/:bookId",
+  ...requireRole(["admin"]),
+  asyncHandler(async (request, response) => {
+    const authUser = requireAuthenticatedAdminRequestUser(request.authUser);
+    const bookId = parseKnowledgeRouteParam(request.params.bookId);
+    assertAdminKnowledgeRateLimit(authUser.id, `book:${bookId}`);
+    recordAdminKnowledgeAttempt(authUser.id, `book:${bookId}`);
+    const book = await updateKnowledgeBook(authUser, bookId, parseUpdateKnowledgeBookBody(request.body));
+
+    return sendSuccess(response, {
+      message: "Livro da base de conhecimento atualizado com sucesso.",
+      data: presentKnowledgeBook(book),
+    });
+  }),
+);
+
+adminRouter.get(
+  "/knowledge/documents",
+  ...requireRole(["admin"]),
+  asyncHandler(async (request, response) => {
+    const result = await listKnowledgeDocuments(
+      requireAuthenticatedAdminRequestUser(request.authUser),
+      parseKnowledgeDocumentsListQuery(request.query),
+    );
+    const presented = presentKnowledgeDocumentList(result);
+
+    return sendSuccess(response, {
+      message: "Documentos da base de conhecimento consultados com sucesso.",
+      data: { items: presented.items },
+      meta: presented.meta,
+    });
+  }),
+);
+
+adminRouter.post(
+  "/knowledge/documents",
+  ...requireRole(["admin"]),
+  asyncHandler(async (request, response) => {
+    const authUser = requireAuthenticatedAdminRequestUser(request.authUser);
+    assertAdminKnowledgeRateLimit(authUser.id, "document:create");
+    recordAdminKnowledgeAttempt(authUser.id, "document:create");
+    const document = await createKnowledgeDocument(
+      authUser,
+      parseCreateKnowledgeDocumentBody(request.body),
+    );
+
+    return sendSuccess(response, {
+      status: 201,
+      message: "Documento da base de conhecimento criado com sucesso.",
+      data: presentKnowledgeDocument(document),
+    });
+  }),
+);
+
+adminRouter.get(
+  "/knowledge/documents/:documentId",
+  ...requireRole(["admin"]),
+  asyncHandler(async (request, response) => {
+    const result = await getKnowledgeDocument(
+      requireAuthenticatedAdminRequestUser(request.authUser),
+      parseKnowledgeRouteParam(request.params.documentId),
+    );
+
+    return sendSuccess(response, {
+      message: "Documento da base de conhecimento consultado com sucesso.",
+      data: presentKnowledgeDocument(result.document, { fileExists: result.fileExists }),
+    });
+  }),
+);
+
+adminRouter.patch(
+  "/knowledge/documents/:documentId",
+  ...requireRole(["admin"]),
+  asyncHandler(async (request, response) => {
+    const authUser = requireAuthenticatedAdminRequestUser(request.authUser);
+    const documentId = parseKnowledgeRouteParam(request.params.documentId);
+    assertAdminKnowledgeRateLimit(authUser.id, `document:${documentId}`);
+    recordAdminKnowledgeAttempt(authUser.id, `document:${documentId}`);
+    const document = await updateKnowledgeDocument(
+      authUser,
+      documentId,
+      parseUpdateKnowledgeDocumentBody(request.body),
+    );
+
+    return sendSuccess(response, {
+      message: "Documento da base de conhecimento atualizado com sucesso.",
+      data: presentKnowledgeDocument(document),
+    });
+  }),
+);
+
+adminRouter.patch(
+  "/knowledge/documents/:documentId/editorial-status",
+  ...requireRole(["admin"]),
+  asyncHandler(async (request, response) => {
+    const authUser = requireAuthenticatedAdminRequestUser(request.authUser);
+    const documentId = parseKnowledgeRouteParam(request.params.documentId);
+    assertAdminKnowledgeRateLimit(authUser.id, `document:${documentId}:editorial-status`);
+    recordAdminKnowledgeAttempt(authUser.id, `document:${documentId}:editorial-status`);
+    const document = await transitionKnowledgeDocument(
+      authUser,
+      documentId,
+      parseTransitionKnowledgeDocumentBody(request.body),
+    );
+
+    return sendSuccess(response, {
+      message: "Estado editorial do documento atualizado com sucesso.",
+      data: presentKnowledgeDocument(document),
+    });
+  }),
+);
 
 adminRouter.get(
   "/account-invitations",

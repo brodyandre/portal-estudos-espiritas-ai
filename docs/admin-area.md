@@ -401,22 +401,31 @@ O contrato HTTP detalhado permanece documentado em `docs/api.md`.
 
 Gestao editorial e organizacao dos materiais.
 
-Escopo do MVP atual:
+Entrega 6A implementada no backend:
 
-- listar arquivos resumidos da base `data/knowledge`
-- filtrar por livro ou grupo
-- filtrar por tipo de material
-- visualizar titulo, grupo, tipo, tags, caminho e alerta de revisao humana
-- marcar localmente como revisado
-- marcar localmente como precisa revisao
-- copiar o caminho do arquivo para apoio operacional
+- catalogo persistente de livros em `KnowledgeBook`;
+- catalogo persistente de documentos Markdown em `KnowledgeDocument`;
+- endpoints administrativos em `/api/admin/knowledge`;
+- validacao estrita de queries, bodies, enums, paginacao e versionamento;
+- protecao de filesystem para `filePath` relativo em `data/knowledge`;
+- concorrencia otimista por `version`;
+- estados editoriais `draft`, `needs_review`, `reviewed`, `approved` e `archived`;
+- catalogacao manual idempotente pelo script `npm --workspace @portal-estudos-espiritas-ai/api run knowledge:catalog`;
+- colecao reservada `shared` para conteudos compartilhados.
 
-Cuidados desta tela:
+Escopo da Entrega 6B:
 
-- nao edita Markdown diretamente pela interface
-- nao publica PDFs
-- reforca que a base usa textos autorais e revisaveis
-- temas sensiveis aparecem com destaque e pedem acompanhamento humano
+- interface administrativa para operar esses contratos;
+- telas, formularios, filtros visuais e fluxos de revisao;
+- integracao da pagina `/admin/conteudos` com a API 6A.
+
+Cuidados:
+
+- a API e a futura interface nao editam Markdown diretamente;
+- `filePath` identifica o documento persistente e nunca expõe caminho absoluto;
+- status editorial nao filtra o RAG na 6A;
+- temas sensiveis exigem `teacherReviewRecommended=true`;
+- a base segue usando textos autorais e revisaveis, sem publicacao de PDFs.
 
 ### `/admin/configuracoes`
 

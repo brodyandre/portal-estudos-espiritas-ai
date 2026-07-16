@@ -45,6 +45,31 @@ enum DeliveryStatus {
   NOT_CONFIGURED
 }
 
+enum KnowledgeBookStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum KnowledgeDocumentType {
+  README
+  ORIENTACOES
+  DEMO
+  VISAO_GERAL
+  TEMA
+  CAPITULO
+  FAQ
+  PALAVRAS_CHAVE
+  OTHER
+}
+
+enum KnowledgeEditorialStatus {
+  DRAFT
+  NEEDS_REVIEW
+  REVIEWED
+  APPROVED
+  ARCHIVED
+}
+
 model User {
   id                           String      @id @default(cuid())
   fullName                     String
@@ -68,6 +93,8 @@ model User {
   passwordResetTokens          PasswordResetToken[]
   accountInvitations           AccountInvitation[] @relation("AccountInvitationRecipient")
   sentAccountInvitations       AccountInvitation[] @relation("AccountInvitationInviter")
+  reviewedKnowledgeDocuments   KnowledgeDocument[] @relation("KnowledgeDocumentReviewer")
+  approvedKnowledgeDocuments   KnowledgeDocument[] @relation("KnowledgeDocumentApprover")
 }
 
 model AuthSession {
@@ -189,4 +216,56 @@ model AuditLog {
   action     String
   entity     String
   note       String
+}
+
+model KnowledgeBook {
+  id          String              @id @default(cuid())
+  slug        String              @unique
+  title       String
+  description String              @default("")
+  status      KnowledgeBookStatus @default(ACTIVE)
+  sortOrder   Int                 @default(0)
+  version     Int                 @default(1)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  documents   KnowledgeDocument[]
+
+  @@index([status])
+  @@index([sortOrder, title])
+}
+
+model KnowledgeDocument {
+  id                       String                   @id @default(cuid())
+  bookId                   String
+  catalogKey               String?                  @unique
+  filePath                 String                   @unique
+  title                    String
+  description              String                   @default("")
+  summary                  String                   @default("")
+  type                     KnowledgeDocumentType
+  tags                     String[]
+  sensitiveTopics          String[]
+  teacherReviewRecommended Boolean                  @default(false)
+  editorialStatus          KnowledgeEditorialStatus @default(DRAFT)
+  editorialNotes           String                   @default("")
+  sortOrder                Int                      @default(0)
+  reviewedAt               DateTime?
+  reviewedByUserId         String?
+  approvedAt               DateTime?
+  approvedByUserId         String?
+  version                  Int                      @default(1)
+  createdAt                DateTime                 @default(now())
+  updatedAt                DateTime                 @updatedAt
+  book                     KnowledgeBook            @relation(fields: [bookId], references: [id], onDelete: Restrict)
+  reviewedByUser           User?                    @relation("KnowledgeDocumentReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  approvedByUser           User?                    @relation("KnowledgeDocumentApprover", fields: [approvedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([bookId])
+  @@index([type])
+  @@index([editorialStatus])
+  @@index([teacherReviewRecommended])
+  @@index([bookId, editorialStatus])
+  @@index([sortOrder, title])
+  @@index([reviewedByUserId])
+  @@index([approvedByUserId])
 }

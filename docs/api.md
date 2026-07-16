@@ -109,6 +109,75 @@ Quando aplicável, a API também envia o header `Retry-After`.
 
 Retorna o estado basico da API.
 
+### Admin knowledge 6A
+
+Base: `/api/admin/knowledge`.
+
+Todas as rotas exigem `Authorization: Bearer <token>` de usuario com papel `admin`. Usuario inativo, sessao revogada ou senha temporaria pendente seguem os erros de autenticacao existentes. Mutacoes usam rate limit administrativo e podem retornar `ADMIN_KNOWLEDGE_RATE_LIMITED`.
+
+Paginacao:
+
+- `page` default `1`;
+- `pageSize` default `10`;
+- maximo `50`;
+- respostas paginadas retornam `meta.page`, `meta.pageSize`, `meta.total` e `meta.totalPages`.
+
+Concorrencia:
+
+- todos os `PATCH` exigem `version` inteiro positivo;
+- conflito retorna `409 KNOWLEDGE_CONFLICT`;
+- sucesso incrementa `version` em uma unidade.
+
+Livros:
+
+- `GET /books`: filtros `status`, `search`, `sortBy`, `sortOrder`, `page`, `pageSize`;
+- `POST /books`: body `slug`, `title`, `description?`, `status?`, `sortOrder?`; retorna `201`;
+- `GET /books/:bookId`: retorna livro e agregado editorial;
+- `PATCH /books/:bookId`: body com campos editaveis e `version`.
+
+Documentos:
+
+- `GET /documents`: filtros `bookId`, `bookSlug`, `type`, `editorialStatus`, `bookStatus`, `teacherReviewRecommended`, `hasSensitiveTopics`, `search`, `sortBy`, `sortOrder`, `page`, `pageSize`;
+- `POST /documents`: body `bookId`, `filePath`, `catalogKey?`, `title`, `description?`, `summary?`, `type`, `tags?`, `sensitiveTopics?`, `teacherReviewRecommended?`, `editorialNotes?`, `sortOrder?`;
+- `GET /documents/:documentId`: retorna metadados seguros e `fileExists`;
+- `PATCH /documents/:documentId`: permite `bookId`, `title`, `description`, `summary`, `type`, `tags`, `sensitiveTopics`, `teacherReviewRecommended`, `editorialNotes`, `sortOrder`, `version`;
+- `PATCH /documents/:documentId/editorial-status`: body `editorialStatus`, `version`, `editorialNotes?`.
+
+Campos protegidos:
+
+- a API nao cria, edita, move, renomeia, exclui nem retorna conteudo Markdown integral;
+- `filePath` e sempre relativo a raiz do repositorio e deve iniciar com `data/knowledge/`, terminar com `.md` e resolver dentro da raiz real de `data/knowledge`;
+- caminhos absolutos, traversal e symlink externo sao rejeitados;
+- `catalogKey` e `filePath` nao sao alterados por `PATCH` na 6A.
+
+Estados editoriais:
+
+- `draft` permite `needs_review`, `reviewed`, `archived`;
+- `needs_review` permite `reviewed`, `archived`;
+- `reviewed` permite `approved`, `needs_review`, `archived`;
+- `approved` permite `needs_review`, `archived`;
+- `archived` permite `draft`;
+- entrar em `reviewed` grava revisor e data;
+- entrar em `approved` exige revisao previa e grava aprovador e data;
+- voltar para `draft` limpa dados de revisao/aprovacao incoerentes.
+
+Códigos de erro especificos:
+
+- `INVALID_ADMIN_KNOWLEDGE_QUERY`;
+- `INVALID_ADMIN_KNOWLEDGE_INPUT`;
+- `KNOWLEDGE_BOOK_NOT_FOUND`;
+- `KNOWLEDGE_DOCUMENT_NOT_FOUND`;
+- `KNOWLEDGE_FILE_NOT_FOUND`;
+- `KNOWLEDGE_FILE_PATH_INVALID`;
+- `KNOWLEDGE_FILE_TYPE_NOT_ALLOWED`;
+- `KNOWLEDGE_DOCUMENT_ALREADY_EXISTS`;
+- `KNOWLEDGE_CATALOG_KEY_ALREADY_EXISTS`;
+- `KNOWLEDGE_BOOK_SLUG_ALREADY_EXISTS`;
+- `KNOWLEDGE_BOOK_ARCHIVED`;
+- `KNOWLEDGE_EDITORIAL_TRANSITION_NOT_ALLOWED`;
+- `KNOWLEDGE_CONFLICT`;
+- `ADMIN_KNOWLEDGE_RATE_LIMITED`.
+
 ### `GET /api/studies`
 
 Lista os grupos mockados com dados da proxima aula.

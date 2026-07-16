@@ -12,7 +12,8 @@
     "prisma:generate": "node scripts/run-prisma.mjs generate",
     "prisma:migrate": "node scripts/run-prisma.mjs migrate deploy",
     "prisma:seed": "node --import tsx prisma/seed.ts",
-    "prisma:studio": "node scripts/run-prisma.mjs studio"
+    "prisma:studio": "node scripts/run-prisma.mjs studio",
+    "knowledge:catalog": "node --import tsx scripts/catalog-knowledge.ts"
   },
   "dependencies": {
     "@langchain/core": "^1.2.2",
