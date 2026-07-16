@@ -38,7 +38,7 @@ export interface KnowledgeDocument {
   sourceLabel: string;
   filename: string;
   path: string;
-  absolutePath: string;
+  absolutePath?: string;
   type: string;
   tags: string[];
   description: string;
@@ -50,6 +50,20 @@ export interface KnowledgeDocument {
   frontmatter: MarkdownFrontmatter;
   charCount: number;
   wordCount: number;
+  editorial?: KnowledgeDocumentEditorialMetadata;
+}
+
+export interface KnowledgeDocumentEditorialMetadata {
+  manifestFingerprint: string;
+  manifestSourceId: string;
+  documentId: string;
+  bookId: string;
+  catalogKey: string | null;
+  documentTitle: string;
+  bookTitle: string;
+  bookSlug: string;
+  documentVersion: number;
+  origin: "catalog";
 }
 
 export interface DocumentLoadOptions {
@@ -94,6 +108,7 @@ export interface KnowledgeChunk {
   endOffset: number;
   keywordHints: string[];
   vectorRef: string | null;
+  editorial?: KnowledgeDocumentEditorialMetadata;
 }
 
 export interface RetrieveOptions {
@@ -124,6 +139,7 @@ export interface RetrievedChunk {
   startOffset: number;
   endOffset: number;
   vectorRef: string | null;
+  editorial?: KnowledgeDocumentEditorialMetadata;
 }
 
 export interface KeywordRetrieverIndex {

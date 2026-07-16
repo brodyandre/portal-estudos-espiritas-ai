@@ -264,6 +264,7 @@ export const searchChunks = (
       startOffset: chunk.startOffset,
       endOffset: chunk.endOffset,
       vectorRef: chunk.vectorRef,
+      ...(chunk.editorial ? { editorial: { ...chunk.editorial } } : {}),
     }))
     .filter((chunk) => chunk.score >= minScore)
     .sort((left, right) => {

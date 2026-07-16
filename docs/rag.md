@@ -16,6 +16,15 @@ Isso permite combinar conteudo curto com metadados prontos para busca e exibicao
 
 Nas Entregas 6A e 6B, o catalogo editorial persistente em PostgreSQL nao participa da recuperacao. O RAG permanece `filesystem-first`, lendo Markdown e `index.json`; estados editoriais como `draft`, `reviewed`, `approved` ou `archived` nao filtram consultas nesta etapa.
 
+Na Entrega 7A foi adicionada uma fronteira interna para manifesto editorial seguro. Esse manifesto nasce do catalogo persistente, considera o catalogo a autoridade editorial e trata o filesystem apenas como armazenamento fisico. A politica minima para entrada no manifesto e:
+
+- livro ativo;
+- documento editorial aprovado;
+- `filePath` relativo dentro de `data/knowledge`;
+- arquivo Markdown existente, regular, legivel e sem escape por caminho absoluto, traversal ou symlink externo.
+
+Falhas de catalogo ou de validacao nao abrem fallback para varrer todos os arquivos do filesystem. Quando nao houver fonte elegivel comprovada, o manifesto permanece vazio. O manifesto tambem possui fingerprint deterministico para permitir reconstrucao futura do corpus em memoria quando suas fontes mudarem. A ativacao obrigatoria desse manifesto em `/api/knowledge/search`, `/api/agent/answer`, cache do retriever e respostas publicas fica para a Entrega 7B.
+
 ## Arquivos principais
 
 ```text
@@ -25,6 +34,10 @@ apps/api/src/rag/
   retriever.ts
   types.ts
   validateDocuments.ts
+
+apps/api/src/knowledge/
+  filesystem.ts
+  manifest.ts
 ```
 
 ## O que e carregado de cada documento
@@ -160,7 +173,12 @@ O GitHub Pages nao executa esse modulo. No ambiente publicado:
 
 ## Evolucao futura
 
+- ativar o manifesto editorial seguro nos endpoints publicos e no agente
+- reconstruir o corpus em memoria quando o fingerprint do manifesto mudar
+- expor proveniencia publica sem caminhos absolutos
 - adicionar cache em memoria para documentos e chunks
 - ampliar testes de recuperacao por livro e grupo
 - trocar a busca simples por embeddings e vector database quando fizer sentido
 - manter a mesma camada de metadados para facilitar a migracao
+
+Nao ha embeddings, reranking nem vector store persistente na Entrega 7A.
