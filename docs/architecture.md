@@ -26,12 +26,12 @@ apps/api
   -> autenticacao local, sessoes e controle de papeis
   -> persistencia local em PostgreSQL para fluxos administrativos
   -> endpoints de assistencia para aluno e professor
-  -> recuperacao de contexto em Markdown local
+  -> recuperacao de contexto por corpus governado em Markdown local
   -> integracao opcional com Ollama
 
 data/knowledge
   -> documentos Markdown demonstrativos e autorizados
-  -> fonte filesystem-first do RAG
+  -> armazenamento fisico governado do RAG
 ```
 
 ## Modos de execucao
@@ -131,7 +131,7 @@ apps/api/src/
 - `modules/`: organiza endpoints por dominio, incluindo autenticacao e administracao
 - `data/`: guarda dados demonstrativos usados por fluxos ainda nao persistidos
 - `agent/`: prompts, seguranca, fallback, cliente do modelo e fluxo de resposta
-- `rag/`: leitura dos Markdown, quebra em chunks e busca por palavras-chave
+- `rag/`: leitura governada dos Markdown, quebra em chunks e busca por palavras-chave
 - `lib/`: respostas padronizadas, `AppError` e helpers assincronos
 
 ## Endpoints principais
@@ -166,9 +166,12 @@ apps/api/src/
 
 - arquivos Markdown em `data/knowledge`
 - conteudo curto, demonstrativo e autorizado
-- usado para recuperar contexto textual antes de responder
 - catalogo editorial persistente referencia esses arquivos por `filePath`
-- o RAG nao consulta o catalogo editorial nas Entregas 6A/6B
+- o catalogo editorial e a autoridade de inclusao dos fluxos publicos
+- o manifesto seguro inclui apenas livros ativos e documentos aprovados
+- o corpus governado calcula identidade composta com `manifestFingerprint` editorial e `corpusFingerprint` fisico
+- o cache do corpus e do retriever e local ao processo e valido apenas enquanto a identidade composta nao muda
+- arquivos aprovados ausentes, vazios, invalidos ou inconsistentes fazem os fluxos publicos falharem fechado, sem fallback para o loader legado
 
 ### Estado local do navegador
 
@@ -183,7 +186,7 @@ Aluno abre /aluno
   -> se API falhar, usa mocks locais
   -> ao enviar pergunta:
        frontend chama /api/agent/answer
-       API tenta recuperar contexto em Markdown
+       API tenta recuperar contexto no corpus governado
        API tenta usar Ollama
        se falhar, responde com fallback
 ```
@@ -203,6 +206,7 @@ Professor abre /professor
 
 - se a API estiver indisponivel, o frontend continua util com mocks
 - se Ollama estiver indisponivel, a API responde com conteudo de contingencia
+- se o corpus governado estiver invalido ou indisponivel, os endpoints publicos de conhecimento e resposta falham fechado
 - se o contexto estiver fraco, a resposta orienta consultar o professor
 - o sistema evita travar a interface por dependencia de um servico unico
 
@@ -221,6 +225,7 @@ Professor abre /professor
 - sem sincronizacao real entre publicacao do professor e painel do aluno
 - sem upload de arquivos
 - sem pipeline de deploy automatico descrito nesta etapa
+- sem cache distribuido ou coordenacao de identidade do corpus entre multiplas instancias
 
 Esses limites sao intencionais para manter a demo simples e legivel enquanto os contratos persistentes evoluem por entregas.
 
@@ -228,5 +233,5 @@ Esses limites sao intencionais para manter a demo simples e legivel enquanto os 
 
 - separar tipos compartilhados em pacote comum
 - ampliar cobertura de testes
-- adicionar cache de documentos e resultados
+- evoluir observabilidade operacional do corpus governado
 - evoluir a busca de palavras-chave para busca vetorial quando houver necessidade real

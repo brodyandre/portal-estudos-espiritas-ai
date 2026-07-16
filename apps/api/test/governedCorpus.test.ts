@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdtemp, mkdir, rm, unlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -14,7 +15,9 @@ import {
   type KnowledgeEditorialManifest,
   type KnowledgeManifestCatalogCandidate,
 } from "../src/knowledge/manifest";
-import { loadKnowledgeDocumentsFromManifest } from "../src/rag/documentLoader";
+import {
+  loadKnowledgeDocumentsWithContentHashesFromManifest,
+} from "../src/rag/documentLoader";
 
 const tempRoots: string[] = [];
 
@@ -37,10 +40,14 @@ const createRepositoryRoot = async () => {
   return root;
 };
 
-const writeKnowledgeFile = async (root: string, relativePath: string, content = markdownContent()) => {
+const writeKnowledgeFile = async (
+  root: string,
+  relativePath: string,
+  content: string | Buffer = markdownContent(),
+) => {
   const absolutePath = path.join(root, relativePath);
   await mkdir(path.dirname(absolutePath), { recursive: true });
-  await writeFile(absolutePath, content, "utf8");
+  await writeFile(absolutePath, content);
 };
 
 const buildCandidate = (
@@ -82,8 +89,11 @@ const buildManifestResult = (
     filesystem: { repositoryRoot: root },
   });
 
-const loadDocumentsFromRoot = (root: string) => (manifest: KnowledgeEditorialManifest) =>
-  loadKnowledgeDocumentsFromManifest(manifest, { repositoryRoot: root });
+const loadDocumentEntriesFromRoot = (root: string) => (manifest: KnowledgeEditorialManifest) =>
+  loadKnowledgeDocumentsWithContentHashesFromManifest(manifest, { repositoryRoot: root });
+
+const buildValidContentHash = (value = "fixture") =>
+  createHash("sha256").update(Buffer.from(value)).digest("hex");
 
 const createServiceForCandidates = (
   root: string,
@@ -91,8 +101,24 @@ const createServiceForCandidates = (
 ) =>
   createGovernedCorpusService({
     loadManifest: () => buildManifestResult(root, candidates),
-    loadDocuments: loadDocumentsFromRoot(root),
+    loadDocumentEntries: loadDocumentEntriesFromRoot(root),
   });
+
+const markdownBytesWithInvalidBody = (invalidBytes: Buffer) =>
+  Buffer.concat([
+    Buffer.from(`---
+title: "Aprovado"
+group: "Emmanuel"
+purpose: "apoio para respostas simples"
+source: "resumo autoral demonstrativo produzido para o portal"
+---
+
+# Aprovado
+
+Conteudo fisico `, "utf8"),
+    invalidBytes,
+    Buffer.from(" preservado para validar hash por bytes.\n", "utf8"),
+  ]);
 
 afterEach(async () => {
   vi.restoreAllMocks();
@@ -176,23 +202,65 @@ describe("governed corpus service", () => {
     expect(first.documents.map((document) => document.id)).toEqual(["doc-a", "doc-b"]);
     expect(second.documents.map((document) => document.id)).toEqual(["doc-a", "doc-b"]);
     expect(first.manifestFingerprint).toBe(second.manifestFingerprint);
+    expect(first.corpusFingerprint).toBe(second.corpusFingerprint);
   });
 
-  it("reutiliza o snapshot em cache quando o fingerprint nao muda", async () => {
+  it("reutiliza o snapshot pronto quando a identidade composta nao muda", async () => {
     const root = await createRepositoryRoot();
     await writeKnowledgeFile(root, "data/knowledge/emmanuel/aprovado.md");
-    const loadDocuments = vi.fn(loadDocumentsFromRoot(root));
+    const loadDocumentEntries = vi.fn(loadDocumentEntriesFromRoot(root));
     const service = createGovernedCorpusService({
       loadManifest: () => buildManifestResult(root, [buildCandidate()]),
-      loadDocuments,
+      loadDocumentEntries,
     });
 
     const first = await service.getSnapshot();
-    await writeKnowledgeFile(root, "data/knowledge/emmanuel/aprovado.md", markdownContent("Alterado"));
     const second = await service.getSnapshot();
 
     expect(second).toBe(first);
-    expect(loadDocuments).toHaveBeenCalledTimes(1);
+    expect(second.cacheKey).toEqual(first.cacheKey);
+    expect(loadDocumentEntries).toHaveBeenCalledTimes(2);
+  });
+
+  it("detecta alteracao fisica sem mudanca editorial e publica snapshot novo", async () => {
+    const root = await createRepositoryRoot();
+    await writeKnowledgeFile(root, "data/knowledge/emmanuel/aprovado.md", markdownContent("Aprovado", "prece antiga"));
+    const loadDocumentEntries = vi.fn(loadDocumentEntriesFromRoot(root));
+    const service = createGovernedCorpusService({
+      loadManifest: () => buildManifestResult(root, [buildCandidate()]),
+      loadDocumentEntries,
+    });
+
+    const first = await service.getSnapshot();
+    await writeKnowledgeFile(root, "data/knowledge/emmanuel/aprovado.md", markdownContent("Aprovado", "prece nova"));
+    const second = await service.getSnapshot();
+
+    expect(second).not.toBe(first);
+    expect(second.manifestFingerprint).toBe(first.manifestFingerprint);
+    expect(second.corpusFingerprint).not.toBe(first.corpusFingerprint);
+    expect(second.documents[0].content).toContain("prece nova");
+    expect(second.documents[0].content).not.toContain("prece antiga");
+    expect(loadDocumentEntries).toHaveBeenCalledTimes(2);
+  });
+
+  it("detecta bytes fisicos diferentes mesmo quando decodificam para o mesmo texto", async () => {
+    const root = await createRepositoryRoot();
+    const relativePath = "data/knowledge/emmanuel/aprovado.md";
+    const firstBytes = markdownBytesWithInvalidBody(Buffer.from([0x80]));
+    const secondBytes = markdownBytesWithInvalidBody(Buffer.from([0x81]));
+    expect(firstBytes.toString("utf8")).toBe(secondBytes.toString("utf8"));
+    expect(Buffer.compare(firstBytes, secondBytes)).not.toBe(0);
+    await writeKnowledgeFile(root, relativePath, firstBytes);
+    const service = createServiceForCandidates(root, [buildCandidate()]);
+
+    const first = await service.getSnapshot();
+    await writeKnowledgeFile(root, relativePath, secondBytes);
+    const second = await service.getSnapshot();
+
+    expect(second).not.toBe(first);
+    expect(second.manifestFingerprint).toBe(first.manifestFingerprint);
+    expect(second.documents[0].rawContent).toBe(first.documents[0].rawContent);
+    expect(second.corpusFingerprint).not.toBe(first.corpusFingerprint);
   });
 
   it("reconstroi quando o fingerprint muda e so substitui o cache apos sucesso", async () => {
@@ -201,14 +269,14 @@ describe("governed corpus service", () => {
     const firstResult = await buildManifestResult(root, [buildCandidate()]);
     const secondResult = await buildManifestResult(root, [buildCandidate({ documentVersion: 2 })]);
     const manifests = [firstResult, secondResult, secondResult];
-    const loadDocuments = vi
+    const loadDocumentEntries = vi
       .fn()
-      .mockImplementationOnce(loadDocumentsFromRoot(root))
+      .mockImplementationOnce(loadDocumentEntriesFromRoot(root))
       .mockRejectedValueOnce(new Error(`/tmp/${root}/absoluto.md`))
-      .mockImplementationOnce(loadDocumentsFromRoot(root));
+      .mockImplementationOnce(loadDocumentEntriesFromRoot(root));
     const service = createGovernedCorpusService({
       loadManifest: async () => manifests.shift() ?? secondResult,
-      loadDocuments,
+      loadDocumentEntries,
     });
 
     const first = await service.getSnapshot();
@@ -221,26 +289,26 @@ describe("governed corpus service", () => {
     expect(recovered.manifestFingerprint).toBe(
       secondResult.status !== "unavailable" ? secondResult.manifest.fingerprint : "",
     );
-    expect(loadDocuments).toHaveBeenCalledTimes(3);
+    expect(loadDocumentEntries).toHaveBeenCalledTimes(3);
   });
 
   it("nao guarda promise rejeitada permanentemente apos falha de construcao", async () => {
     const root = await createRepositoryRoot();
     await writeKnowledgeFile(root, "data/knowledge/emmanuel/aprovado.md");
-    const loadDocuments = vi
+    const loadDocumentEntries = vi
       .fn()
       .mockRejectedValueOnce(new Error("falha transitoria"))
-      .mockImplementationOnce(loadDocumentsFromRoot(root));
+      .mockImplementationOnce(loadDocumentEntriesFromRoot(root));
     const service = createGovernedCorpusService({
       loadManifest: () => buildManifestResult(root, [buildCandidate()]),
-      loadDocuments,
+      loadDocumentEntries,
     });
 
     await expect(service.getSnapshot()).rejects.toMatchObject({
       code: "GOVERNED_CORPUS_DOCUMENT_LOAD_FAILED",
     });
     await expect(service.getSnapshot()).resolves.toMatchObject({ documentCount: 1 });
-    expect(loadDocuments).toHaveBeenCalledTimes(2);
+    expect(loadDocumentEntries).toHaveBeenCalledTimes(2);
   });
 
   it("falha fechado quando documento autorizado desaparece depois do manifesto", async () => {
@@ -251,7 +319,7 @@ describe("governed corpus service", () => {
     await unlink(path.join(root, relativePath));
     const service = createGovernedCorpusService({
       loadManifest: async () => ({ status: "ready", manifest, issues: [] }),
-      loadDocuments: loadDocumentsFromRoot(root),
+      loadDocumentEntries: loadDocumentEntriesFromRoot(root),
     });
 
     await expect(service.getSnapshot()).rejects.toMatchObject({
@@ -259,12 +327,206 @@ describe("governed corpus service", () => {
     });
   });
 
+  it("nao retorna snapshot anterior quando uma fonte aprovada fica invalida e recupera depois da correcao", async () => {
+    const root = await createRepositoryRoot();
+    const relativePath = "data/knowledge/emmanuel/aprovado.md";
+    await writeKnowledgeFile(root, relativePath, markdownContent("Aprovado", "conteudo inicial valido"));
+    const service = createServiceForCandidates(root, [buildCandidate()]);
+
+    const first = await service.getSnapshot();
+    await unlink(path.join(root, relativePath));
+
+    await expect(service.getSnapshot()).rejects.toMatchObject({
+      code: "GOVERNED_CORPUS_MANIFEST_INVALID",
+    });
+
+    await writeKnowledgeFile(root, relativePath, markdownContent("Aprovado", "conteudo restaurado valido"));
+    const recovered = await service.getSnapshot();
+
+    expect(recovered).not.toBe(first);
+    expect(recovered.manifestFingerprint).toBe(first.manifestFingerprint);
+    expect(recovered.corpusFingerprint).not.toBe(first.corpusFingerprint);
+    expect(recovered.documents[0].content).toContain("conteudo restaurado valido");
+  });
+
+  it("falha fechado quando documento autorizado tem corpo util vazio", async () => {
+    const root = await createRepositoryRoot();
+    await writeKnowledgeFile(
+      root,
+      "data/knowledge/emmanuel/aprovado.md",
+      `---
+title: "Aprovado"
+group: "Emmanuel"
+purpose: "apoio para respostas simples"
+source: "resumo autoral demonstrativo produzido para o portal"
+---
+
+`,
+    );
+    const service = createServiceForCandidates(root, [buildCandidate()]);
+
+    await expect(service.getSnapshot()).rejects.toMatchObject({
+      code: "GOVERNED_CORPUS_DOCUMENT_INVALID",
+      message: "Documento governado sem corpo util.",
+    });
+  });
+
+  it("falha fechado quando documento autorizado tem frontmatter invalido", async () => {
+    const root = await createRepositoryRoot();
+    await writeKnowledgeFile(
+      root,
+      "data/knowledge/emmanuel/aprovado.md",
+      "# Aprovado\n\nConteudo sem frontmatter obrigatorio.",
+    );
+    const service = createServiceForCandidates(root, [buildCandidate()]);
+
+    await expect(service.getSnapshot()).rejects.toMatchObject({
+      code: "GOVERNED_CORPUS_DOCUMENT_LOAD_FAILED",
+      message: "Falha ao carregar documento autorizado pelo manifesto editorial.",
+    });
+  });
+
+  it("produz corpus vazio valido com fingerprint deterministico", async () => {
+    const root = await createRepositoryRoot();
+    await writeKnowledgeFile(root, "data/knowledge/emmanuel/orfao.md");
+    const service = createGovernedCorpusService({
+      loadManifest: () => buildManifestResult(root, []),
+      loadDocumentEntries: loadDocumentEntriesFromRoot(root),
+    });
+
+    const first = await service.getSnapshot();
+    const second = await service.getSnapshot();
+
+    expect(first.documentCount).toBe(0);
+    expect(first.audit.manifestStatus).toBe("empty");
+    expect(first.corpusFingerprint).toMatch(/^[a-f0-9]{64}$/u);
+    expect(second).toBe(first);
+    expect(second.corpusFingerprint).toBe(first.corpusFingerprint);
+  });
+
+  it("falha fechado quando uma entrada carregada nao traz contentHash", async () => {
+    const root = await createRepositoryRoot();
+    await writeKnowledgeFile(root, "data/knowledge/emmanuel/aprovado.md");
+    const manifestResult = await buildManifestResult(root, [buildCandidate()]);
+    const loadDocumentEntries = vi.fn(async (manifest: KnowledgeEditorialManifest) => {
+      const [entry] = await loadDocumentEntriesFromRoot(root)(manifest);
+
+      return [{ ...entry, contentHash: undefined as unknown as string }];
+    });
+    const service = createGovernedCorpusService({
+      loadManifest: async () => manifestResult,
+      loadDocumentEntries,
+    });
+
+    await expect(service.getSnapshot()).rejects.toMatchObject({
+      code: "GOVERNED_CORPUS_CONTENT_HASH_INVALID",
+      message: "Documento governado sem contentHash fisico valido.",
+    });
+    await expect(service.getSnapshot()).rejects.toMatchObject({
+      code: "GOVERNED_CORPUS_CONTENT_HASH_INVALID",
+    });
+    expect(loadDocumentEntries).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    ["hash vazio", ""],
+    ["hash curto", "abc"],
+    ["hash nao hexadecimal", "z".repeat(64)],
+    ["hash uppercase", buildValidContentHash("uppercase").toUpperCase()],
+  ])("falha fechado quando contentHash tem formato invalido: %s", async (_caseName, contentHash) => {
+    const root = await createRepositoryRoot();
+    await writeKnowledgeFile(root, "data/knowledge/emmanuel/aprovado.md");
+    const manifestResult = await buildManifestResult(root, [buildCandidate()]);
+    const loadDocumentEntries = vi.fn(async (manifest: KnowledgeEditorialManifest) => {
+      const [entry] = await loadDocumentEntriesFromRoot(root)(manifest);
+
+      return [{ ...entry, contentHash }];
+    });
+    const service = createGovernedCorpusService({
+      loadManifest: async () => manifestResult,
+      loadDocumentEntries,
+    });
+
+    await expect(service.getSnapshot()).rejects.toMatchObject({
+      code: "GOVERNED_CORPUS_CONTENT_HASH_INVALID",
+    });
+    expect(loadDocumentEntries).toHaveBeenCalledTimes(1);
+  });
+
+  it("recupera depois de falha por contentHash invalido sem publicar snapshot parcial", async () => {
+    const root = await createRepositoryRoot();
+    await writeKnowledgeFile(root, "data/knowledge/emmanuel/aprovado.md");
+    const manifestResult = await buildManifestResult(root, [buildCandidate()]);
+    const loadDocumentEntries = vi.fn(async (manifest: KnowledgeEditorialManifest) => {
+      const [entry] = await loadDocumentEntriesFromRoot(root)(manifest);
+
+      return [{
+        ...entry,
+        contentHash: loadDocumentEntries.mock.calls.length === 1
+          ? "abc"
+          : buildValidContentHash("fixture-recuperado"),
+      }];
+    });
+    const service = createGovernedCorpusService({
+      loadManifest: async () => manifestResult,
+      loadDocumentEntries,
+    });
+
+    await expect(service.getSnapshot()).rejects.toMatchObject({
+      code: "GOVERNED_CORPUS_CONTENT_HASH_INVALID",
+    });
+    const recovered = await service.getSnapshot();
+
+    expect(recovered.documentCount).toBe(1);
+    expect(recovered.corpusFingerprint).toMatch(/^[a-f0-9]{64}$/u);
+    expect(loadDocumentEntries).toHaveBeenCalledTimes(2);
+  });
+
+  it("compartilha falha concorrente por contentHash invalido e libera nova tentativa", async () => {
+    const root = await createRepositoryRoot();
+    await writeKnowledgeFile(root, "data/knowledge/emmanuel/aprovado.md");
+    const manifestResult = await buildManifestResult(root, [buildCandidate()]);
+    let releaseBuild: () => void = () => undefined;
+    const buildGate = new Promise<void>((resolve) => {
+      releaseBuild = resolve;
+    });
+    const loadDocumentEntries = vi.fn(async (manifest: KnowledgeEditorialManifest) => {
+      const [entry] = await loadDocumentEntriesFromRoot(root)(manifest);
+
+      if (loadDocumentEntries.mock.calls.length === 1) {
+        await buildGate;
+
+        return [{ ...entry, contentHash: "abc" }];
+      }
+
+      return [{ ...entry, contentHash: buildValidContentHash("fixture-concorrente") }];
+    });
+    const service = createGovernedCorpusService({
+      loadManifest: async () => manifestResult,
+      loadDocumentEntries,
+    });
+
+    const first = service.getSnapshot();
+    const second = service.getSnapshot();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(loadDocumentEntries).toHaveBeenCalledTimes(1);
+
+    releaseBuild();
+    await expect(first).rejects.toMatchObject({ code: "GOVERNED_CORPUS_CONTENT_HASH_INVALID" });
+    await expect(second).rejects.toMatchObject({ code: "GOVERNED_CORPUS_CONTENT_HASH_INVALID" });
+
+    const recovered = await service.getSnapshot();
+    expect(recovered.documentCount).toBe(1);
+    expect(loadDocumentEntries).toHaveBeenCalledTimes(2);
+  });
+
   it("falha fechado sem expor erro bruto quando a leitura autorizada falha", async () => {
     const root = await createRepositoryRoot();
     await writeKnowledgeFile(root, "data/knowledge/emmanuel/aprovado.md");
     const service = createGovernedCorpusService({
       loadManifest: () => buildManifestResult(root, [buildCandidate()]),
-      loadDocuments: async () => {
+      loadDocumentEntries: async () => {
         throw new Error(`/tmp/${root}/data/knowledge/emmanuel/aprovado.md`);
       },
     });
@@ -307,13 +569,13 @@ describe("governed corpus service", () => {
     const buildGate = new Promise<void>((resolve) => {
       releaseBuild = resolve;
     });
-    const loadDocuments = vi.fn(async (manifest: KnowledgeEditorialManifest) => {
+    const loadDocumentEntries = vi.fn(async (manifest: KnowledgeEditorialManifest) => {
       await buildGate;
-      return loadKnowledgeDocumentsFromManifest(manifest, { repositoryRoot: root });
+      return loadKnowledgeDocumentsWithContentHashesFromManifest(manifest, { repositoryRoot: root });
     });
     const service = createGovernedCorpusService({
       loadManifest: async () => manifestResult,
-      loadDocuments,
+      loadDocumentEntries,
     });
 
     const first = service.getSnapshot();
@@ -321,12 +583,12 @@ describe("governed corpus service", () => {
 
     await Promise.resolve();
     await Promise.resolve();
-    expect(loadDocuments).toHaveBeenCalledTimes(1);
+    expect(loadDocumentEntries).toHaveBeenCalledTimes(1);
 
     releaseBuild();
     const secondSnapshot = await second;
     await expect(first).resolves.toBe(secondSnapshot);
-    expect(loadDocuments).toHaveBeenCalledTimes(1);
+    expect(loadDocumentEntries).toHaveBeenCalledTimes(1);
   });
 
   it("isola reconstrucoes simultaneas de fingerprints diferentes sem duplicar ou regredir o cache", async () => {
@@ -348,18 +610,18 @@ describe("governed corpus service", () => {
       releaseSecond = resolve;
     });
     const manifests = [firstResult, secondResult, firstResult, secondResult];
-    const loadDocuments = vi.fn(async (manifest: KnowledgeEditorialManifest) => {
+    const loadDocumentEntries = vi.fn(async (manifest: KnowledgeEditorialManifest) => {
       if (manifest.fingerprint === firstResult.manifest.fingerprint) {
         await firstGate;
       } else {
         await secondGate;
       }
 
-      return loadKnowledgeDocumentsFromManifest(manifest, { repositoryRoot: root });
+      return loadKnowledgeDocumentsWithContentHashesFromManifest(manifest, { repositoryRoot: root });
     });
     const service = createGovernedCorpusService({
       loadManifest: async () => manifests.shift() ?? secondResult,
-      loadDocuments,
+      loadDocumentEntries,
     });
 
     const first = service.getSnapshot();
@@ -369,7 +631,7 @@ describe("governed corpus service", () => {
 
     await Promise.resolve();
     await Promise.resolve();
-    expect(loadDocuments).toHaveBeenCalledTimes(2);
+    expect(loadDocumentEntries).toHaveBeenCalledTimes(2);
 
     releaseSecond();
     const secondSnapshot = await second;
@@ -381,7 +643,7 @@ describe("governed corpus service", () => {
 
     const cachedSecond = await service.getSnapshot();
     expect(cachedSecond).toBe(secondSnapshot);
-    expect(loadDocuments).toHaveBeenCalledTimes(2);
+    expect(loadDocumentEntries).toHaveBeenCalledTimes(3);
   });
 
   it("isola e congela o snapshot em cache contra mutacao silenciosa", async () => {
@@ -409,7 +671,7 @@ describe("governed corpus service", () => {
         reason: "catalog_unavailable",
         issues: [{ code: "KNOWLEDGE_MANIFEST_CATALOG_UNAVAILABLE" }],
       }),
-      loadDocuments: async () => [],
+      loadDocumentEntries: async () => [],
     });
 
     await expect(service.getSnapshot()).rejects.toBeInstanceOf(GovernedCorpusError);

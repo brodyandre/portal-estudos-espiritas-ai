@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 
@@ -16,6 +17,17 @@ import type {
 const KNOWLEDGE_DIR_SEGMENTS = ["data", "knowledge"] as const;
 const REQUIRED_FRONTMATTER_FIELDS = ["title", "group", "purpose", "source"] as const;
 const KNOWLEDGE_INDEX_FILE = "index.json";
+
+export interface KnowledgeDocumentWithContentHash {
+  readonly document: KnowledgeDocument;
+  readonly contentHash: string;
+}
+
+const hashContentBytes = (content: Buffer): string =>
+  createHash("sha256").update(content).digest("hex");
+
+const decodeKnowledgeContent = (content: Buffer): string =>
+  content.toString("utf8");
 
 const normalizeText = (value: string): string => {
   return value.replace(/\r\n/gu, "\n").replace(/[ \t]+/gu, " ").replace(/\n{3,}/gu, "\n\n").trim();
@@ -350,6 +362,21 @@ const buildIndexEntryFromManifestSource = (source: KnowledgeManifestSource): Kno
   teacherReviewRecommended: source.teacherReviewRecommended,
 });
 
+const buildDocumentWithContentHash = (
+  absolutePath: string,
+  rawBytes: Buffer,
+  knowledgeDir: string,
+  options: Parameters<typeof buildDocument>[3] = {},
+): KnowledgeDocumentWithContentHash => ({
+  document: buildDocument(
+    absolutePath,
+    decodeKnowledgeContent(rawBytes),
+    knowledgeDir,
+    options,
+  ),
+  contentHash: hashContentBytes(rawBytes),
+});
+
 export const loadKnowledgeDocuments = async (
   options: DocumentLoadOptions = {},
 ): Promise<KnowledgeDocument[]> => {
@@ -362,7 +389,7 @@ export const loadKnowledgeDocuments = async (
 
   const documents = await Promise.all(
     markdownFiles.map(async (filePath) => {
-      const rawContent = await fs.readFile(filePath, "utf8");
+      const rawContent = decodeKnowledgeContent(await fs.readFile(filePath));
       const relativePath = buildRelativeKnowledgePath(knowledgeDir, filePath);
 
       return buildDocument(
@@ -377,21 +404,21 @@ export const loadKnowledgeDocuments = async (
   return documents.sort((left, right) => left.path.localeCompare(right.path));
 };
 
-export const loadKnowledgeDocumentsFromManifest = async (
+export const loadKnowledgeDocumentsWithContentHashesFromManifest = async (
   manifest: KnowledgeEditorialManifest,
   options: { repositoryRoot?: string } = {},
-): Promise<KnowledgeDocument[]> => {
+): Promise<KnowledgeDocumentWithContentHash[]> => {
   const repositoryRoot = path.resolve(options.repositoryRoot ?? getKnowledgeRepositoryRoot());
   const knowledgeDir = path.join(repositoryRoot, ...KNOWLEDGE_DIR_SEGMENTS);
 
-  const documents = await Promise.all(
+  return Promise.all(
     manifest.sources.map(async (source) => {
       const resolvedFile = await resolveKnowledgeFilePath(source.filePath, { repositoryRoot });
-      const rawContent = await fs.readFile(resolvedFile.absolutePath, "utf8");
+      const rawBytes = await fs.readFile(resolvedFile.absolutePath);
 
-      return buildDocument(
+      return buildDocumentWithContentHash(
         resolvedFile.absolutePath,
-        rawContent,
+        rawBytes,
         knowledgeDir,
         {
           indexEntry: buildIndexEntryFromManifestSource(source),
@@ -405,8 +432,15 @@ export const loadKnowledgeDocumentsFromManifest = async (
       );
     }),
   );
+};
 
-  return documents;
+export const loadKnowledgeDocumentsFromManifest = async (
+  manifest: KnowledgeEditorialManifest,
+  options: { repositoryRoot?: string } = {},
+): Promise<KnowledgeDocument[]> => {
+  const entries = await loadKnowledgeDocumentsWithContentHashesFromManifest(manifest, options);
+
+  return entries.map((entry) => entry.document);
 };
 
 const validateProtectedContentHints = (

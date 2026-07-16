@@ -42,11 +42,13 @@ Pastas principais:
 
 ## Como o assistente usa os materiais
 
-1. A API local carrega os arquivos Markdown e o `index.json`.
-2. O RAG simples divide os textos em chunks curtos e reaproveita os metadados.
-3. O retriever busca por palavras-chave e filtra por grupo ou livro quando necessario.
-4. O agente monta uma resposta curta e revisavel.
-5. Se o contexto for insuficiente, a resposta orienta conversar com o professor.
+1. A API local consulta o catalogo editorial persistente como autoridade de publicacao.
+2. O manifesto governado inclui apenas livros ativos, documentos aprovados e caminhos Markdown seguros.
+3. O filesystem fornece o armazenamento fisico dos Markdown autorizados.
+4. O corpus calcula identidade fisica por SHA-256 do conteudo lido e monta chunks curtos.
+5. O retriever busca por palavras-chave e filtra por grupo ou livro quando necessario.
+6. O agente monta uma resposta curta e revisavel.
+7. Se o contexto for insuficiente, a resposta orienta conversar com o professor.
 
 No frontend publicado no GitHub Pages, a experiencia continua funcional com fallback local resumido em `apps/web/src/mocks/knowledge.ts`. Esse fallback nao expoe o Markdown completo.
 
@@ -57,14 +59,15 @@ A persistencia editorial no PostgreSQL organiza o catalogo sem mudar a fonte do 
 Responsabilidades:
 
 - `data/knowledge` continua sendo a fonte dos arquivos Markdown;
-- o carregamento RAG legado continua lendo Markdown e `index.json` diretamente do filesystem;
+- o carregamento RAG legado continua existindo para validacao e usos internos, mas nao governa as rotas publicas;
 - o PostgreSQL armazena catalogo, metadados administrativos e estados editoriais;
 - `filePath` relativo identifica o documento persistente;
 - a API administrativa nao cria, edita, move, renomeia, exclui nem retorna conteudo Markdown integral.
 - a interface `/admin/conteudos` consome a API persistente para administrar livros, documentos, metadados e estados editoriais.
-- o manifesto editorial seguro 7A pode montar uma lista interna de fontes a partir do catalogo persistido, apenas com livros ativos, documentos aprovados e caminhos Markdown validados em `data/knowledge`;
+- o manifesto editorial seguro monta uma lista interna de fontes a partir do catalogo persistido, apenas com livros ativos, documentos aprovados e caminhos Markdown validados em `data/knowledge`;
 - o carregador governado por manifesto nao varre o filesystem, nao usa `index.json` como fallback e falha fechado quando o catalogo ou um arquivo elegivel nao passa nas validacoes;
-- a entrega 7A nao altera endpoints publicos, agente, cache de retriever, UI, embeddings ou vector store; essa integracao fica para 7B.
+- alteracoes no corpo Markdown nao mudam o `manifestFingerprint`, mas mudam o `corpusFingerprint` fisico usado para invalidar o snapshot e o retriever;
+- se um arquivo aprovado for alterado, removido, ficar vazio ou violar o frontmatter obrigatorio, a tentativa atual falha fechada ou reconstrui com nova identidade fisica, sem servir snapshot obsoleto.
 
 Catalogacao manual:
 
@@ -180,4 +183,4 @@ Perguntas como estas tendem a usar bem a base:
 
 ## Observacao pratica
 
-O backend usa os Markdown e o `index.json` como fonte principal. O frontend publicado no GitHub Pages usa uma camada resumida de fallback para continuar util sem depender da API local.
+Nos fluxos publicos da API, o backend usa o catalogo editorial como autoridade e os Markdown apenas como armazenamento fisico governado. O `index.json` continua sendo entrada de catalogacao e suporte legado, nao fallback publico. O frontend publicado no GitHub Pages usa uma camada resumida de fallback para continuar util sem depender da API local.

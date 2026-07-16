@@ -113,8 +113,14 @@ const governedDocuments = [
 
 const createContext = async (
   documents: readonly GovernedCorpusDocument[] = governedDocuments,
+  corpusFingerprint = "test-corpus-fingerprint",
 ): Promise<GovernedRetrieverContext> => ({
+  cacheKey: {
+    manifestFingerprint: "test-fingerprint",
+    corpusFingerprint,
+  },
   manifestFingerprint: "test-fingerprint",
+  corpusFingerprint,
   documents,
   retriever: await createKeywordRetriever({ documents }),
 });

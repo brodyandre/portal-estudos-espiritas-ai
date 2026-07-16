@@ -1,6 +1,8 @@
 import {
+  formatGovernedCorpusCacheKey,
   governedCorpusService,
   type GovernedCorpusDocument,
+  type GovernedCorpusCacheKey,
   type GovernedCorpusService,
   type GovernedCorpusSnapshot,
 } from "../knowledge/governedCorpus";
@@ -12,13 +14,16 @@ import {
 } from "./governedRetrievalErrors";
 
 export interface GovernedRetrieverContext {
+  readonly cacheKey: GovernedCorpusCacheKey;
   readonly manifestFingerprint: string;
+  readonly corpusFingerprint: string;
   readonly documents: readonly GovernedCorpusDocument[];
   readonly retriever: KeywordRetriever;
 }
 
 export interface GovernedRetrieverService {
   getContext(): Promise<GovernedRetrieverContext>;
+  resetForTesting(): void;
 }
 
 export interface GovernedRetrieverServiceOptions {
@@ -61,8 +66,8 @@ export const createGovernedRetrieverService = (
   const corpusService = options.corpusService ?? governedCorpusService;
   const createRetriever = options.createRetriever ?? defaultCreateRetriever;
   let currentContext: GovernedRetrieverContext | undefined;
-  let latestRequestedFingerprint: string | undefined;
-  const inFlightByFingerprint = new Map<string, Promise<GovernedRetrieverContext>>();
+  let latestRequestedCacheKey: string | undefined;
+  const inFlightByCacheKey = new Map<string, Promise<GovernedRetrieverContext>>();
 
   const buildContext = async (
     snapshot: GovernedCorpusSnapshot,
@@ -71,7 +76,9 @@ export const createGovernedRetrieverService = (
       const retriever = await createRetriever(toRetrievalDocuments(snapshot.documents));
 
       return {
+        cacheKey: snapshot.cacheKey,
         manifestFingerprint: snapshot.manifestFingerprint,
+        corpusFingerprint: snapshot.corpusFingerprint,
         documents: snapshot.documents,
         retriever,
       };
@@ -90,34 +97,40 @@ export const createGovernedRetrieverService = (
   return {
     async getContext() {
       const snapshot = await corpusService.getSnapshot();
-      latestRequestedFingerprint = snapshot.manifestFingerprint;
+      const snapshotCacheKey = formatGovernedCorpusCacheKey(snapshot.cacheKey);
+      latestRequestedCacheKey = snapshotCacheKey;
 
-      if (currentContext?.manifestFingerprint === snapshot.manifestFingerprint) {
+      if (currentContext && formatGovernedCorpusCacheKey(currentContext.cacheKey) === snapshotCacheKey) {
         return currentContext;
       }
 
-      const currentBuild = inFlightByFingerprint.get(snapshot.manifestFingerprint);
+      const currentBuild = inFlightByCacheKey.get(snapshotCacheKey);
       if (currentBuild) {
         return currentBuild;
       }
 
       const promise = buildContext(snapshot)
         .then((context) => {
-          if (latestRequestedFingerprint === snapshot.manifestFingerprint) {
+          if (latestRequestedCacheKey === snapshotCacheKey) {
             currentContext = context;
           }
 
           return context;
         })
         .finally(() => {
-          if (inFlightByFingerprint.get(snapshot.manifestFingerprint) === promise) {
-            inFlightByFingerprint.delete(snapshot.manifestFingerprint);
+          if (inFlightByCacheKey.get(snapshotCacheKey) === promise) {
+            inFlightByCacheKey.delete(snapshotCacheKey);
           }
         });
 
-      inFlightByFingerprint.set(snapshot.manifestFingerprint, promise);
+      inFlightByCacheKey.set(snapshotCacheKey, promise);
 
       return promise;
+    },
+    resetForTesting() {
+      currentContext = undefined;
+      latestRequestedCacheKey = undefined;
+      inFlightByCacheKey.clear();
     },
   };
 };
@@ -125,3 +138,7 @@ export const createGovernedRetrieverService = (
 export const governedRetrieverService = createGovernedRetrieverService();
 
 export const getGovernedRetrieverContext = () => governedRetrieverService.getContext();
+
+export const resetGovernedRetrieverServiceForTesting = () => {
+  governedRetrieverService.resetForTesting();
+};
