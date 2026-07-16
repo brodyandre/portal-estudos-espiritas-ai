@@ -6,13 +6,15 @@ Documentar como o endpoint `POST /api/agent/answer` usa a base dos livros `Emman
 
 ## Contexto usado pelo assistente
 
-O assistente local trabalha principalmente com:
+O assistente local recupera contexto a partir do corpus governado:
 
-- `data/knowledge/emmanuel`
-- `data/knowledge/a_caminho_da_luz`
-- `data/knowledge/index.json`
+- o catalogo editorial define livros ativos e documentos aprovados;
+- o manifesto seguro resolve somente arquivos Markdown autorizados em `data/knowledge`;
+- o `governedRetrieverService` monta o retriever a partir do snapshot do manifesto.
 
 Quando a pergunta informa um grupo, o fluxo prioriza esse contexto. Quando nao informa ou a duvida e ambigua, a busca pode considerar os dois livros.
+
+O `index.json` e o loader legado nao sao autoridade para o endpoint publico `POST /api/agent/answer`. Se o corpus governado estiver indisponivel, o endpoint falha fechado em vez de responder com contexto nao autorizado.
 
 ## Etapas do fluxo
 
@@ -23,7 +25,7 @@ Quando a pergunta informa um grupo, o fluxo prioriza esse contexto. Quando nao i
    Tenta identificar se a pergunta se aproxima mais de `Emmanuel` ou `A Caminho da Luz`.
 
 3. `retrieveContext`
-   Consulta a base local e recupera os chunks mais aderentes por palavras-chave e similaridade simples.
+   Consulta o retriever governado e recupera os chunks autorizados mais aderentes por palavras-chave e similaridade simples.
 
 4. `checkContext`
    Decide se o contexto encontrado e suficiente para responder com mais seguranca.
@@ -102,6 +104,12 @@ Nesses casos, a resposta deve ser ainda mais curta, cuidadosa e revisavel.
 - a resposta evita parecer definitiva
 - o usuario recebe orientacao para levar a duvida ao professor
 
+### Se o corpus governado falhar
+
+- a API retorna `503 KNOWLEDGE_CORPUS_UNAVAILABLE`
+- o erro nao e mascarado como fallback do modelo
+- caminhos absolutos, fingerprints e detalhes internos do manifesto nao sao expostos
+
 ### Se a API nao estiver disponivel
 
 - o frontend usa fallback local
@@ -122,7 +130,7 @@ curl -X POST http://localhost:3333/api/agent/answer \
   -H "Content-Type: application/json" \
   -d '{
     "question": "Como viver o Evangelho na pratica?",
-    "group": "Emmanuel"
+    "groupId": "emmanuel"
   }'
 ```
 
@@ -149,4 +157,5 @@ O GitHub Pages publica apenas o frontend. Isso significa:
 - `apps/api/src/agent/safety.ts`
 - `apps/api/src/agent/fallbacks.ts`
 - `apps/api/src/modules/agent/agent.service.ts`
+- `apps/api/src/rag/governedRetriever.ts`
 - `apps/api/src/rag/retriever.ts`

@@ -1,4 +1,4 @@
-import type { KnowledgeChunk, KnowledgeDocument, TextSplitterOptions } from "./types";
+import type { KnowledgeChunk, KnowledgeDocumentForRetrieval, TextSplitterOptions } from "./types";
 
 const DEFAULT_MAX_CHUNK_LENGTH = 360;
 const DEFAULT_CHUNK_OVERLAP = 48;
@@ -20,7 +20,7 @@ const tokenizeForHints = (value: string): string[] => {
   return [...uniqueTerms].slice(0, 24);
 };
 
-const buildChunkId = (document: KnowledgeDocument, chunkIndex: number): string => {
+const buildChunkId = (document: KnowledgeDocumentForRetrieval, chunkIndex: number): string => {
   return `${document.id}-chunk-${chunkIndex + 1}`;
 };
 
@@ -130,7 +130,7 @@ const buildChunksFromParagraphs = (
 };
 
 export const splitDocumentIntoChunks = (
-  document: KnowledgeDocument,
+  document: KnowledgeDocumentForRetrieval,
   options: TextSplitterOptions = {},
 ): KnowledgeChunk[] => {
   const settings = {
@@ -164,9 +164,9 @@ export const splitDocumentIntoChunks = (
       filename: document.filename,
       path: document.path,
       type: document.type,
-      tags: document.tags,
+      tags: [...document.tags],
       description: document.description,
-      sensitiveTopics: document.sensitiveTopics,
+      sensitiveTopics: [...document.sensitiveTopics],
       teacherReviewRecommended: document.teacherReviewRecommended,
       content: compactContent,
       chunkIndex,
@@ -182,7 +182,7 @@ export const splitDocumentIntoChunks = (
 };
 
 export const splitDocumentsIntoChunks = (
-  documents: KnowledgeDocument[],
+  documents: readonly KnowledgeDocumentForRetrieval[],
   options: TextSplitterOptions = {},
 ): KnowledgeChunk[] => {
   return documents.flatMap((document) => splitDocumentIntoChunks(document, options));

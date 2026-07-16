@@ -6,6 +6,10 @@ import {
   buildSummarizeFallback,
 } from "../../agent/fallbacks";
 import { answerQuestionWithGraph } from "../../agent/answer-graph";
+import {
+  isGovernedRetrievalOperationalError,
+  toKnowledgeCorpusUnavailableError,
+} from "../../rag/governedRetrievalErrors";
 import { generateWithOllama } from "../../agent/llm";
 import {
   buildLessonPlanPrompt,
@@ -201,5 +205,13 @@ export const createAnswerResponse = async (
   input: AnswerRequest,
 ): Promise<AgentAnswerResult> => {
   const group = resolveGroup(input.groupId);
-  return answerQuestionWithGraph(input, group);
+  try {
+    return await answerQuestionWithGraph(input, group);
+  } catch (error) {
+    if (isGovernedRetrievalOperationalError(error)) {
+      throw toKnowledgeCorpusUnavailableError();
+    }
+
+    throw error;
+  }
 };

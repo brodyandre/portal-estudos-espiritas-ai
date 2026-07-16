@@ -23,19 +23,23 @@ Na Entrega 7A foi adicionada uma fronteira interna para manifesto editorial segu
 - `filePath` relativo dentro de `data/knowledge`;
 - arquivo Markdown existente, regular, legivel e sem escape por caminho absoluto, traversal ou symlink externo.
 
-Falhas de catalogo ou de validacao nao abrem fallback para varrer todos os arquivos do filesystem. Quando nao houver fonte elegivel comprovada, o manifesto permanece vazio. O manifesto tambem possui fingerprint deterministico para permitir reconstrucao futura do corpus em memoria quando suas fontes mudarem. A ativacao obrigatoria desse manifesto em `/api/knowledge/search`, `/api/agent/answer`, cache do retriever e respostas publicas fica para a Entrega 7B.
+Falhas de catalogo ou de validacao nao abrem fallback para varrer todos os arquivos do filesystem. Quando nao houver fonte elegivel comprovada, o manifesto permanece vazio. O manifesto tambem possui fingerprint deterministico para permitir reconstrucao futura do corpus em memoria quando suas fontes mudarem.
 
 Na Entrega 7B.1 foi adicionada a fronteira interna `governedCorpusService`. Ela transforma o manifesto editorial seguro em um snapshot imutavel de documentos autorizados, sem varrer diretorios livremente e sem usar `index.json` ou o loader legado como autoridade editorial. O manifesto continua governando inclusao, elegibilidade, fingerprint e resolucao segura de caminhos.
 
 O corpus governado falha fechado: inconsistencias bloqueantes do manifesto, duplicidades, caminhos invalidos, arquivos autorizados ausentes e falhas de leitura impedem a publicacao de snapshot parcial. O cache em memoria guarda somente o snapshot atual, e sua validade depende exclusivamente do fingerprint do manifesto. Quando o fingerprint muda, a reconstrucao precisa terminar com sucesso antes de substituir o snapshot anterior; chamadas simultaneas para o mesmo fingerprint compartilham a mesma reconstrucao em andamento.
 
-A Entrega 7B.1 nao altera `/api/knowledge/search`, `/api/agent/answer`, o `answer-graph`, a proveniencia publica, embeddings ou vector store. Esses fluxos continuam usando o RAG legado ate a Entrega 7B.2.
+Na Entrega 7B.2, os fluxos publicos passam a depender obrigatoriamente do corpus governado. `GET /api/knowledge`, `GET /api/knowledge/groups`, `GET /api/knowledge/:group`, `GET /api/knowledge/:group/files`, `GET /api/knowledge/search` e `POST /api/agent/answer` usam `governedRetrieverService`, que primeiro obtem o snapshot aprovado pelo manifesto e so entao constroi o retriever por fingerprint. Esses endpoints nao chamam o loader legado, nao usam `index.json` como autoridade editorial e nao varrem `data/knowledge` para descobrir conteudo publico.
+
+Quando o corpus governado ou o retriever governado nao puderem ser montados, os fluxos publicos falham fechado com `503 KNOWLEDGE_CORPUS_UNAVAILABLE` e mensagem generica. Detalhes internos como caminhos absolutos, fingerprints, issues do manifesto e metadados editoriais nao sao serializados nas respostas publicas. A indisponibilidade do Ollama continua tendo fallback no agente, mas indisponibilidade do corpus governado nao e convertida em resposta fallback.
 
 ## Arquivos principais
 
 ```text
 apps/api/src/rag/
   documentLoader.ts
+  governedRetriever.ts
+  governedRetrievalErrors.ts
   textSplitter.ts
   retriever.ts
   types.ts
@@ -69,27 +73,36 @@ Do indice:
 
 ## Como o fluxo funciona
 
-### 1. Loader
+### 1. Manifesto e corpus governado
+
+- consulta o catalogo editorial como autoridade de inclusao
+- aceita apenas livros ativos e documentos aprovados
+- resolve `filePath` relativo dentro de `data/knowledge`
+- monta um snapshot imutavel sem `absolutePath`
+
+### 2. Loader legado
 
 - localiza os arquivos Markdown nas pastas dos dois livros
 - le frontmatter e conteudo
 - cruza o arquivo com o `index.json`
 - monta documentos com metadados consistentes
+- permanece disponivel para validacao e usos internos legados, mas nao governa os endpoints publicos da 7B.2
 
-### 2. Splitter
+### 3. Splitter
 
 - divide o texto em chunks curtos
 - preserva contexto suficiente para resposta simples
 - evita trechos longos demais
 - mantem referencia ao arquivo original
 
-### 3. Retriever
+### 4. Retriever governado
 
 - normaliza a consulta
 - expande algumas palavras-chave comuns
 - calcula score por ocorrencia e sobreposicao textual
 - aceita filtro opcional por `group` e `book`
 - ordena os resultados mais uteis
+- reutiliza o indice enquanto o fingerprint do manifesto nao muda
 
 ## Busca e score
 
@@ -130,7 +143,7 @@ Cada resultado mantem campos legiveis para aluno e professor:
 
 O conteudo retornado deve permanecer curto. Se o contexto ficar fraco ou ambiguuo, o agente orienta levar a duvida ao professor.
 
-As citacoes continuam referenciando os metadados e caminhos relativos vindos do loader de Markdown. A 6A nao altera o comportamento de citacoes nem consulta tabelas editoriais durante a resposta.
+As citacoes publicas referenciam apenas metadados e caminhos relativos dos documentos autorizados pelo manifesto. Caminhos absolutos, fingerprint do manifesto e metadados editoriais internos nao fazem parte da resposta publica.
 
 ## Validacao dos documentos
 
@@ -180,12 +193,9 @@ O GitHub Pages nao executa esse modulo. No ambiente publicado:
 
 ## Evolucao futura
 
-- ativar o manifesto editorial seguro nos endpoints publicos e no agente
-- expor proveniencia publica sem caminhos absolutos
-- conectar o snapshot governado ao retriever publico sem alterar a politica editorial
-- adicionar cache em memoria para chunks quando a integracao publica exigir
+- expor proveniencia publica mais rica sem caminhos absolutos
 - ampliar testes de recuperacao por livro e grupo
 - trocar a busca simples por embeddings e vector database quando fizer sentido
 - manter a mesma camada de metadados para facilitar a migracao
 
-Nao ha embeddings, reranking nem vector store persistente na Entrega 7B.1.
+Nao ha embeddings, reranking nem vector store persistente na Entrega 7B.2.

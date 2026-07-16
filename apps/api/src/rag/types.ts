@@ -53,6 +53,29 @@ export interface KnowledgeDocument {
   editorial?: KnowledgeDocumentEditorialMetadata;
 }
 
+export interface KnowledgeDocumentForRetrieval {
+  readonly id: string;
+  readonly title: string;
+  readonly group: string;
+  readonly book: string;
+  readonly source: string;
+  readonly sourceLabel: string;
+  readonly filename: string;
+  readonly path: string;
+  readonly type: string;
+  readonly tags: readonly string[];
+  readonly description: string;
+  readonly sensitiveTopics: readonly string[];
+  readonly teacherReviewRecommended: boolean;
+  readonly purpose: string;
+  readonly content: string;
+  readonly rawContent: string;
+  readonly frontmatter: Readonly<MarkdownFrontmatter>;
+  readonly charCount: number;
+  readonly wordCount: number;
+  readonly editorial?: Readonly<KnowledgeDocumentEditorialMetadata>;
+}
+
 export interface KnowledgeDocumentEditorialMetadata {
   manifestFingerprint: string;
   manifestSourceId: string;
@@ -145,7 +168,7 @@ export interface RetrievedChunk {
 export interface KeywordRetrieverIndex {
   backend: "keyword";
   builtAt: string;
-  documents: KnowledgeDocument[];
+  documents: readonly KnowledgeDocumentForRetrieval[];
   chunks: KnowledgeChunk[];
 }
 

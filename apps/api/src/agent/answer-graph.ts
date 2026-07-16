@@ -3,8 +3,15 @@ import { Annotation, END, START, StateGraph } from "@langchain/langgraph";
 import { env } from "../config/env";
 import type { StudyGroup } from "../data/studies";
 import { studyGroups } from "../data/studies";
-import { createKeywordRetriever } from "../rag/retriever";
 import type { RetrievedChunk } from "../rag/types";
+import {
+  getGovernedRetrieverContext,
+  type GovernedRetrieverContext,
+} from "../rag/governedRetriever";
+import {
+  GovernedRetrieverError,
+  isGovernedRetrievalOperationalError,
+} from "../rag/governedRetrievalErrors";
 import {
   AGENT_REVIEW_NOTE,
   AGENT_SOURCE_NOTE,
@@ -51,6 +58,7 @@ const AnswerGraphState = Annotation.Root({
 
 type AnswerGraphStateValue = typeof AnswerGraphState.State;
 type AnswerGraphUpdate = Partial<AnswerGraphStateValue>;
+type GetGovernedRetrieverContext = () => Promise<GovernedRetrieverContext>;
 
 const GROUP_HINTS = {
   emmanuel: [
@@ -258,13 +266,25 @@ const createInitialState = (
   };
 };
 
-let retrieverPromise:
-  | ReturnType<typeof createKeywordRetriever>
-  | undefined;
+let getRetrieverContext: GetGovernedRetrieverContext = getGovernedRetrieverContext;
 
-const getRetriever = () => {
-  retrieverPromise ??= createKeywordRetriever();
-  return retrieverPromise;
+const searchGovernedChunks = async (
+  context: GovernedRetrieverContext,
+  query: string,
+  options: Parameters<GovernedRetrieverContext["retriever"]["search"]>[1],
+) => {
+  try {
+    return await context.retriever.search(query, options);
+  } catch (error) {
+    if (isGovernedRetrievalOperationalError(error)) {
+      throw error;
+    }
+
+    throw new GovernedRetrieverError(
+      "GOVERNED_RETRIEVER_BUILD_FAILED",
+      "Falha ao buscar no retriever do corpus governado.",
+    );
+  }
 };
 
 const receiveQuestion = (state: AnswerGraphStateValue): AnswerGraphUpdate => {
@@ -340,7 +360,7 @@ const classifyStudyGroup = (state: AnswerGraphStateValue): AnswerGraphUpdate => 
 const retrieveContext = async (
   state: AnswerGraphStateValue,
 ): Promise<AnswerGraphUpdate> => {
-  const retriever = await getRetriever();
+  const retrieverContext = await getRetrieverContext();
   const primarySearchOptions = {
     limit: 4,
     minScore: 0.55,
@@ -351,7 +371,11 @@ const retrieveContext = async (
           book: state.group.bookTitle,
         }),
   };
-  let retrievedChunks = await retriever.search(state.retrievalQuery, primarySearchOptions);
+  let retrievedChunks = await searchGovernedChunks(
+    retrieverContext,
+    state.retrievalQuery,
+    primarySearchOptions,
+  );
   const primaryTopScore = retrievedChunks[0]?.score ?? 0;
   let effectiveGroup = state.group;
 
@@ -359,7 +383,8 @@ const retrieveContext = async (
     retrievedChunks.length === 0 ||
     (state.group.id !== "both" && (retrievedChunks[0]?.score ?? 0) < 1)
   ) {
-    const broadChunks = await retriever.search(
+    const broadChunks = await searchGovernedChunks(
+      retrieverContext,
       `${state.normalizedQuestion} ${state.normalizedTheme}`.trim(),
       {
         limit: 6,
@@ -710,7 +735,11 @@ export const answerQuestionWithGraph = async (
       usedFallback: finalState.usedFallback,
       fallbackReason: finalState.fallbackReason,
     };
-  } catch (_error) {
+  } catch (error) {
+    if (isGovernedRetrievalOperationalError(error)) {
+      throw error;
+    }
+
     return buildAnswerFallback(
       request,
       {
@@ -724,4 +753,12 @@ export const answerQuestionWithGraph = async (
       },
     );
   }
+};
+
+export const setAnswerGraphRetrieverContextForTesting = (provider: GetGovernedRetrieverContext) => {
+  getRetrieverContext = provider;
+};
+
+export const resetAnswerGraphRetrieverContextForTesting = () => {
+  getRetrieverContext = getGovernedRetrieverContext;
 };
