@@ -251,7 +251,7 @@ export const adminSidebarConfig: SidebarConfig = {
       type: "route",
       to: "/admin/conteudos",
       label: "Conteúdos",
-      description: "Base de apoio, materiais revisáveis e publicações em preparo.",
+      description: "Catálogo editorial persistente de livros e documentos Markdown.",
     },
     {
       type: "route",
@@ -341,7 +341,7 @@ export const pageMeta = {
   },
   "/admin/conteudos": {
     title: "Conteúdos",
-    description: "Revisão demonstrativa de materiais, resumos e publicações.",
+    description: "Administração do catálogo editorial persistente da base de conhecimento.",
   },
   "/admin/configuracoes": {
     title: "Configurações",

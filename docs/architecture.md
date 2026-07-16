@@ -159,6 +159,7 @@ apps/api/src/
 
 - alguns fluxos publicos e demonstrativos ainda vivem em arquivos TypeScript ou mocks do frontend
 - autenticacao local, usuarios, sessoes, convites, encontros e catalogo editorial usam PostgreSQL no modo local
+- a area `/admin/conteudos` usa a API persistente para administrar o catalogo editorial
 - o objetivo e manter a demo portavel sem esconder os contratos reais de administracao
 
 ### Base de conhecimento local
@@ -167,7 +168,7 @@ apps/api/src/
 - conteudo curto, demonstrativo e autorizado
 - usado para recuperar contexto textual antes de responder
 - catalogo editorial persistente referencia esses arquivos por `filePath`
-- o RAG nao consulta o catalogo editorial na Entrega 6A
+- o RAG nao consulta o catalogo editorial nas Entregas 6A/6B
 
 ### Estado local do navegador
 

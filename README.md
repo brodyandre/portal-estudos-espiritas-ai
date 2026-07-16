@@ -479,7 +479,7 @@ Regras principais:
 - visitante nao ve link do Meet
 - aluno aprovado ve link do Meet e materiais
 - professor aprova alunos e revisa conteudos
-- admin gerencia usuarios, grupos, configuracoes e auditoria
+- admin gerencia usuarios, grupos, catalogo editorial de conteudos, configuracoes e auditoria
 - no frontend publicado, essas regras ainda sao apenas demonstrativas
 - seguranca real depende de backend autenticado em evolucao futura
 

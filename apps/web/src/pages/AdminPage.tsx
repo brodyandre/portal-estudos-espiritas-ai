@@ -16,7 +16,6 @@ import { TextInput } from "../components/ui/TextInput";
 import { appConfig, DEMO_MODE_NOTICE } from "../config/appMode";
 import { getAvailableMockUsers } from "../mocks/currentUser";
 import { listAdminAuditEvents } from "../services/adminAuditService";
-import { listAdminContents, updateAdminContentReview } from "../services/adminContentsService";
 import { getAdminSettings, saveAdminSettings } from "../services/adminSettingsService";
 import { readStudentAccessStatus } from "../services/studentAccessService";
 import { listEnrollments } from "../services/enrollmentsService";
@@ -41,12 +40,6 @@ import type { AdminGroup, AdminGroupUpdateInput } from "../types/adminGroups";
 import type { AdminPublicationMode, AdminSettings } from "../types/adminSettings";
 import type { AdminAuditActorRole, AdminAuditEvent } from "../types/adminAudit";
 import type {
-  AdminContentGroupFilter,
-  AdminContentItem,
-  AdminContentReviewStatus,
-  AdminContentTypeFilter,
-} from "../types/adminContents";
-import type {
   AdminAuditLogEntry,
   AdminPasswordResetResult,
   AdminManagedRole,
@@ -57,7 +50,6 @@ type AdminSection =
   | "dashboard"
   | "usuarios"
   | "grupos"
-  | "conteudos"
   | "configuracoes"
   | "auditoria";
 
@@ -95,12 +87,6 @@ interface AdminUsersState {
 
 interface AdminGroupsState {
   groups: AdminGroup[];
-  notice: string | null;
-  backendStatus: "online" | "fallback";
-}
-
-interface AdminContentsState {
-  items: AdminContentItem[];
   notice: string | null;
   backendStatus: "online" | "fallback";
 }
@@ -153,19 +139,6 @@ const sectionContent: Record<Exclude<AdminSection, "dashboard">, AdminSectionCon
       "Evite publicar detalhes operacionais sensíveis na versão pública.",
     ],
   },
-  conteudos: {
-    id: "admin-conteudos",
-    badge: "Materiais e revisão",
-    title: "Gestão de conteúdos",
-    description:
-      "Acompanhe materiais curtos, resumos autorais e publicações revisáveis que apoiam alunos e professores sem expor obras completas.",
-    helper: "Os conteúdos desta fase devem ser curtos, revisáveis e sempre preparados com responsabilidade editorial.",
-    highlights: ["Base dos livros organizada", "Resumos curtos", "Temas sensíveis sinalizados", "Revisão humana obrigatória"],
-    notes: [
-      "Não copie capítulos completos nem trechos longos de obras protegidas.",
-      "Quando houver temas delicados, mantenha a revisão do professor em destaque.",
-    ],
-  },
   configuracoes: {
     id: "admin-configuracoes",
     badge: "Ambiente e regras",
@@ -210,11 +183,6 @@ const sectionMeta: Record<AdminSection, { description: string; helper: string; b
     badge: sectionContent.grupos.badge,
     description: sectionContent.grupos.description,
     helper: sectionContent.grupos.helper,
-  },
-  conteudos: {
-    badge: sectionContent.conteudos.badge,
-    description: sectionContent.conteudos.description,
-    helper: sectionContent.conteudos.helper,
   },
   configuracoes: {
     badge: sectionContent.configuracoes.badge,
@@ -358,33 +326,6 @@ const groupLinkOptions = [
   { label: "A Caminho da Luz", value: "a-caminho-da-luz" },
 ] as const;
 
-const adminContentGroupOptions = [
-  { label: "Todos os livros", value: "all" },
-  { label: "Emmanuel", value: "emmanuel" },
-  { label: "A Caminho da Luz", value: "a-caminho-da-luz" },
-] as const;
-
-const adminContentTypeOptions = [
-  { label: "Todos os tipos", value: "all" },
-  { label: "Tema", value: "tema" },
-  { label: "Capítulo", value: "capitulo" },
-  { label: "FAQ", value: "faq" },
-  { label: "Palavras-chave", value: "palavras_chave" },
-  { label: "Visão geral", value: "visao_geral" },
-] as const;
-
-const reviewStatusLabel: Record<AdminContentReviewStatus, string> = {
-  not_reviewed: "Ainda não revisado",
-  reviewed: "Revisado",
-  needs_review: "Precisa revisão",
-};
-
-const reviewStatusTone: Record<AdminContentReviewStatus, "draft" | "published" | "attention"> = {
-  not_reviewed: "draft",
-  reviewed: "published",
-  needs_review: "attention",
-};
-
 const publicationModeOptions = [
   { label: "Demonstrativo", value: "demonstrativo" },
   { label: "Local", value: "local" },
@@ -457,16 +398,12 @@ export const AdminPage = ({ section }: AdminPageProps) => {
   const [isLoadingUsers, setIsLoadingUsers] = useState(section === "usuarios");
   const [groupsState, setGroupsState] = useState<AdminGroupsState | null>(null);
   const [isLoadingGroups, setIsLoadingGroups] = useState(section === "grupos");
-  const [contentsState, setContentsState] = useState<AdminContentsState | null>(null);
-  const [isLoadingContents, setIsLoadingContents] = useState(section === "conteudos");
   const [settingsState, setSettingsState] = useState<AdminSettingsState | null>(null);
   const [isLoadingSettings, setIsLoadingSettings] = useState(section === "configuracoes");
   const [auditState, setAuditState] = useState<AdminAuditState | null>(null);
   const [isLoadingAudit, setIsLoadingAudit] = useState(section === "auditoria");
   const [roleFilter, setRoleFilter] = useState<(typeof userRoleOptions)[number]["value"]>("all");
   const [statusFilter, setStatusFilter] = useState<(typeof userStatusOptions)[number]["value"]>("all");
-  const [contentGroupFilter, setContentGroupFilter] = useState<AdminContentGroupFilter>("all");
-  const [contentTypeFilter, setContentTypeFilter] = useState<AdminContentTypeFilter>("all");
   const [roleDrafts, setRoleDrafts] = useState<Record<string, AdminManagedRole>>({});
   const [groupDrafts, setGroupDrafts] = useState<Record<string, string>>({});
   const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
@@ -650,37 +587,6 @@ export const AdminPage = ({ section }: AdminPageProps) => {
   }, [section]);
 
   useEffect(() => {
-    if (section !== "conteudos") {
-      return;
-    }
-
-    let isMounted = true;
-
-    const loadContents = async () => {
-      setIsLoadingContents(true);
-
-      const contentsResult = await listAdminContents();
-
-      if (!isMounted) {
-        return;
-      }
-
-      setContentsState({
-        items: contentsResult.data,
-        notice: contentsResult.notice,
-        backendStatus: contentsResult.source === "api" ? "online" : "fallback",
-      });
-      setIsLoadingContents(false);
-    };
-
-    void loadContents();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [section]);
-
-  useEffect(() => {
     if (section !== "grupos") {
       return;
     }
@@ -759,17 +665,6 @@ export const AdminPage = ({ section }: AdminPageProps) => {
       ];
     }
 
-    if (section === "conteudos" && contentsState) {
-      return [
-        { label: "Arquivos", value: String(contentsState.items.length) },
-        {
-          label: "Sensíveis",
-          value: String(contentsState.items.filter((item) => item.teacherReviewRecommended).length),
-        },
-        { label: "Backend", value: renderBackendStatusLabel(contentsState.backendStatus) },
-      ];
-    }
-
     if (section === "configuracoes" && settingsState) {
       return [
         { label: "Portal", value: settingsState.settings.portalName },
@@ -800,7 +695,7 @@ export const AdminPage = ({ section }: AdminPageProps) => {
       { label: "Grupos", value: "2" },
       { label: "Área", value: "Admin" },
     ];
-  }, [auditState, contentsState, dashboardData, groupsState, section, settingsState, usersState]);
+  }, [auditState, dashboardData, groupsState, section, settingsState, usersState]);
 
   const filteredUsers =
     usersState?.users.filter((user) => {
@@ -809,19 +704,6 @@ export const AdminPage = ({ section }: AdminPageProps) => {
       }
 
       if (statusFilter !== "all" && user.status !== statusFilter) {
-        return false;
-      }
-
-      return true;
-    }) ?? [];
-
-  const filteredContents =
-    contentsState?.items.filter((item) => {
-      if (contentGroupFilter !== "all" && item.groupSlug !== contentGroupFilter) {
-        return false;
-      }
-
-      if (contentTypeFilter !== "all" && item.type !== contentTypeFilter) {
         return false;
       }
 
@@ -1095,47 +977,6 @@ export const AdminPage = ({ section }: AdminPageProps) => {
     }
   };
 
-  const handleAdminContentReview = async (
-    item: AdminContentItem,
-    reviewStatus: AdminContentReviewStatus,
-  ) => {
-    const result = await updateAdminContentReview(item.id, reviewStatus);
-
-    if (!result.data) {
-      return;
-    }
-
-    setContentsState((currentState) => {
-      if (!currentState) {
-        return currentState;
-      }
-
-      return {
-        ...currentState,
-        items: currentState.items.map((currentItem) =>
-          currentItem.id === item.id ? result.data ?? currentItem : currentItem,
-        ),
-        notice: result.notice ?? currentState.notice,
-        backendStatus: result.source === "api" ? currentState.backendStatus : "fallback",
-      };
-    });
-
-    setActionMessage(
-      reviewStatus === "reviewed"
-        ? `Arquivo ${item.title} marcado como revisado.`
-        : `Arquivo ${item.title} marcado como precisa revisão.`,
-    );
-  };
-
-  const handleCopyContentPath = async (item: AdminContentItem) => {
-    try {
-      await copyText(item.path);
-      setActionMessage(`Caminho copiado: ${item.path}`);
-    } catch (_error) {
-      setActionMessage("Não foi possível copiar o caminho do arquivo agora.");
-    }
-  };
-
   const handleSettingsDraftChange = <TKey extends keyof AdminSettings>(
     field: TKey,
     value: AdminSettings[TKey],
@@ -1259,23 +1100,6 @@ export const AdminPage = ({ section }: AdminPageProps) => {
           onDraftChange={handleAdminGroupDraftChange}
           onSaveGroup={(group) => void handleSaveGroup(group)}
           onToggleStatus={(group) => void handleToggleGroupStatus(group)}
-        />
-      ) : section === "conteudos" ? (
-        <AdminContentsSection
-          actionMessage={actionMessage}
-          contentGroupFilter={contentGroupFilter}
-          contentTypeFilter={contentTypeFilter}
-          contentsState={contentsState}
-          filteredContents={filteredContents}
-          isLoading={isLoadingContents}
-          onCopyPath={(item) => void handleCopyContentPath(item)}
-          onMarkNeedsReview={(item) => void handleAdminContentReview(item, "needs_review")}
-          onMarkReviewed={(item) => void handleAdminContentReview(item, "reviewed")}
-          onPreviewSummary={(item) =>
-            setActionMessage(`Resumo pronto para leitura: ${item.title}.`)
-          }
-          setContentGroupFilter={setContentGroupFilter}
-          setContentTypeFilter={setContentTypeFilter}
         />
       ) : section === "configuracoes" ? (
         <AdminSettingsSection
@@ -1604,211 +1428,6 @@ const AdminSettingsSection = ({
           </Button>
         </div>
       </Card>
-    </section>
-  );
-};
-
-interface AdminContentsSectionProps {
-  contentsState: AdminContentsState | null;
-  filteredContents: AdminContentItem[];
-  isLoading: boolean;
-  contentGroupFilter: AdminContentGroupFilter;
-  contentTypeFilter: AdminContentTypeFilter;
-  setContentGroupFilter: (value: AdminContentGroupFilter) => void;
-  setContentTypeFilter: (value: AdminContentTypeFilter) => void;
-  onMarkReviewed: (item: AdminContentItem) => void;
-  onMarkNeedsReview: (item: AdminContentItem) => void;
-  onCopyPath: (item: AdminContentItem) => void;
-  onPreviewSummary: (item: AdminContentItem) => void;
-  actionMessage: string | null;
-}
-
-const AdminContentsSection = ({
-  contentsState,
-  filteredContents,
-  isLoading,
-  contentGroupFilter,
-  contentTypeFilter,
-  setContentGroupFilter,
-  setContentTypeFilter,
-  onMarkReviewed,
-  onMarkNeedsReview,
-  onCopyPath,
-  onPreviewSummary,
-  actionMessage,
-}: AdminContentsSectionProps) => {
-  if (isLoading) {
-    return (
-      <LoadingState
-        title="Carregando base de conteúdos"
-        description="Organizando títulos, tipos, caminhos e alertas de revisão humana."
-      />
-    );
-  }
-
-  if (!contentsState) {
-    return (
-      <EmptyState
-        title="Base de conteúdos indisponível"
-        description="Não foi possível carregar a organização editorial da base agora."
-      />
-    );
-  }
-
-  return (
-    <section className="page-section admin-overview" id="admin-conteudos">
-      <SectionHeader
-        badge="Materiais e revisão"
-        helper="Acompanhe a base de conhecimento em Markdown, destaque temas sensíveis e mantenha a revisão humana sempre visível."
-        title="Gestão de conteúdos"
-      />
-
-      {contentsState.notice ? (
-        <AlertBox title="Modo demonstrativo de conteúdos" tone="info">
-          {contentsState.notice}
-        </AlertBox>
-      ) : (
-        <AlertBox title="Backend online" tone="success">
-          A base de conteúdos foi carregada pelo backend local.
-        </AlertBox>
-      )}
-
-      <AlertBox title="Cuidados editoriais" tone="warning">
-        Os textos desta base são autorais, curtos e revisáveis. Não publique PDFs nem trate esta
-        tela como editor direto dos arquivos Markdown nesta fase.
-      </AlertBox>
-
-      {actionMessage ? (
-        <AlertBox title="Última ação registrada" tone="success">
-          {actionMessage}
-        </AlertBox>
-      ) : null}
-
-      <div className="teacher-form-grid admin-user-filters">
-        <Select
-          id="admin-contents-group-filter"
-          label="Livro ou grupo"
-          onChange={(event) =>
-            setContentGroupFilter(
-              event.target.value as AdminContentGroupFilter,
-            )
-          }
-          options={adminContentGroupOptions.map((option) => ({
-            label: option.label,
-            value: option.value,
-          }))}
-          value={contentGroupFilter}
-        />
-        <Select
-          id="admin-contents-type-filter"
-          label="Tipo"
-          onChange={(event) =>
-            setContentTypeFilter(event.target.value as AdminContentTypeFilter)
-          }
-          options={adminContentTypeOptions.map((option) => ({
-            label: option.label,
-            value: option.value,
-          }))}
-          value={contentTypeFilter}
-        />
-      </div>
-
-      {filteredContents.length === 0 ? (
-        <EmptyState
-          title="Nenhum arquivo encontrado"
-          description="Ajuste os filtros para visualizar outro livro ou tipo de material."
-        />
-      ) : (
-        <div className="page-stack">
-          {filteredContents.map((item) => (
-            <Card
-              className="admin-content-card"
-              key={item.id}
-              tone={item.teacherReviewRecommended ? "soft" : "default"}
-            >
-              <div className="admin-group-card__header">
-                <div>
-                  <h3>{item.title}</h3>
-                  <p>
-                    {item.groupName} · {item.typeLabel}
-                  </p>
-                </div>
-                <StatusTag
-                  label={reviewStatusLabel[item.reviewStatus]}
-                  tone={reviewStatusTone[item.reviewStatus]}
-                />
-              </div>
-
-              <p>{item.summary}</p>
-
-              <div className="admin-content-card__meta">
-                <Badge tone="sand">{item.groupName}</Badge>
-                <Badge tone="neutral">{item.typeLabel}</Badge>
-                {item.teacherReviewRecommended ? (
-                  <Badge tone="brand">Exige revisão humana</Badge>
-                ) : (
-                  <Badge tone="neutral">Revisão simples</Badge>
-                )}
-              </div>
-
-              <div className="admin-pill-row" aria-label={`Tags do arquivo ${item.title}`}>
-                {item.tags.map((tag) => (
-                  <Badge key={`${item.id}-${tag}`} tone="sand">
-                    {tag}
-                  </Badge>
-                ))}
-              </div>
-
-              {item.sensitiveTopics.length > 0 ? (
-                <div className="admin-content-card__sensitive">
-                  <strong>Temas sensíveis:</strong> {item.sensitiveTopics.join(", ")}
-                </div>
-              ) : null}
-
-              <dl className="admin-user-card__meta">
-                <div>
-                  <dt>Caminho do arquivo</dt>
-                  <dd>{item.path}</dd>
-                </div>
-                <div>
-                  <dt>Arquivo</dt>
-                  <dd>{item.filename}</dd>
-                </div>
-              </dl>
-
-              <div className="button-row admin-group-card__actions">
-                <Button
-                  aria-label={`Visualizar resumo de ${item.title}`}
-                  onClick={() => onPreviewSummary(item)}
-                  variant="secondary"
-                >
-                  Visualizar resumo
-                </Button>
-                <Button
-                  aria-label={`Marcar ${item.title} como revisado`}
-                  onClick={() => onMarkReviewed(item)}
-                >
-                  Marcar como revisado
-                </Button>
-                <Button
-                  aria-label={`Marcar ${item.title} como precisa revisão`}
-                  onClick={() => onMarkNeedsReview(item)}
-                  variant="secondary"
-                >
-                  Marcar como precisa revisão
-                </Button>
-                <Button
-                  aria-label={`Copiar caminho do arquivo ${item.title}`}
-                  onClick={() => onCopyPath(item)}
-                  variant="ghost"
-                >
-                  Copiar caminho do arquivo
-                </Button>
-              </div>
-            </Card>
-          ))}
-        </div>
-      )}
     </section>
   );
 };

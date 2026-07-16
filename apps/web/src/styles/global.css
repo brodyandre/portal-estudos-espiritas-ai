@@ -714,6 +714,94 @@ img {
 
 .admin-modal {
   width: min(100%, 640px);
+  max-height: calc(100vh - var(--space-8));
+  overflow: auto;
+}
+
+.admin-knowledge-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.admin-knowledge-tabs .button[aria-selected="true"] {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-brand) 22%, transparent);
+}
+
+.admin-knowledge-panel {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.admin-knowledge-toolbar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-4);
+  align-items: end;
+}
+
+.admin-knowledge-toolbar--documents {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.admin-knowledge-grid {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.admin-knowledge-card {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.admin-knowledge-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.admin-knowledge-card__header h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.admin-knowledge-card__header p,
+.admin-knowledge-status-help {
+  margin: var(--space-1) 0 0;
+  color: var(--color-text-600);
+}
+
+.admin-knowledge-badges,
+.admin-knowledge-card__actions,
+.admin-knowledge-modal__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.admin-knowledge-badges .badge {
+  overflow-wrap: anywhere;
+}
+
+.admin-knowledge-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  color: var(--color-text-700);
+}
+
+.admin-knowledge-modal {
+  width: min(100%, 760px);
+}
+
+.admin-knowledge-checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  color: var(--color-text-800);
 }
 
 .admin-status-card__top {
@@ -2498,6 +2586,22 @@ img {
     flex-direction: column;
   }
 
+  .admin-knowledge-tabs,
+  .admin-knowledge-card__actions,
+  .admin-knowledge-modal__actions,
+  .admin-knowledge-pagination {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admin-knowledge-card__header {
+    flex-direction: column;
+  }
+
+  .admin-modal-backdrop {
+    padding: var(--space-3);
+  }
+
   .page-context-bar {
     padding-inline: var(--space-3);
   }
@@ -2668,6 +2772,10 @@ img {
 
   .button-row:not(.teacher-approval-actions) > * {
     width: auto;
+  }
+
+  .admin-knowledge-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .teacher-action-grid {
