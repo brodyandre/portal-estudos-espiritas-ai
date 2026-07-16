@@ -14,6 +14,8 @@ O modulo de RAG trabalha com:
 
 Isso permite combinar conteudo curto com metadados prontos para busca e exibicao.
 
+Na Entrega 6A, o catalogo editorial persistente em PostgreSQL nao participa da recuperacao. O RAG permanece `filesystem-first`, lendo Markdown e `index.json`; estados editoriais como `draft`, `reviewed`, `approved` ou `archived` nao filtram consultas nesta etapa.
+
 ## Arquivos principais
 
 ```text
@@ -107,6 +109,8 @@ Cada resultado mantem campos legiveis para aluno e professor:
 ```
 
 O conteudo retornado deve permanecer curto. Se o contexto ficar fraco ou ambiguuo, o agente orienta levar a duvida ao professor.
+
+As citacoes continuam referenciando os metadados e caminhos relativos vindos do loader de Markdown. A 6A nao altera o comportamento de citacoes nem consulta tabelas editoriais durante a resposta.
 
 ## Validacao dos documentos
 

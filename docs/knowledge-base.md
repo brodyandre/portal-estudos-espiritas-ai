@@ -52,17 +52,33 @@ No frontend publicado no GitHub Pages, a experiencia continua funcional com fall
 
 ## Uso administrativo da base
 
-A rota `/admin/conteudos` organiza a base para acompanhamento editorial.
+A Entrega 6A adiciona persistencia editorial no PostgreSQL sem mudar a fonte do conteudo.
 
-Ela permite:
+Responsabilidades:
 
-- listar arquivos resumidos por livro
-- filtrar por tipo
-- ver tags e caminho do arquivo
-- destacar temas sensiveis
-- marcar localmente se um item foi revisado ou ainda precisa revisao
+- `data/knowledge` continua sendo a fonte dos arquivos Markdown;
+- o RAG continua carregando Markdown e `index.json` diretamente do filesystem;
+- o PostgreSQL armazena catalogo, metadados administrativos e estados editoriais;
+- `filePath` relativo identifica o documento persistente;
+- a API administrativa nao cria, edita, move, renomeia, exclui nem retorna conteudo Markdown integral.
 
-Nesta fase, a tela nao edita Markdown. Ela existe para leitura, organizacao e governanca simples.
+Catalogacao manual:
+
+```bash
+npm --workspace @portal-estudos-espiritas-ai/api run knowledge:catalog
+```
+
+O script le `data/knowledge/index.json`, valida entradas, normaliza caminhos, verifica existencia dos Markdown, cria livros quando necessario, usa a colecao reservada `shared` para conteudos compartilhados e faz upsert por `filePath`.
+
+Reexecucao:
+
+- nao cria duplicidades;
+- nao sobrescreve status editorial, notas, revisores, aprovadores ou versionamento;
+- nao exclui documentos quando um arquivo deixa de existir;
+- registra divergencias com `fileExists: false` nos endpoints de detalhe;
+- falhas individuais do indice sao reportadas sem expor caminho absoluto.
+
+A interface administrativa visual para esse fluxo pertence a Entrega 6B.
 
 ## Metadados do indice
 

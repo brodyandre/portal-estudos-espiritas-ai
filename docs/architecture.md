@@ -9,7 +9,7 @@ Documentar como o projeto foi organizado para entregar uma demo funcional, porta
 - mobile-first de verdade, com largura minima de 360px
 - conteudo simples, educativo e revisavel
 - desacoplamento entre frontend e backend
-- funcionamento mesmo sem banco
+- funcionamento demonstrativo do frontend mesmo sem API
 - funcionamento da interface mesmo quando a API falha
 - assistencia como apoio, nunca como substituicao do professor
 
@@ -22,14 +22,16 @@ apps/web
   -> build estatico compativel com GitHub Pages
 
 apps/api
-  -> endpoints REST para estudos, materiais, resumos, duvidas e progresso
+  -> endpoints REST para estudos, materiais, resumos, duvidas, progresso e administracao
+  -> autenticacao local, sessoes e controle de papeis
+  -> persistencia local em PostgreSQL para fluxos administrativos
   -> endpoints de assistencia para aluno e professor
-  -> uso de dados mockados em memoria
   -> recuperacao de contexto em Markdown local
   -> integracao opcional com Ollama
 
 data/knowledge
   -> documentos Markdown demonstrativos e autorizados
+  -> fonte filesystem-first do RAG
 ```
 
 ## Modos de execucao
@@ -47,8 +49,8 @@ Melhor para portfolio publico e deploy estatico.
 Melhor para demonstrar integracao ponta a ponta.
 
 - o frontend consome `http://localhost:3333` por padrao
-- a API responde com dados mockados em JSON padronizado
-- duvidas podem ser criadas em memoria durante a sessao
+- a API responde em JSON padronizado
+- fluxos administrativos autenticados usam persistencia local quando configurados
 
 ### 3. Frontend + API local + Ollama
 
@@ -114,6 +116,8 @@ apps/api/src/
     questions/
     studies/
     summaries/
+    auth/
+    admin/
   rag/
   routes/
   app.ts
@@ -124,8 +128,8 @@ apps/api/src/
 
 - `app.ts`: configura Express, CORS, JSON, logger e middleware de erro
 - `routes/`: registra `/health` e `/api`
-- `modules/`: organiza endpoints por dominio
-- `data/`: guarda dados mockados usados pela API
+- `modules/`: organiza endpoints por dominio, incluindo autenticacao e administracao
+- `data/`: guarda dados demonstrativos usados por fluxos ainda nao persistidos
 - `agent/`: prompts, seguranca, fallback, cliente do modelo e fluxo de resposta
 - `rag/`: leitura dos Markdown, quebra em chunks e busca por palavras-chave
 - `lib/`: respostas padronizadas, `AppError` e helpers assincronos
@@ -144,20 +148,26 @@ apps/api/src/
 - `POST /api/agent/reflection-questions`
 - `POST /api/agent/summarize`
 - `POST /api/agent/answer`
+- `POST /api/auth/login`
+- `GET /api/admin/users`
+- `GET /api/admin/knowledge/books`
+- `GET /api/admin/knowledge/documents`
 
 ## Fontes de dados
 
-### Dados mockados
+### Dados demonstrativos e persistencia
 
-- estudos, resumos, materiais, duvidas e progresso vivem em arquivos TypeScript
-- nao ha banco nesta etapa
-- o objetivo e reduzir complexidade para demo e portfolio
+- alguns fluxos publicos e demonstrativos ainda vivem em arquivos TypeScript ou mocks do frontend
+- autenticacao local, usuarios, sessoes, convites, encontros e catalogo editorial usam PostgreSQL no modo local
+- o objetivo e manter a demo portavel sem esconder os contratos reais de administracao
 
 ### Base de conhecimento local
 
 - arquivos Markdown em `data/knowledge`
 - conteudo curto, demonstrativo e autorizado
 - usado para recuperar contexto textual antes de responder
+- catalogo editorial persistente referencia esses arquivos por `filePath`
+- o RAG nao consulta o catalogo editorial na Entrega 6A
 
 ### Estado local do navegador
 
@@ -205,17 +215,16 @@ Professor abre /professor
 
 ## Limites desta arquitetura
 
-- sem autenticacao
-- sem banco de dados
+- autenticacao local ainda nao representa hardening completo de producao
+- PostgreSQL local cobre os fluxos administrativos implementados, mas nem todos os dados demonstrativos migraram para persistencia
 - sem sincronizacao real entre publicacao do professor e painel do aluno
 - sem upload de arquivos
 - sem pipeline de deploy automatico descrito nesta etapa
 
-Esses limites sao intencionais para manter a demo simples e legivel.
+Esses limites sao intencionais para manter a demo simples e legivel enquanto os contratos persistentes evoluem por entregas.
 
 ## Evolucao natural
 
-- adicionar persistencia real
 - separar tipos compartilhados em pacote comum
 - ampliar cobertura de testes
 - adicionar cache de documentos e resultados

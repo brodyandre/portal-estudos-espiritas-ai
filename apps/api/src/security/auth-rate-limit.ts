@@ -82,6 +82,8 @@ const adminUserGroupActorPolicy: RateLimitPolicy = adminUserStatusActorPolicy;
 const adminUserGroupTargetPolicy: RateLimitPolicy = adminUserStatusTargetPolicy;
 const adminStudyMeetingActorPolicy: RateLimitPolicy = adminUserStatusActorPolicy;
 const adminStudyMeetingTargetPolicy: RateLimitPolicy = adminUserStatusTargetPolicy;
+const adminKnowledgeActorPolicy: RateLimitPolicy = adminUserStatusActorPolicy;
+const adminKnowledgeTargetPolicy: RateLimitPolicy = adminUserStatusTargetPolicy;
 
 const loginLimiter = new MemorySlidingWindowRateLimiter();
 const passwordChangeLimiter = new MemorySlidingWindowRateLimiter();
@@ -105,6 +107,8 @@ const adminUserGroupActorLimiter = new MemorySlidingWindowRateLimiter();
 const adminUserGroupTargetLimiter = new MemorySlidingWindowRateLimiter();
 const adminStudyMeetingActorLimiter = new MemorySlidingWindowRateLimiter();
 const adminStudyMeetingTargetLimiter = new MemorySlidingWindowRateLimiter();
+const adminKnowledgeActorLimiter = new MemorySlidingWindowRateLimiter();
+const adminKnowledgeTargetLimiter = new MemorySlidingWindowRateLimiter();
 
 const toHashedIdentity = (value: string) => {
   return createHmac("sha256", env.jwtSecret).update(value).digest("hex");
@@ -127,7 +131,8 @@ const buildRateLimitError = (
     | "ADMIN_INVITATION_RESEND_RATE_LIMITED"
     | "ADMIN_USER_STATUS_RATE_LIMITED"
     | "ADMIN_USER_GROUP_RATE_LIMITED"
-    | "ADMIN_STUDY_MEETING_RATE_LIMITED",
+    | "ADMIN_STUDY_MEETING_RATE_LIMITED"
+    | "ADMIN_KNOWLEDGE_RATE_LIMITED",
   retryAfterSeconds: number,
 ) => {
   return new AppError({
@@ -238,6 +243,17 @@ export const buildAdminStudyMeetingTargetKey = (
   targetId: string,
 ) => {
   return `admin-study-meeting-target:${adminUserId}:${toHashedIdentity(targetId)}`;
+};
+
+export const buildAdminKnowledgeActorKey = (adminUserId: string) => {
+  return `admin-knowledge:${adminUserId}`;
+};
+
+export const buildAdminKnowledgeTargetKey = (
+  adminUserId: string,
+  targetId: string,
+) => {
+  return `admin-knowledge-target:${adminUserId}:${toHashedIdentity(targetId)}`;
 };
 
 export const assertLoginRateLimit = (ipAddress: string, email: string) => {
@@ -600,6 +616,49 @@ export const recordAdminStudyMeetingAttempt = (
   );
 };
 
+export const assertAdminKnowledgeRateLimit = (
+  adminUserId: string,
+  targetId: string,
+) => {
+  const actorDecision = adminKnowledgeActorLimiter.peek(
+    buildAdminKnowledgeActorKey(adminUserId),
+    adminKnowledgeActorPolicy,
+  );
+
+  if (!actorDecision.allowed) {
+    throw buildRateLimitError(
+      "ADMIN_KNOWLEDGE_RATE_LIMITED",
+      actorDecision.retryAfterSeconds,
+    );
+  }
+
+  const targetDecision = adminKnowledgeTargetLimiter.peek(
+    buildAdminKnowledgeTargetKey(adminUserId, targetId),
+    adminKnowledgeTargetPolicy,
+  );
+
+  if (!targetDecision.allowed) {
+    throw buildRateLimitError(
+      "ADMIN_KNOWLEDGE_RATE_LIMITED",
+      targetDecision.retryAfterSeconds,
+    );
+  }
+};
+
+export const recordAdminKnowledgeAttempt = (
+  adminUserId: string,
+  targetId: string,
+) => {
+  adminKnowledgeActorLimiter.record(
+    buildAdminKnowledgeActorKey(adminUserId),
+    adminKnowledgeActorPolicy,
+  );
+  adminKnowledgeTargetLimiter.record(
+    buildAdminKnowledgeTargetKey(adminUserId, targetId),
+    adminKnowledgeTargetPolicy,
+  );
+};
+
 export const resetAuthRateLimitStore = () => {
   loginLimiter.resetAll();
   passwordChangeLimiter.resetAll();
@@ -623,6 +682,8 @@ export const resetAuthRateLimitStore = () => {
   adminUserGroupTargetLimiter.resetAll();
   adminStudyMeetingActorLimiter.resetAll();
   adminStudyMeetingTargetLimiter.resetAll();
+  adminKnowledgeActorLimiter.resetAll();
+  adminKnowledgeTargetLimiter.resetAll();
 };
 
 export const setAuthRateLimitNowProviderForTesting = (nowProvider: () => number) => {
