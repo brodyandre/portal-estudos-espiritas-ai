@@ -20,7 +20,11 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GITHUB_PAGES: "true"
+      VITE_APP_MODE: demo
       VITE_API_URL: ""
+      VITE_SHOW_REAL_MEET_LINK: "false"
+      VITE_ENABLE_ADMIN_FEATURES: "false"
+      VITE_ENABLE_TEACHER_FEATURES: "false"
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -39,6 +43,11 @@ jobs:
 
       - name: Build frontend
         run: npm run build:web
+
+      - name: Prepare static preview fallbacks
+        run: |
+          cp apps/web/dist/index.html apps/web/dist/404.html
+          printf "User-agent: *\nDisallow: /\n" > apps/web/dist/robots.txt
 
       - name: Upload frontend artifact
         uses: actions/upload-pages-artifact@v5

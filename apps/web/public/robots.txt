@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /login
+Disallow: /minha-conta
+Disallow: /redefinir-senha
+Disallow: /ativar-conta
+Disallow: /primeiro-acesso
+Disallow: /aluno
+Disallow: /professor
+
+Sitemap: https://portal-educacao-continuada.com.br/sitemap.xml

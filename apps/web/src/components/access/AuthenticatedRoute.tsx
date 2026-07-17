@@ -1,6 +1,7 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 
 import { useAuth } from "../../auth/useAuth";
+import { createReturnLocation } from "../../routing/publicUrls";
 import { LoadingState } from "../ui/LoadingState";
 
 export const AuthenticatedRoute = () => {
@@ -12,11 +13,11 @@ export const AuthenticatedRoute = () => {
   }
 
   if (!isDemoMode && !isAuthenticated) {
-    return <Navigate replace state={{ from: location }} to="/login" />;
+    return <Navigate replace state={{ from: createReturnLocation(location) }} to="/login" />;
   }
 
   if (!isDemoMode && requiresPasswordChange) {
-    return <Navigate replace state={{ from: location }} to="/primeiro-acesso" />;
+    return <Navigate replace state={{ from: createReturnLocation(location) }} to="/primeiro-acesso" />;
   }
 
   return <Outlet />;

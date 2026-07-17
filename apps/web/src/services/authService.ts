@@ -3,8 +3,6 @@ import type { AppUser } from "../auth/types";
 import { clearStoredAuthSession, readStoredAuthToken, writeStoredAuthSession } from "../auth/storage";
 import { formatRetryAfterLabel } from "./api";
 
-const DEFAULT_LOCAL_API_URL = "http://localhost:3333";
-
 interface ApiSuccessBody<T> {
   success: true;
   message: string;
@@ -71,7 +69,7 @@ export interface AuthSessionView {
 }
 
 const getAuthApiBaseUrl = () => {
-  return (appConfig.apiUrl ?? (appConfig.appMode === "local" ? DEFAULT_LOCAL_API_URL : "")).trim();
+  return (appConfig.apiUrl ?? "").trim();
 };
 
 const buildAuthUrl = (path: string) => {

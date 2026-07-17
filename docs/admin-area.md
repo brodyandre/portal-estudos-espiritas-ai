@@ -171,7 +171,7 @@ Gestao administrativa read-only da listagem de convites de conta, com acoes pont
 Acesso:
 
 - rota React em `/admin/convites`;
-- no GitHub Pages, o `HashRouter` publica a mesma tela como `/#/admin/convites`;
+- no GitHub Pages, o `BrowserRouter` usa o subpath do preview como `basename` e mantém a rota interna `/admin/convites`;
 - rota protegida pelo fluxo local de autenticacao;
 - exige usuario com papel `admin`;
 - professores, alunos e usuarios anonimos nao devem acessar a tela nem os endpoints administrativos.
@@ -267,7 +267,7 @@ Gestao administrativa dos encontros dos grupos de estudo.
 Acesso:
 
 - rota React em `/admin/grupos`;
-- no GitHub Pages, o `HashRouter` publica a mesma tela como `/#/admin/grupos`;
+- no GitHub Pages, o `BrowserRouter` usa o subpath do preview como `basename` e mantém a rota interna `/admin/grupos`;
 - rota protegida pelo fluxo local de autenticacao;
 - exige usuario com papel `admin`;
 - professores, alunos e usuarios anonimos nao devem acessar a tela nem os endpoints administrativos.
@@ -500,7 +500,7 @@ Foco em governanca e operacao do sistema:
 No GitHub Pages:
 
 - a area administrativa pode existir como interface demonstrativa
-- `/admin/convites` funciona pela rota hash `/#/admin/convites`
+- `/admin/convites` funciona no preview por meio do subpath e do `basename` do BrowserRouter
 - nao deve usar dados reais
 - nao deve mostrar informacoes sensiveis
 - nao deve ser tratada como area segura

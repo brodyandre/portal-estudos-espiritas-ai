@@ -6,11 +6,11 @@ Explicar como usar o painel do aluno de forma simples, tanto no desktop quanto n
 
 ## Onde acessar
 
-- `/#/portal`: pagina aberta, compartilhavel e sem login
-- `/#/educacao-continuada`: pagina publica para quem chega pelo QR Code
-- `/#/inscricao`: formulario simples de interesse
-- `/#/aluno`: painel completo do aluno
-- `/#/materiais`: acesso rapido aos materiais dos livros
+- `/portal`: pagina aberta, compartilhavel e sem login
+- `/educacao-continuada`: pagina publica para quem chega pelo QR Code
+- `/inscricao`: formulario simples de interesse
+- `/aluno`: painel completo do aluno
+- `/materiais`: acesso rapido aos materiais dos livros
 
 ## Livros e grupos disponiveis
 
@@ -35,7 +35,7 @@ No painel do aluno, a experiencia foi organizada para facilitar o estudo semanal
 
 Antes do acesso ao painel completo:
 
-1. escaneie o QR Code ou abra `/#/educacao-continuada`
+1. escaneie o QR Code ou abra `/educacao-continuada`
 2. leia a proposta dos grupos
 3. preencha a inscricao com dados minimos
 4. aguarde a revisao dos professores

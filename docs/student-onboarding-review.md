@@ -13,12 +13,12 @@ Confirmar o fluxo MVP de entrada de novos alunos com:
 
 ## Rotas implementadas
 
-- `/#/portal`
-- `/#/educacao-continuada`
-- `/#/inscricao`
-- `/#/professor`
-- `/#/aluno`
-- `/#/divulgacao`
+- `/portal`
+- `/educacao-continuada`
+- `/inscricao`
+- `/professor`
+- `/aluno`
+- `/divulgacao`
 
 ## Endpoints implementados
 
@@ -56,12 +56,12 @@ Confirmar o fluxo MVP de entrada de novos alunos com:
 
 ### Cobertura validada no frontend
 
-- `/#/educacao-continuada` renderiza corretamente em modo demonstrativo
-- `/#/inscricao` envia cadastro e mostra confirmacao amigavel
-- `/#/professor` lista novos interessados
+- `/educacao-continuada` renderiza corretamente em modo demonstrativo
+- `/inscricao` envia cadastro e mostra confirmacao amigavel
+- `/professor` lista novos interessados
 - professor consegue aprovar interessado no fluxo demonstrativo
-- `/#/aluno` bloqueia visitante nao aprovado
-- `/#/aluno` mostra area completa para status `approved`
+- `/aluno` bloqueia visitante nao aprovado
+- `/aluno` mostra area completa para status `approved`
 - link do Google Meet aparece apenas quando o acesso demonstrativo esta aprovado
 - fallback continua funcional sem backend
 
@@ -78,7 +78,7 @@ Confirmar o fluxo MVP de entrada de novos alunos com:
 
 - reforco de testes do backend para garantir que os endpoints de inscricao nao exponham `meetUrl`
 - ajuste dos testes de frontend para validar a aprovacao no card correto de "Novos interessados"
-- confirmacao do desbloqueio demonstrativo da rota `/#/aluno` apos aprovacao local
+- confirmacao do desbloqueio demonstrativo da rota `/aluno` apos aprovacao local
 
 ## Limitacoes do MVP
 

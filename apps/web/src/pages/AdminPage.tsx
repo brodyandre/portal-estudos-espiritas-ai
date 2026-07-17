@@ -15,6 +15,7 @@ import { TextArea } from "../components/ui/TextArea";
 import { TextInput } from "../components/ui/TextInput";
 import { appConfig, DEMO_MODE_NOTICE } from "../config/appMode";
 import { getAvailableMockUsers } from "../mocks/currentUser";
+import { buildPublicRouteUrl } from "../routing/publicUrls";
 import { listAdminAuditEvents } from "../services/adminAuditService";
 import { getAdminSettings, saveAdminSettings } from "../services/adminSettingsService";
 import { readStudentAccessStatus } from "../services/studentAccessService";
@@ -146,7 +147,7 @@ const sectionContent: Record<Exclude<AdminSection, "dashboard">, AdminSectionCon
     description:
       "Confira os limites do modo demonstrativo, o uso do backend local e as regras de exibição segura do portal.",
     helper: "Aqui ficam os pontos mais administrativos, como ambiente, visibilidade do Meet e dependência do backend local.",
-    highlights: ["Modo demo ativo no Pages", "Backend local em localhost", "Sem dados reais no frontend público", "Meet oculto em ambiente público"],
+    highlights: ["Modo demo ativo no Pages", "Backend local restrito ao desenvolvimento", "Sem dados reais no frontend público", "Meet oculto em ambiente público"],
     notes: [
       "O GitHub Pages publica somente a interface estática.",
       "Recursos privados e administrativos completos dependem do backend local.",
@@ -967,7 +968,11 @@ export const AdminPage = ({ section }: AdminPageProps) => {
       return;
     }
 
-    const invitationMessage = `${input.welcomeMessage}\n\nGrupo: ${input.name}\nLivro base: ${input.bookTitle}\nProfessor responsável: ${input.teacherName}\nEncontro: ${input.meetingDay}, ${input.meetingTime}\nPortal do aluno: /#/aluno?grupo=${group.id}&access=approved`;
+    const studentPortalUrl = buildPublicRouteUrl(
+      `/aluno?grupo=${encodeURIComponent(group.id)}&access=approved`,
+      typeof window === "undefined" ? undefined : { origin: window.location.origin },
+    );
+    const invitationMessage = `${input.welcomeMessage}\n\nGrupo: ${input.name}\nLivro base: ${input.bookTitle}\nProfessor responsável: ${input.teacherName}\nEncontro: ${input.meetingDay}, ${input.meetingTime}\nPortal do aluno: ${studentPortalUrl}`;
 
     try {
       await copyText(invitationMessage);

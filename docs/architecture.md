@@ -92,7 +92,7 @@ apps/web/src/
 
 ### Decisoes importantes do frontend
 
-- uso de `HashRouter` para facilitar deploy em GitHub Pages
+- uso de `BrowserRouter` com `basename` derivado do `BASE_URL`; o GitHub Pages permanece como preview estatico em subpath com `404.html` espelhando o `index.html`
 - `base: "./"` no Vite para build estatico mais simples
 - camada de servicos centralizada para evitar duplicacao de fetch
 - mensagens amigaveis quando o sistema cai para modo demonstrativo

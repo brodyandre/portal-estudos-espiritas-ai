@@ -1,4 +1,5 @@
 import type { Enrollment, EnrollmentStatus, StudentAccessInfo } from "../types/enrollment";
+import { buildPublicRouteUrl } from "../routing/publicUrls";
 
 export type EnrollmentMessageStatus = Extract<
   EnrollmentStatus,
@@ -13,13 +14,10 @@ interface EnrollmentMessageInput {
 }
 
 export const buildPortalUrl = (
-  locationLike?: Pick<Location, "origin" | "pathname">,
+  locationLike?: Pick<Location, "origin">,
+  baseUrl?: string,
 ) => {
-  const origin = locationLike?.origin ?? "http://localhost:3000";
-  const pathname = locationLike?.pathname ?? "/";
-  const basePath = pathname === "/" ? "" : pathname.replace(/\/$/, "");
-
-  return `${origin}${basePath}/#/portal`;
+  return buildPublicRouteUrl("/portal", locationLike, baseUrl);
 };
 
 export const getEnrollmentMessageStatus = (status: EnrollmentStatus): EnrollmentMessageStatus => {
@@ -31,13 +29,10 @@ export const getEnrollmentMessageStatus = (status: EnrollmentStatus): Enrollment
 };
 
 export const buildLoginUrl = (
-  locationLike?: Pick<Location, "origin" | "pathname">,
+  locationLike?: Pick<Location, "origin">,
+  baseUrl?: string,
 ) => {
-  const origin = locationLike?.origin ?? "http://localhost:3000";
-  const pathname = locationLike?.pathname ?? "/";
-  const basePath = pathname === "/" ? "" : pathname.replace(/\/$/, "");
-
-  return `${origin}${basePath}/#/login`;
+  return buildPublicRouteUrl("/login", locationLike, baseUrl);
 };
 
 export const buildEnrollmentMessage = ({

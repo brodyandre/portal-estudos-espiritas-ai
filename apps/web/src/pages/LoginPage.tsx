@@ -8,6 +8,7 @@ import { AlertBox } from "../components/ui/AlertBox";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { TextInput } from "../components/ui/TextInput";
+import { resolveSafeRedirectTarget } from "../routing/publicUrls";
 
 const localDemoCredentials = [
   {
@@ -47,15 +48,14 @@ export const LoginPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const redirectTarget = useMemo(() => {
-    const state = location.state as { from?: { pathname?: string } } | null;
-    return (
-      state?.from?.pathname ??
-      (user?.role === "admin"
+    const fallbackTarget =
+      user?.role === "admin"
         ? "/admin/dashboard"
         : user?.role === "teacher"
           ? "/professor"
-          : "/aluno")
-    );
+          : "/aluno";
+
+    return resolveSafeRedirectTarget(location.state, fallbackTarget);
   }, [location.state, user?.role]);
 
   if (isAuthenticated && !isLoading) {

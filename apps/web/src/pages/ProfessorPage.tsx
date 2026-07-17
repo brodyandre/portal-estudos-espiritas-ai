@@ -544,7 +544,6 @@ export const ProfessorPage = () => {
       ? undefined
       : {
           origin: window.location.origin,
-          pathname: window.location.pathname,
         },
   );
 
