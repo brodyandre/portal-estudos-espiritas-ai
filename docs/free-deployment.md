@@ -30,8 +30,8 @@ Fica online:
 
 - home
 - portal compartilhavel
-- pagina publica `/#/educacao-continuada`
-- formulario `/#/inscricao`
+- pagina publica `/educacao-continuada`
+- formulario `/inscricao`
 - rotas publicas da experiencia `Publico`
 - experiencia `Aluno` em modo demonstrativo
 - experiencia `Professor` em modo demonstrativo
@@ -88,7 +88,7 @@ Essa separacao evita secrets no frontend e simplifica a publicacao.
 
 O frontend foi preparado para esse cenario:
 
-- usa `HashRouter`
+- usa `BrowserRouter` com `basename` derivado do `BASE_URL`
 - o Vite ajusta o `base` quando `GITHUB_PAGES=true`
 - a camada de servicos tolera ausencia de `VITE_API_URL`
 - a interface usa mocks e fallback local quando a API nao responde
@@ -99,7 +99,7 @@ Na pratica:
 - o usuario consegue ver grupos, materiais e resumos
 - as experiencias `Aluno`, `Professor` e `Admin` continuam apenas como MVP visual e demonstrativo
 - a area do aluno usa status local `visitor`, `pending` e `approved` apenas como protecao MVP
-- o QR Code pode apontar para `/#/educacao-continuada` sem expor o Google Meet
+- o QR Code pode apontar para `/educacao-continuada` sem expor o Google Meet
 - o frontend mostra mensagens claras avisando que dados reais e aprovacoes ficam apenas no ambiente local autorizado
 
 ## Como rodar localmente antes de publicar
@@ -202,10 +202,10 @@ O frontend continua util porque:
 
 Isso vale especialmente para as rotas:
 
-- publicas: `/#/`, `/#/portal`, `/#/educacao-continuada`, `/#/inscricao`, `/#/divulgacao`, `/#/materiais`
-- aluno: `/#/aluno`
-- professor: `/#/professor`
-- admin: `/#/admin`
+- publicas: `/`, `/portal`, `/educacao-continuada`, `/inscricao`, `/divulgacao`, `/materiais`
+- aluno: `/aluno`
+- professor: `/professor`
+- admin: `/admin`
 
 ## Com backend local
 

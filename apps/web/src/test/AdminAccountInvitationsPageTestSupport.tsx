@@ -1,7 +1,9 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { expect } from "vitest";
+import { MemoryRouter } from "react-router-dom";
 
-import { App } from "../App";
+import { AppRoutes } from "../App";
+import { AuthProvider } from "../auth/AuthProvider";
 import { AUTH_TOKEN_STORAGE_KEY, AUTH_USER_STORAGE_KEY } from "../auth/storage";
 import { AdminAccountInvitationsPage } from "../pages/AdminAccountInvitationsPage";
 import type {
@@ -90,9 +92,22 @@ export const storeAuthenticatedUser = (role: "student" | "teacher" | "admin") =>
   );
 };
 
-export const renderAppAt = (hash: string) => {
-  window.location.hash = hash;
-  return render(<App />);
+const normalizeInitialEntry = (entry: string) => {
+  if (entry.startsWith("#/")) {
+    return entry.slice(1);
+  }
+
+  return entry;
+};
+
+export const renderAppAt = (entry: string) => {
+  return render(
+    <AuthProvider>
+      <MemoryRouter initialEntries={[normalizeInitialEntry(entry)]}>
+        <AppRoutes />
+      </MemoryRouter>
+    </AuthProvider>,
+  );
 };
 
 export const renderPage = () => render(<AdminAccountInvitationsPage />);

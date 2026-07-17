@@ -72,7 +72,7 @@ Observações:
 
 O projeto usa um monorepo simples com duas aplicacoes:
 
-- `apps/web`: interface React com `HashRouter`, design system proprio, servicos reutilizaveis e fallback local
+- `apps/web`: interface React com `BrowserRouter`, URLs limpas, design system proprio, servicos reutilizaveis e fallback local
 - `apps/api`: API Express com modulos por dominio, agente local, RAG simples e endpoints da base de conhecimento
 - `data/knowledge`: resumos autorais curtos usados como apoio de contexto
 
@@ -327,7 +327,7 @@ O que fica publicado:
 - entrada publica para QR Code e inscricao
 - Painel do Aluno em modo demonstrativo
 - Painel do Professor em modo demonstrativo
-- rota `/#/admin` como visao administrativa do MVP
+- rota `/admin` como visao administrativa do MVP
 - paginas de materiais
 - base de conhecimento autoral em formato resumido
 - mocks nao sensiveis para grupos, materiais e respostas demonstrativas
@@ -504,6 +504,43 @@ Arquivo central:
 
 - `apps/web/src/config/appMode.ts`
 
+Para o build publico conectado a API, use explicitamente:
+
+```bash
+VITE_APP_MODE=local
+VITE_API_URL=https://api.portal-educacao-continuada.com.br
+VITE_SHOW_REAL_MEET_LINK=true
+VITE_ENABLE_ADMIN_FEATURES=true
+VITE_ENABLE_TEACHER_FEATURES=true
+```
+
+As variaveis `VITE_*` sao publicas e ficam embutidas no build. Nao coloque
+segredos, tokens, credenciais SMTP, `JWT_SECRET` ou `DATABASE_URL` em variaveis
+Vite. Em build de producao no modo conectado, `VITE_API_URL` deve ser HTTPS,
+absoluta, sem credenciais, path, query, hash, localhost ou loopback. As flags
+booleanas aceitam apenas `true` ou `false`.
+
+## URLs publicas da Web
+
+A SPA usa `BrowserRouter` com `basename` derivado de `import.meta.env.BASE_URL`.
+No dominio oficial, as rotas sao limpas e sem hash:
+
+- `https://portal-educacao-continuada.com.br/`
+- `https://portal-educacao-continuada.com.br/portal`
+- `https://portal-educacao-continuada.com.br/educacao-continuada`
+- `https://portal-educacao-continuada.com.br/materiais`
+- `https://portal-educacao-continuada.com.br/admin`
+
+URLs antigas com hash legado sao redirecionadas temporariamente no cliente para
+a rota limpa equivalente. A hospedagem da Web precisa devolver
+`index.html` para rotas profundas da SPA, como `/admin` e `/materiais/emmanuel`.
+No container Nginx isso e feito por `try_files $uri $uri/ /index.html`.
+
+O redirect de `www` para apex, HTTP para HTTPS, HSTS final e CSP definitiva
+pertencem a borda/proxy do deploy oficial, nao ao React. A SPA inclui canonical,
+`robots.txt` e `sitemap.xml`; SEO continua limitado por ser uma SPA estatica sem
+SSR ou prerender.
+
 ## Fluxo de entrada de novos alunos
 
 Nesta fase, o projeto usa um fluxo simples para receber novos participantes sem expor o Google Meet publicamente.
@@ -511,8 +548,8 @@ Nesta fase, o projeto usa um fluxo simples para receber novos participantes sem 
 Como funciona:
 
 1. o novo aluno escaneia o QR Code do cartaz
-2. o QR Code aponta para `/#/educacao-continuada`
-3. o visitante conhece os grupos e segue para `/#/inscricao`
+2. o QR Code aponta para `/educacao-continuada`
+3. o visitante conhece os grupos e segue para `/inscricao`
 4. o cadastro coleta apenas dados minimos de contato e interesse
 5. o professor revisa a solicitacao no painel
 6. o aluno aprovado acessa a area do aluno e o link da aula
@@ -628,6 +665,11 @@ Caracteristicas da publicacao:
 - nao usa Ollama
 - nao depende de secrets
 - publica apenas artefatos estaticos do frontend
+- usa `VITE_APP_MODE=demo`
+- usa `BASE_URL` de subpath para preview
+- copia `index.html` para `404.html` para preservar refresh em rotas profundas
+- sobrescreve `robots.txt` no artefato para evitar indexacao do preview
+- nao configura dominio oficial nem `CNAME`
 
 ## Scripts
 
@@ -645,11 +687,11 @@ Caracteristicas da publicacao:
 
 ## Screenshots placeholders
 
-- Home: inserir captura de `/#/`
-- Portal: inserir captura de `/#/portal`
-- Aluno: inserir captura de `/#/aluno`
-- Professor: inserir captura de `/#/professor`
-- Materiais: inserir captura de `/#/materiais`
+- Home: inserir captura de `/`
+- Portal: inserir captura de `/portal`
+- Aluno: inserir captura de `/aluno`
+- Professor: inserir captura de `/professor`
+- Materiais: inserir captura de `/materiais`
 
 ## Proximos passos
 

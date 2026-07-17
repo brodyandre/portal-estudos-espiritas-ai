@@ -3,6 +3,7 @@ import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { canAccessRoute } from "../../auth/roles";
 import type { RouteType } from "../../auth/types";
 import { useAuth } from "../../auth/useAuth";
+import { createReturnLocation } from "../../routing/publicUrls";
 import { ProfileHeader } from "../display/ProfileHeader";
 import { AreaSwitcher } from "../auth/AreaSwitcher";
 import { Button } from "../ui/Button";
@@ -30,18 +31,18 @@ export const ProtectedRoute = ({ routeType, redirectTo }: ProtectedRouteProps) =
 
   if (canAccessRoute(user, routeType)) {
     if (!isDemoMode && requiresPasswordChange) {
-      return <Navigate replace state={{ from: location }} to="/primeiro-acesso" />;
+      return <Navigate replace state={{ from: createReturnLocation(location) }} to="/primeiro-acesso" />;
     }
 
     return <Outlet />;
   }
 
   if (!isDemoMode && !isAuthenticated) {
-    return <Navigate replace state={{ from: location }} to={redirectTo ?? "/login"} />;
+    return <Navigate replace state={{ from: createReturnLocation(location) }} to={redirectTo ?? "/login"} />;
   }
 
   if (redirectTo && isDemoMode) {
-    return <Navigate replace state={{ from: location }} to={redirectTo} />;
+    return <Navigate replace state={{ from: createReturnLocation(location) }} to={redirectTo} />;
   }
 
   return (

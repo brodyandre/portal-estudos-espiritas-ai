@@ -78,7 +78,7 @@ Nota editorial do projeto:
 
 No fluxo atual:
 
-- o QR Code deve apontar para `/#/educacao-continuada`
+- o QR Code deve apontar para `/educacao-continuada`
 - o Google Meet nao deve ser exposto publicamente
 - o cadastro coleta apenas dados minimos
 - a aprovacao do professor acontece antes do acesso ao encontro

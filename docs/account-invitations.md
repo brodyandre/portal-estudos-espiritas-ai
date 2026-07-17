@@ -110,7 +110,7 @@ O resultado de entrega do reenvio administrativo deve ser interpretado assim:
 
 ## Interface administrativa `/admin/convites`
 
-A interface administrativa de convites fica em `/admin/convites`. Em publicação estática no GitHub Pages, o `HashRouter` expõe a mesma tela como `/#/admin/convites`.
+A interface administrativa de convites fica em `/admin/convites`. Em publicação estática no GitHub Pages, o `BrowserRouter` usa o subpath do preview como `basename`, mantendo a rota interna `/admin/convites`.
 
 A tela exige autenticação local e papel `admin`. Professores, alunos e acessos anônimos são bloqueados pelo fluxo de rotas protegidas e pelos endpoints administrativos.
 

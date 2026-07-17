@@ -26,20 +26,20 @@ describe("enrollmentMessages", () => {
   it("gera mensagem de aprovacao com link do portal", () => {
     const message = buildEnrollmentMessage({
       enrollment: enrollmentBase,
-      portalUrl: "https://portal-exemplo.com/#/portal",
+      portalUrl: "https://portal-exemplo.com/portal",
       status: "approved",
     });
 
     expect(message).toContain("Mariana Souza");
     expect(message).toContain("grupo Emmanuel");
-    expect(message).toContain("https://portal-exemplo.com/#/portal");
+    expect(message).toContain("https://portal-exemplo.com/portal");
     expect(message).not.toContain("Google Meet");
   });
 
   it("gera mensagem de aprovacao com convite para criar a propria senha", () => {
     const message = buildEnrollmentMessage({
       enrollment: enrollmentBase,
-      portalUrl: "https://portal-exemplo.com/#/portal",
+      portalUrl: "https://portal-exemplo.com/portal",
       status: "approved",
       studentAccess: {
         email: "mariana.souza.demo@example.com",
@@ -64,9 +64,8 @@ describe("enrollmentMessages", () => {
   it("monta a URL publica do portal com base do GitHub Pages", () => {
     const portalUrl = buildPortalUrl({
       origin: "https://luizandre.github.io",
-      pathname: "/portal-estudos-espiritas-ai/",
-    });
+    }, "/portal-estudos-espiritas-ai/");
 
-    expect(portalUrl).toBe("https://luizandre.github.io/portal-estudos-espiritas-ai/#/portal");
+    expect(portalUrl).toBe("https://luizandre.github.io/portal-estudos-espiritas-ai/portal");
   });
 });

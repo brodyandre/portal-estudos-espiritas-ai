@@ -6,9 +6,9 @@ Explicar como usar o painel do professor para preparar a aula, revisar rascunhos
 
 ## Onde acessar
 
-- `/#/professor`: painel do professor
-- `/#/materiais`: pagina publica de apoio com os materiais organizados por livro
-- `/#/divulgacao`: orientacao curta para saber qual URL deve virar QR Code no cartaz
+- `/professor`: painel do professor
+- `/materiais`: pagina publica de apoio com os materiais organizados por livro
+- `/divulgacao`: orientacao curta para saber qual URL deve virar QR Code no cartaz
 
 ## Livros e grupos disponiveis
 
@@ -75,7 +75,7 @@ O objetivo e simples:
 
 Para materiais impressos, cartazes e convites, use a rota:
 
-- `/#/educacao-continuada`
+- `/educacao-continuada`
 
 Ela foi pensada para:
 
@@ -98,7 +98,7 @@ Texto sugerido para o cartaz:
 
 Se quiser revisar essa orientacao no proprio projeto, abra:
 
-- `/#/divulgacao`
+- `/divulgacao`
 
 ## Como revisar novas inscricoes
 

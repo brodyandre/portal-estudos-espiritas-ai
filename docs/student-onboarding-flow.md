@@ -7,7 +7,7 @@ Documentar o fluxo MVP de entrada de novos alunos a partir do QR Code de um cart
 Neste modelo:
 
 - o QR Code nao leva direto ao Google Meet
-- o QR Code deve apontar para `/#/educacao-continuada`
+- o QR Code deve apontar para `/educacao-continuada`
 - o visitante primeiro acessa uma pagina publica do portal
 - o visitante registra interesse de forma simples
 - o professor revisa o pedido no painel
@@ -46,7 +46,7 @@ O QR Code deve abrir uma pagina publica do portal, como uma rota de boas-vindas 
 
 Na implementacao atual do projeto, a rota recomendada e:
 
-- `/#/educacao-continuada`
+- `/educacao-continuada`
 
 Essa pagina pode mostrar:
 

@@ -52,7 +52,7 @@ db-studio: ## Open Prisma Studio for the local database
 	$(NPM) run db:studio
 
 pages-check: ## Build the frontend as GitHub Pages would
-	GITHUB_PAGES=true GITHUB_REPOSITORY=$(PAGES_REPOSITORY) VITE_API_URL= $(NPM) run build:web
+	GITHUB_PAGES=true GITHUB_REPOSITORY=$(PAGES_REPOSITORY) VITE_APP_MODE=demo VITE_API_URL= VITE_SHOW_REAL_MEET_LINK=false VITE_ENABLE_ADMIN_FEATURES=false VITE_ENABLE_TEACHER_FEATURES=false $(NPM) run build:web
 
 clean: ## Remove local build artifacts
 	rm -rf apps/api/dist apps/web/dist
