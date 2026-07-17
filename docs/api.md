@@ -54,10 +54,47 @@ OLLAMA_MODEL=llama3.1:8b
 OLLAMA_BASE_URL=http://127.0.0.1:11434
 ```
 
+### Producao da API
+
+Dominios planejados:
+
+- Web: `https://portal-educacao-continuada.com.br`
+- API: `https://api.portal-educacao-continuada.com.br`
+
+Em `NODE_ENV=production`, a API falha antes de abrir a porta HTTP se a configuracao obrigatoria estiver ausente ou insegura:
+
+```bash
+NODE_ENV=production
+DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/DATABASE
+JWT_SECRET=replace-with-a-strong-random-secret-of-at-least-32-characters
+APP_PUBLIC_URL=https://portal-educacao-continuada.com.br
+CORS_ORIGINS=https://portal-educacao-continuada.com.br
+TRUST_PROXY_HOPS=1
+```
+
+- `JWT_SECRET` deve ter ao menos 32 caracteres e nao pode usar valores fracos conhecidos.
+- `DATABASE_URL` deve ser uma URL PostgreSQL valida; a validacao nao abre conexao.
+- `APP_PUBLIC_URL` e `CORS_ORIGINS` exigem HTTPS, apenas origem, sem usuario, senha, path, query, hash, localhost ou enderecos de loopback.
+- `CORS_ORIGINS` usa lista separada por virgula, sem wildcard e sem duplicatas apos normalizacao.
+- `TRUST_PROXY_HOPS=1` e o valor inicial planejado para uma API atras de um unico proxy reverso. O valor e numerico e restritivo; a API nao usa `trust proxy=true`.
+- SMTP continua condicional: quando `SMTP_ENABLED=false`, e-mail nao e obrigatorio; quando `SMTP_ENABLED=true`, a configuracao SMTP e validada.
+
 ### CORS
 
-- A API aceita por padrao origens locais como `localhost` e `127.0.0.1`.
-- O objetivo e permitir o frontend local durante o desenvolvimento.
+- Em desenvolvimento, a API aceita as origens locais configuradas em `CORS_ORIGINS`.
+- Em producao, a API aceita somente origens configuradas explicitamente. A origem oficial inicial e `https://portal-educacao-continuada.com.br`.
+- `www` nao e incluido automaticamente.
+- Requisicoes sem `Origin`, como health checks e chamadas server-to-server, continuam permitidas.
+- O fluxo de autenticacao permanece via `Authorization: Bearer`; CORS nao usa credentials.
+- A resposta expoe `X-Request-Id`.
+
+### Seguranca HTTP e payload
+
+- Cada resposta recebe `X-Request-Id`; valores seguros recebidos em `X-Request-Id` sao preservados, e valores ausentes ou invalidos sao substituidos por UUID.
+- Logs de producao saem em uma linha JSON por request, com timestamp, level, requestId, metodo, path sem query, status e duracao. Tokens, cookies, body, query sensivel e segredos nao sao registrados.
+- A API remove `X-Powered-By` e adiciona `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy` e CSP restritiva de API.
+- `Strict-Transport-Security` e enviado somente em producao quando a requisicao e reconhecida como HTTPS por um proxy confiavel.
+- O parser JSON usa limite explicito de `64kb`; payload maior retorna `413 PAYLOAD_TOO_LARGE` sem ecoar conteudo.
 
 ## Formato de resposta
 
@@ -108,6 +145,46 @@ Quando aplicável, a API também envia o header `Retry-After`.
 ### `GET /health`
 
 Retorna o estado basico da API.
+
+- publico;
+- barato;
+- nao consulta banco;
+- nao le nem constroi corpus;
+- retorna `Cache-Control: no-store`.
+
+### `GET /ready`
+
+Readiness publica e sanitizada para plataformas que verificam se a instancia pode receber trafego. A rota nao exige autenticacao e nao dispara build do corpus.
+
+Resposta:
+
+```json
+{
+  "status": "ready",
+  "timestamp": "2026-07-17T12:00:00.000Z",
+  "checks": {
+    "database": {
+      "status": "ok"
+    },
+    "corpus": {
+      "status": "ready"
+    }
+  }
+}
+```
+
+Matriz:
+
+- banco `error` ou `timeout`: HTTP 503, `status=not_ready`;
+- corpus `ready`: HTTP 200, `status=ready`;
+- corpus `empty`: HTTP 200, `status=ready`;
+- corpus `not_built`: HTTP 200, `status=degraded`;
+- corpus `building`: HTTP 200, `status=degraded`;
+- corpus `stale`: HTTP 503, `status=not_ready`;
+- corpus `invalid`: HTTP 503, `status=not_ready`;
+- corpus `unavailable`: HTTP 503, `status=not_ready`.
+
+A resposta nao expoe `DATABASE_URL`, fingerprints, paths, conteudo, frontmatter, stack, erro cru do Prisma ou detalhes internos do filesystem.
 
 ### Admin knowledge 6A
 

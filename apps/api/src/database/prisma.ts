@@ -18,3 +18,11 @@ export const getPrismaClient = () => {
 
   return globalThis.__portalEstudosPrisma__;
 };
+
+export const disconnectPrisma = async () => {
+  if (!globalThis.__portalEstudosPrisma__) {
+    return;
+  }
+
+  await globalThis.__portalEstudosPrisma__.$disconnect();
+};

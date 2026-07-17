@@ -126,8 +126,8 @@ apps/api/src/
 
 ### Responsabilidades
 
-- `app.ts`: configura Express, CORS, JSON, logger e middleware de erro
-- `routes/`: registra `/health` e `/api`
+- `app.ts`: configura Express, trust proxy, request ID, logger, headers, CORS, JSON e middleware de erro
+- `routes/`: registra `/health`, `/ready` e `/api`
 - `modules/`: organiza endpoints por dominio, incluindo autenticacao e administracao
 - `data/`: guarda dados demonstrativos usados por fluxos ainda nao persistidos
 - `agent/`: prompts, seguranca, fallback, cliente do modelo e fluxo de resposta
@@ -137,6 +137,7 @@ apps/api/src/
 ## Endpoints principais
 
 - `GET /health`
+- `GET /ready`
 - `GET /api/studies`
 - `GET /api/studies/:slug`
 - `GET /api/summaries`
@@ -214,6 +215,8 @@ Professor abre /professor
 - se Ollama estiver indisponivel, a API responde com conteudo de contingencia
 - se o corpus governado estiver invalido ou indisponivel, os endpoints publicos de conhecimento e resposta falham fechado
 - `/health` permanece publico, barato e sem diagnostico do corpus governado
+- `/ready` permanece publico, consulta apenas conectividade minima do PostgreSQL e estado operacional em memoria do corpus, sem construir snapshot
+- `ready` e `empty` deixam a instancia pronta; `not_built` e `building` indicam degradacao com HTTP 200; `stale`, `invalid`, `unavailable` e falha de banco deixam a instancia unready com HTTP 503
 - se o contexto estiver fraco, a resposta orienta consultar o professor
 - o sistema evita travar a interface por dependencia de um servico unico
 
@@ -234,6 +237,8 @@ Professor abre /professor
 - sem pipeline de deploy automatico descrito nesta etapa
 - sem cache distribuido ou coordenacao de identidade do corpus entre multiplas instancias
 - locks, rate limits e estado operacional do corpus sao locais ao processo; em multiplas replicas futuras sera necessario redesenhar coordenacao, sem mudar o contrato HTTP
+- o hardening de producao da API assume uma unica replica, `TRUST_PROXY_HOPS` numerico e CORS por lista explicita de origens
+- o shutdown gracioso para de aceitar novas conexoes, aguarda o servidor HTTP encerrar e chama `prisma.$disconnect()` antes de finalizar o processo
 - o projeto pode usar dominio proprio no futuro, mas os contratos da API permanecem descritos por paths relativos e nao dependem de hostname fixo nesta etapa
 
 Esses limites sao intencionais para manter a demo simples e legivel enquanto os contratos persistentes evoluem por entregas.
