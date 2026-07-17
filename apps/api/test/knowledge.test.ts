@@ -115,8 +115,14 @@ const governedDocuments = [
 
 const createContext = async (
   documents: readonly GovernedCorpusDocument[] = governedDocuments,
+  corpusFingerprint = "test-corpus-fingerprint",
 ): Promise<GovernedRetrieverContext> => ({
+  cacheKey: {
+    manifestFingerprint: "test-fingerprint",
+    corpusFingerprint,
+  },
   manifestFingerprint: "test-fingerprint",
+  corpusFingerprint,
   documents,
   retriever: await createKeywordRetriever({ documents }),
 });
@@ -345,13 +351,13 @@ describe("GET /api/knowledge/search", () => {
     expect(createRetriever).not.toHaveBeenCalled();
   });
 
-  it("usa contexto atualizado quando o fingerprint muda", async () => {
+  it("usa contexto atualizado quando a identidade fisica muda", async () => {
     const firstContext = await createContext([
       buildDocument("primeiro", "Primeiro", "Emmanuel", "Emmanuel", "prece antiga"),
-    ]);
+    ], "corpus-antigo");
     const secondContext = await createContext([
       buildDocument("segundo", "Segundo", "Emmanuel", "Emmanuel", "prece nova"),
-    ]);
+    ], "corpus-novo");
     const contexts = [firstContext, secondContext];
     setKnowledgeRetrieverContextForTesting(async () => contexts.shift() ?? secondContext);
 

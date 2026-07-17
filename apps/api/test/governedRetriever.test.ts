@@ -60,8 +60,14 @@ const buildDocument = (
 const buildSnapshot = (
   fingerprint: string,
   documents: readonly KnowledgeDocumentForRetrieval[],
+  corpusFingerprint = `corpus-${fingerprint}`,
 ): GovernedCorpusSnapshot => ({
+  cacheKey: {
+    manifestFingerprint: fingerprint,
+    corpusFingerprint,
+  },
   manifestFingerprint: fingerprint,
+  corpusFingerprint,
   manifestSchemaVersion: 1,
   documents: documents.map((document) => ({
     ...document,
@@ -83,6 +89,9 @@ const createCorpusService = (
   getSnapshot: () => Promise<GovernedCorpusSnapshot>,
 ): GovernedCorpusService => ({
   getSnapshot,
+  resetForTesting() {
+    return undefined;
+  },
 });
 
 const createControlledPromise = <T>() => {
@@ -148,6 +157,31 @@ describe("governed retriever service", () => {
     expect(first.retriever).toBe(retriever);
     expect(getSnapshot).toHaveBeenCalledTimes(2);
     expect(createRetriever).toHaveBeenCalledTimes(1);
+  });
+
+  it("reconstroi quando o corpus fingerprint muda mesmo com o mesmo manifesto", async () => {
+    const firstSnapshot = buildSnapshot("fp-1", [buildDocument("a", "termoantigo exclusivo")], "corpus-a");
+    const secondSnapshot = buildSnapshot("fp-1", [buildDocument("a", "termonovo exclusivo")], "corpus-b");
+    const snapshots = [firstSnapshot, secondSnapshot, secondSnapshot];
+    const service = createGovernedRetrieverService({
+      corpusService: createCorpusService(async () => snapshots.shift() ?? secondSnapshot),
+    });
+
+    const first = await service.getContext();
+    const second = await service.getContext();
+    const repeatedSecond = await service.getContext();
+
+    expect(first.manifestFingerprint).toBe("fp-1");
+    expect(first.corpusFingerprint).toBe("corpus-a");
+    expect(second.manifestFingerprint).toBe("fp-1");
+    expect(second.corpusFingerprint).toBe("corpus-b");
+    expect(second).toBe(repeatedSecond);
+    await expect(second.retriever.search("termonovo", { minScore: 0.1 })).resolves.toEqual([
+      expect.objectContaining({ documentId: "a" }),
+    ]);
+    const indexedContent = JSON.stringify(second.retriever.getIndex().chunks);
+    expect(indexedContent).toContain("termonovo");
+    expect(indexedContent).not.toContain("termoantigo");
   });
 
   it("compartilha chamadas simultaneas para o mesmo fingerprint", async () => {

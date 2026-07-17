@@ -376,6 +376,22 @@ describe("knowledge editorial manifest", () => {
     expect(first.manifest.fingerprint).toBe(second.manifest.fingerprint);
   });
 
+  it("mantem fingerprint editorial quando apenas o corpo Markdown muda", async () => {
+    const root = await createRepositoryRoot();
+    const filePath = "data/knowledge/emmanuel/aprovado.md";
+    await writeKnowledgeFile(root, filePath, markdownContent("Documento seguro"));
+
+    const first = await createKnowledgeManifestFromCandidates([buildCandidate()], { repositoryRoot: root });
+    await writeKnowledgeFile(
+      root,
+      filePath,
+      markdownContent("Documento seguro").replace("Conteudo autoral curto", "Conteudo fisico alterado"),
+    );
+    const second = await createKnowledgeManifestFromCandidates([buildCandidate()], { repositoryRoot: root });
+
+    expect(first.manifest.fingerprint).toBe(second.manifest.fingerprint);
+  });
+
   it("altera fingerprint quando versão ou referência física relevante muda", async () => {
     const root = await createRepositoryRoot();
     await writeKnowledgeFile(root, "data/knowledge/emmanuel/aprovado.md");
