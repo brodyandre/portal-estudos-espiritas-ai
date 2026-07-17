@@ -8,6 +8,8 @@ export const healthRouter = Router();
 healthRouter.get(
   "/health",
   asyncHandler((_request, response) => {
+    response.setHeader("Cache-Control", "no-store");
+
     return sendSuccess(response, {
       message: "API funcionando normalmente.",
       data: {

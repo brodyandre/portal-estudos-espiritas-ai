@@ -564,15 +564,29 @@ Use este modo quando quiser demonstrar o fluxo local de respostas e rascunhos ap
 4. Rode `npm run dev`.
 5. Use o painel do aluno ou do professor normalmente.
 
-Padroes atuais em `.env.example`:
+Padroes locais que podem ser usados em `.env` durante desenvolvimento:
 
 ```bash
+NODE_ENV=development
 PORT=3333
 CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://127.0.0.1:3000
 VITE_API_URL=http://localhost:3333
 OLLAMA_MODEL=llama3.1:8b
 OLLAMA_BASE_URL=http://127.0.0.1:11434
 ```
+
+Para producao da API, a entrega 9A exige configuracao fail-fast antes do `listen`:
+
+```bash
+NODE_ENV=production
+DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/DATABASE
+JWT_SECRET=replace-with-a-strong-random-secret-of-at-least-32-characters
+APP_PUBLIC_URL=https://portal-educacao-continuada.com.br
+CORS_ORIGINS=https://portal-educacao-continuada.com.br
+TRUST_PROXY_HOPS=1
+```
+
+O dominio Web planejado e `https://portal-educacao-continuada.com.br`; o dominio da API planejado e `https://api.portal-educacao-continuada.com.br`. SMTP segue opcional quando `SMTP_ENABLED=false`. A API usa `GET /health` para liveness simples e `GET /ready` para readiness sanitizada com PostgreSQL e estado do corpus. O limite de JSON e `64kb`, CORS nao usa credentials, logs de producao usam request ID e a arquitetura segue assumindo uma unica replica.
 
 ## Docker
 
