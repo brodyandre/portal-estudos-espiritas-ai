@@ -23,6 +23,15 @@ export interface KnowledgeDocumentWithContentHash {
   readonly contentHash: string;
 }
 
+export class KnowledgeDocumentInvalidError extends Error {
+  readonly code = "KNOWLEDGE_DOCUMENT_INVALID";
+
+  constructor(message: string) {
+    super(message);
+    this.name = "KnowledgeDocumentInvalidError";
+  }
+}
+
 const hashContentBytes = (content: Buffer): string =>
   createHash("sha256").update(content).digest("hex");
 
@@ -122,13 +131,13 @@ const parseFrontmatter = (
   source: string,
 ): { frontmatter: MarkdownFrontmatter; body: string } => {
   if (!rawContent.startsWith("---\n")) {
-    throw new Error(`Arquivo ${source} sem frontmatter inicial.`);
+    throw new KnowledgeDocumentInvalidError(`Arquivo ${source} sem frontmatter inicial.`);
   }
 
   const endMarkerIndex = rawContent.indexOf("\n---\n", 4);
 
   if (endMarkerIndex === -1) {
-    throw new Error(`Arquivo ${source} com frontmatter incompleto.`);
+    throw new KnowledgeDocumentInvalidError(`Arquivo ${source} com frontmatter incompleto.`);
   }
 
   const frontmatterBlock = rawContent.slice(4, endMarkerIndex);
@@ -154,7 +163,7 @@ const parseFrontmatter = (
 
   for (const field of REQUIRED_FRONTMATTER_FIELDS) {
     if (!parsedFrontmatter[field] || parsedFrontmatter[field].trim().length === 0) {
-      throw new Error(`Arquivo ${source} sem o campo obrigatório ${field} no frontmatter.`);
+      throw new KnowledgeDocumentInvalidError(`Arquivo ${source} sem o campo obrigatório ${field} no frontmatter.`);
     }
   }
 

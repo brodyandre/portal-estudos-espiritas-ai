@@ -1,4 +1,5 @@
 import type {
+  GovernedCorpusOperationalStatus,
   KnowledgeBookAggregate,
   KnowledgeBookRecord,
   KnowledgeDocumentRecord,
@@ -82,4 +83,25 @@ export const presentKnowledgeDocumentList = (result: PaginatedKnowledgeResult<Kn
     total: result.total,
     totalPages: result.totalPages,
   },
+});
+
+export const presentGovernedCorpusOperationalStatus = (
+  status: GovernedCorpusOperationalStatus,
+) => ({
+  state: status.state,
+  rebuilding: status.rebuilding,
+  stale: status.stale,
+  manifestSourceCount: status.manifestSourceCount,
+  documentCount: status.documentCount,
+  chunkCount: status.chunkCount,
+  manifestFingerprint: status.manifestFingerprint,
+  corpusFingerprint: status.corpusFingerprint,
+  lastAttemptAt: status.lastAttemptAt,
+  lastSuccessfulBuildAt: status.lastSuccessfulBuildAt,
+  lastFailure: status.lastFailure
+    ? {
+        code: status.lastFailure.code,
+        occurredAt: status.lastFailure.occurredAt,
+      }
+    : null,
 });

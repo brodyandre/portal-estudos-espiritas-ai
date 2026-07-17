@@ -3,6 +3,7 @@ import { Router } from "express";
 import { AppError } from "../../lib/app-error";
 import { sendSuccess } from "../../lib/api-response";
 import { asyncHandler } from "../../lib/async-handler";
+import { governedCorpusService } from "../../knowledge/governedCorpus";
 import {
   assertAdminKnowledgeRateLimit,
   assertAdminStudyMeetingRateLimit,
@@ -44,6 +45,7 @@ import {
   parseUpdateKnowledgeDocumentBody,
 } from "./knowledge/query";
 import {
+  presentGovernedCorpusOperationalStatus,
   presentKnowledgeBook,
   presentKnowledgeBookList,
   presentKnowledgeDocument,
@@ -240,6 +242,19 @@ const requireAuthenticatedAdminRequestUser = (
 };
 
 export const adminRouter = Router();
+
+adminRouter.get(
+  "/knowledge/corpus/status",
+  ...requireRole(["admin"]),
+  asyncHandler(async (_request, response) => {
+    return sendSuccess(response, {
+      message: "Estado operacional do corpus governado consultado com sucesso.",
+      data: presentGovernedCorpusOperationalStatus(
+        governedCorpusService.getOperationalStatus(),
+      ),
+    });
+  }),
+);
 
 adminRouter.get(
   "/knowledge/books",

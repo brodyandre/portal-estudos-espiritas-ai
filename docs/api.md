@@ -143,6 +143,55 @@ Documentos:
 - `PATCH /documents/:documentId`: permite `bookId`, `title`, `description`, `summary`, `type`, `tags`, `sensitiveTopics`, `teacherReviewRecommended`, `editorialNotes`, `sortOrder`, `version`;
 - `PATCH /documents/:documentId/editorial-status`: body `editorialStatus`, `version`, `editorialNotes?`.
 
+Diagnostico do corpus governado:
+
+- `GET /corpus/status`: retorna o ultimo estado operacional conhecido em memoria pelo processo da API;
+- exige `Authorization: Bearer <token>` de usuario `admin`;
+- nao possui body funcional nem query funcional;
+- nao le manifesto, banco, filesystem ou Markdown;
+- nao constroi snapshot, nao recalcula fingerprints e nao registra auditoria;
+- nao altera timestamps nem flags;
+- nao substitui `/health`.
+
+Resposta:
+
+```json
+{
+  "success": true,
+  "message": "Estado operacional do corpus governado consultado com sucesso.",
+  "data": {
+    "state": "ready",
+    "rebuilding": false,
+    "stale": false,
+    "manifestSourceCount": 2,
+    "documentCount": 2,
+    "chunkCount": 14,
+    "manifestFingerprint": "sha256...",
+    "corpusFingerprint": "sha256...",
+    "lastAttemptAt": "2026-07-17T01:00:00.000Z",
+    "lastSuccessfulBuildAt": "2026-07-17T01:00:01.000Z",
+    "lastFailure": null
+  }
+}
+```
+
+Estados:
+
+- `not_built`: processo iniciado ou resetado, sem tentativa fisica concluida;
+- `ready`: ultimo snapshot publicado possui documentos e pode ser usado;
+- `empty`: manifesto valido sem fontes elegiveis; colecoes publicas podem ficar vazias;
+- `invalid`: manifesto, documento, conteudo ou hash violou regra deterministica conhecida;
+- `unavailable`: catalogo, arquivo, filesystem ou dependencia necessaria ficou indisponivel.
+
+Flags:
+
+- `rebuilding`: a tentativa fisica operacional mais recentemente iniciada ainda esta em andamento. Consumidores da mesma promise compartilham essa tentativa, sem criar nova tentativa fisica. Tentativas anteriores que continuam pendentes, mas ja foram substituidas por uma tentativa mais recente, nao mantem esta flag ativa e nao sobrescrevem o diagnostico mais novo;
+- `stale`: havia snapshot anterior e uma tentativa posterior observou falha ou mudanca sem conseguir publicar substituto valido.
+
+Os campos `manifestSourceCount`, `documentCount`, `chunkCount`, `manifestFingerprint`, `corpusFingerprint` e `lastSuccessfulBuildAt` descrevem sempre o ultimo snapshot publicado com sucesso. Quando `stale` e `true`, esses campos continuam apontando para o ultimo snapshot valido; `lastAttemptAt` e `lastFailure` descrevem a tentativa posterior que falhou. Antes do primeiro snapshot publicado, contagens ficam `0`, fingerprints ficam `null` e `lastSuccessfulBuildAt` fica `null`, mesmo que uma tentativa falha tenha lido um manifesto com fontes. A rota nao publica identidade, contagens nem fingerprints parciais de tentativa falha.
+
+Fingerprints completos podem aparecer nesta rota por ela ser administrativa. A rota nao retorna conteudo, frontmatter, caminhos, hashes individuais, stack trace nem mensagens cruas de erro. `lastFailure` contem apenas `code` e `occurredAt`. Erros esperados: `401 AUTH_REQUIRED` e `403 FORBIDDEN`.
+
 Campos protegidos:
 
 - a API nao cria, edita, move, renomeia, exclui nem retorna conteudo Markdown integral;

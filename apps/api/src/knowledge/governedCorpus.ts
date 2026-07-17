@@ -1,7 +1,11 @@
 import { createHash } from "node:crypto";
 
-import { loadKnowledgeDocumentsWithContentHashesFromManifest } from "../rag/documentLoader";
-import type { KnowledgeDocument } from "../rag/types";
+import {
+  KnowledgeDocumentInvalidError,
+  loadKnowledgeDocumentsWithContentHashesFromManifest,
+} from "../rag/documentLoader";
+import { splitDocumentsIntoChunks } from "../rag/textSplitter";
+import type { KnowledgeDocument, KnowledgeDocumentForRetrieval } from "../rag/types";
 import {
   buildKnowledgeEditorialManifest,
   type KnowledgeEditorialManifest,
@@ -16,6 +20,10 @@ export type GovernedCorpusErrorCode =
   | "GOVERNED_CORPUS_DOCUMENT_INVALID"
   | "GOVERNED_CORPUS_CONTENT_HASH_INVALID"
   | "GOVERNED_CORPUS_DOCUMENT_LOAD_FAILED";
+
+export type GovernedCorpusOperationalFailureCode =
+  | GovernedCorpusErrorCode
+  | "GOVERNED_CORPUS_UNKNOWN_ERROR";
 
 export class GovernedCorpusError extends Error {
   constructor(
@@ -59,18 +67,75 @@ export interface GovernedCorpusSnapshot {
   };
 }
 
+export type GovernedCorpusOperationalState =
+  | "not_built"
+  | "ready"
+  | "empty"
+  | "invalid"
+  | "unavailable";
+
+export interface GovernedCorpusLastFailure {
+  readonly code: GovernedCorpusOperationalFailureCode;
+  readonly occurredAt: string;
+}
+
+export interface GovernedCorpusOperationalStatus {
+  readonly state: GovernedCorpusOperationalState;
+  readonly rebuilding: boolean;
+  readonly stale: boolean;
+  // Snapshot identity/count fields describe only the last successfully published snapshot.
+  readonly manifestSourceCount: number;
+  readonly documentCount: number;
+  readonly chunkCount: number;
+  readonly manifestFingerprint: string | null;
+  readonly corpusFingerprint: string | null;
+  readonly lastAttemptAt: string | null;
+  readonly lastSuccessfulBuildAt: string | null;
+  readonly lastFailure: GovernedCorpusLastFailure | null;
+}
+
 export interface GovernedCorpusServiceOptions {
   loadManifest?: () => Promise<KnowledgeEditorialManifestResult>;
   loadDocumentEntries?: (manifest: KnowledgeEditorialManifest) => Promise<readonly GovernedCorpusLoadedDocument[]>;
+  now?: () => Date;
 }
 
 export interface GovernedCorpusService {
   getSnapshot(): Promise<GovernedCorpusSnapshot>;
+  getOperationalStatus(): GovernedCorpusOperationalStatus;
+  setNowProviderForTesting(now: () => Date): void;
   resetForTesting(): void;
 }
 
 const NON_BLOCKING_MANIFEST_ISSUES = new Set(["KNOWLEDGE_MANIFEST_SOURCE_INELIGIBLE"]);
 const CONTENT_HASH_PATTERN = /^[a-f0-9]{64}$/u;
+const INVALID_GOVERNED_CORPUS_ERROR_CODES = new Set<GovernedCorpusErrorCode>([
+  "GOVERNED_CORPUS_MANIFEST_INVALID",
+  "GOVERNED_CORPUS_DOCUMENT_INVALID",
+  "GOVERNED_CORPUS_CONTENT_HASH_INVALID",
+]);
+const OPERATIONAL_FAILURE_CODES = new Set<GovernedCorpusOperationalFailureCode>([
+  "GOVERNED_CORPUS_MANIFEST_UNAVAILABLE",
+  "GOVERNED_CORPUS_MANIFEST_INVALID",
+  "GOVERNED_CORPUS_DOCUMENT_INVALID",
+  "GOVERNED_CORPUS_CONTENT_HASH_INVALID",
+  "GOVERNED_CORPUS_DOCUMENT_LOAD_FAILED",
+  "GOVERNED_CORPUS_UNKNOWN_ERROR",
+]);
+
+const INITIAL_OPERATIONAL_STATUS: GovernedCorpusOperationalStatus = Object.freeze({
+  state: "not_built",
+  rebuilding: false,
+  stale: false,
+  manifestSourceCount: 0,
+  documentCount: 0,
+  chunkCount: 0,
+  manifestFingerprint: null,
+  corpusFingerprint: null,
+  lastAttemptAt: null,
+  lastSuccessfulBuildAt: null,
+  lastFailure: null,
+});
 
 export interface GovernedCorpusLoadedDocument {
   readonly document: KnowledgeDocument;
@@ -194,6 +259,13 @@ const defaultLoadDocumentEntries = async (manifest: KnowledgeEditorialManifest) 
   try {
     return await loadKnowledgeDocumentsWithContentHashesFromManifest(manifest);
   } catch (error) {
+    if (error instanceof KnowledgeDocumentInvalidError) {
+      throw new GovernedCorpusError(
+        "GOVERNED_CORPUS_DOCUMENT_INVALID",
+        "Documento autorizado pelo manifesto editorial possui conteudo invalido.",
+      );
+    }
+
     if (
       error &&
       typeof error === "object" &&
@@ -218,6 +290,13 @@ const loadDocumentEntriesFailClosed = async (
   try {
     return await loadDocumentEntries(manifest);
   } catch (error) {
+    if (error instanceof KnowledgeDocumentInvalidError) {
+      throw new GovernedCorpusError(
+        "GOVERNED_CORPUS_DOCUMENT_INVALID",
+        "Documento autorizado pelo manifesto editorial possui conteudo invalido.",
+      );
+    }
+
     if (
       error &&
       typeof error === "object" &&
@@ -394,14 +473,125 @@ const cacheKeysMatch = (
       left.corpusFingerprint === right.corpusFingerprint,
   );
 
+const sanitizeOperationalFailure = (error: unknown): {
+  state: Extract<GovernedCorpusOperationalState, "invalid" | "unavailable">;
+  code: GovernedCorpusOperationalFailureCode;
+} => {
+  if (
+    error &&
+    typeof error === "object" &&
+    "code" in error &&
+    typeof error.code === "string" &&
+    error.code.startsWith("KNOWLEDGE_FILE_")
+  ) {
+    return {
+      state: "unavailable",
+      code: "GOVERNED_CORPUS_DOCUMENT_LOAD_FAILED",
+    };
+  }
+
+  if (error instanceof GovernedCorpusError && OPERATIONAL_FAILURE_CODES.has(error.code)) {
+    return {
+      state: INVALID_GOVERNED_CORPUS_ERROR_CODES.has(error.code) ? "invalid" : "unavailable",
+      code: error.code,
+    };
+  }
+
+  return {
+    state: "unavailable",
+    code: "GOVERNED_CORPUS_UNKNOWN_ERROR",
+  };
+};
+
+const countSnapshotChunks = (snapshot: GovernedCorpusSnapshot) =>
+  splitDocumentsIntoChunks(snapshot.documents as readonly KnowledgeDocumentForRetrieval[]).length;
+
 export const createGovernedCorpusService = (
   options: GovernedCorpusServiceOptions = {},
 ): GovernedCorpusService => {
   const loadManifest = options.loadManifest ?? (() => buildKnowledgeEditorialManifest());
   const loadDocumentEntries = options.loadDocumentEntries ?? defaultLoadDocumentEntries;
+  const defaultNow = () => new Date();
+  let now = options.now ?? defaultNow;
   let cachedSnapshot: GovernedCorpusSnapshot | undefined;
   let latestRequestedFingerprint: string | undefined;
+  let operationalStatus = INITIAL_OPERATIONAL_STATUS;
+  let nextOperationalAttemptId = 0;
+  let latestOperationalAttemptId = 0;
   const inFlightByFingerprint = new Map<string, Promise<GovernedCorpusSnapshot>>();
+
+  const getNowIso = () => now().toISOString();
+
+  const setOperationalStatus = (nextStatus: GovernedCorpusOperationalStatus) => {
+    operationalStatus = freezeDeep({ ...nextStatus }) as GovernedCorpusOperationalStatus;
+  };
+
+  const markAttemptStarted = (startedAt: string) => {
+    const attemptId = ++nextOperationalAttemptId;
+    latestOperationalAttemptId = attemptId;
+
+    setOperationalStatus({
+      ...operationalStatus,
+      rebuilding: true,
+      lastAttemptAt: startedAt,
+    });
+
+    return attemptId;
+  };
+
+  const isLatestOperationalAttempt = (attemptId: number) => attemptId === latestOperationalAttemptId;
+
+  const markAttemptSucceeded = (
+    attemptId: number,
+    snapshot: GovernedCorpusSnapshot,
+    options: {
+      lastSuccessfulBuildAt?: string;
+    },
+  ) => {
+    if (!isLatestOperationalAttempt(attemptId)) {
+      return;
+    }
+
+    setOperationalStatus({
+      state: snapshot.documentCount > 0 ? "ready" : "empty",
+      rebuilding: false,
+      stale: false,
+      manifestSourceCount: snapshot.audit.manifestSourceCount,
+      documentCount: snapshot.documentCount,
+      chunkCount: countSnapshotChunks(snapshot),
+      manifestFingerprint: snapshot.manifestFingerprint,
+      corpusFingerprint: snapshot.corpusFingerprint,
+      lastAttemptAt: operationalStatus.lastAttemptAt,
+      lastSuccessfulBuildAt: options.lastSuccessfulBuildAt ?? operationalStatus.lastSuccessfulBuildAt,
+      lastFailure: null,
+    });
+  };
+
+  const markAttemptFailed = (
+    attemptId: number,
+    error: unknown,
+    options: {
+      occurredAt: string;
+    },
+  ) => {
+    if (!isLatestOperationalAttempt(attemptId)) {
+      return;
+    }
+
+    const hadPublishedSnapshot = Boolean(operationalStatus.corpusFingerprint);
+    const failure = sanitizeOperationalFailure(error);
+
+    setOperationalStatus({
+      ...operationalStatus,
+      state: failure.state,
+      rebuilding: false,
+      stale: hadPublishedSnapshot,
+      lastFailure: {
+        code: failure.code,
+        occurredAt: options.occurredAt,
+      },
+    });
+  };
 
   const buildSnapshotCandidate = async (
     manifest: KnowledgeEditorialManifest,
@@ -452,8 +642,29 @@ export const createGovernedCorpusService = (
 
   return {
     async getSnapshot() {
-      const manifestResult = await loadManifest();
-      const { manifest, status, nonBlockingIssueCount } = assertManifestIsUsable(manifestResult);
+      let manifestResult: KnowledgeEditorialManifestResult;
+      try {
+        manifestResult = await loadManifest();
+      } catch (error) {
+        const attemptId = markAttemptStarted(getNowIso());
+        markAttemptFailed(attemptId, error, {
+          occurredAt: getNowIso(),
+        });
+        throw error;
+      }
+
+      let usableManifest: ReturnType<typeof assertManifestIsUsable>;
+      try {
+        usableManifest = assertManifestIsUsable(manifestResult);
+      } catch (error) {
+        const attemptId = markAttemptStarted(getNowIso());
+        markAttemptFailed(attemptId, error, {
+          occurredAt: getNowIso(),
+        });
+        throw error;
+      }
+
+      const { manifest, status, nonBlockingIssueCount } = usableManifest;
       latestRequestedFingerprint = manifest.fingerprint;
 
       const currentBuild = inFlightByFingerprint.get(manifest.fingerprint);
@@ -461,19 +672,30 @@ export const createGovernedCorpusService = (
         return currentBuild;
       }
 
+      const attemptId = markAttemptStarted(getNowIso());
       const promise = buildSnapshotCandidate(manifest, status, nonBlockingIssueCount)
         .then((candidate) => {
           if (cachedSnapshot && cacheKeysMatch(cachedSnapshot.cacheKey, candidate.cacheKey)) {
+            markAttemptSucceeded(attemptId, cachedSnapshot, {});
             return cachedSnapshot;
           }
 
           const snapshot = publishSnapshot(candidate, manifest);
 
-          if (latestRequestedFingerprint === manifest.fingerprint) {
+          if (isLatestOperationalAttempt(attemptId) && latestRequestedFingerprint === manifest.fingerprint) {
             cachedSnapshot = snapshot;
+            markAttemptSucceeded(attemptId, snapshot, {
+              lastSuccessfulBuildAt: getNowIso(),
+            });
           }
 
           return snapshot;
+        })
+        .catch((error) => {
+          markAttemptFailed(attemptId, error, {
+            occurredAt: getNowIso(),
+          });
+          throw error;
         })
         .finally(() => {
           if (inFlightByFingerprint.get(manifest.fingerprint) === promise) {
@@ -485,15 +707,32 @@ export const createGovernedCorpusService = (
 
       return promise;
     },
+    getOperationalStatus() {
+      return operationalStatus;
+    },
+    setNowProviderForTesting(nextNow: () => Date) {
+      now = nextNow;
+    },
     resetForTesting() {
       cachedSnapshot = undefined;
       latestRequestedFingerprint = undefined;
+      nextOperationalAttemptId = 0;
+      latestOperationalAttemptId = 0;
       inFlightByFingerprint.clear();
+      operationalStatus = INITIAL_OPERATIONAL_STATUS;
+      now = options.now ?? defaultNow;
     },
   };
 };
 
 export const governedCorpusService = createGovernedCorpusService();
+
+export const getGovernedCorpusOperationalStatus = () =>
+  governedCorpusService.getOperationalStatus();
+
+export const setGovernedCorpusNowProviderForTesting = (now: () => Date) => {
+  governedCorpusService.setNowProviderForTesting(now);
+};
 
 export const resetGovernedCorpusServiceForTesting = () => {
   governedCorpusService.resetForTesting();
