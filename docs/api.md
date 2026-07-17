@@ -153,6 +153,59 @@ Diagnostico do corpus governado:
 - nao altera timestamps nem flags;
 - nao substitui `/health`.
 
+Reconstrucao administrativa do corpus governado:
+
+- `POST /corpus/rebuild`: executa uma reconstrucao fisica, sincrona e governada do corpus;
+- exige `Authorization: Bearer <token>` de usuario `admin`;
+- aceita body ausente ou exatamente `{}`;
+- rejeita qualquer propriedade no body e qualquer query parameter;
+- nao aceita caminho, arquivo, lista de fontes, `force`, `async`, `provider`, motivo ou subconjunto do corpus;
+- reler manifesto, documentos Markdown aprovados, frontmatter e conteudo fisico;
+- ignora cache hit valido, recalcula `manifestFingerprint` e `corpusFingerprint` e publica novo snapshot somente em sucesso completo;
+- se os fingerprints permanecerem identicos, a leitura fisica ainda ocorreu e `lastSuccessfulBuildAt` e atualizado;
+- nao chama LLM, Groq, LangChain, embeddings, vector database, fila ou worker;
+- usa lock administrativo em memoria por processo; segunda chamada simultanea retorna `409 KNOWLEDGE_CORPUS_REBUILD_IN_PROGRESS`;
+- usa rate limit dedicado por administrador: 3 tentativas a cada 15 minutos, com `Retry-After`;
+- registra auditoria persistente em `AuditLog` antes da execucao e ao final;
+- falha da auditoria `REQUESTED` impede o rebuild;
+- falha da auditoria terminal retorna `503 KNOWLEDGE_CORPUS_REBUILD_AUDIT_UNAVAILABLE`, sem desfazer o resultado fisico ja consolidado;
+- o lock e o rate limit sao locais ao processo e sao perdidos em restart.
+
+Resposta:
+
+```json
+{
+  "success": true,
+  "message": "Corpus governado reconstruido com sucesso.",
+  "data": {
+    "status": {
+      "state": "ready",
+      "rebuilding": false,
+      "stale": false,
+      "manifestSourceCount": 2,
+      "documentCount": 2,
+      "chunkCount": 14,
+      "manifestFingerprint": "sha256...",
+      "corpusFingerprint": "sha256...",
+      "lastAttemptAt": "2026-07-17T01:10:00.000Z",
+      "lastSuccessfulBuildAt": "2026-07-17T01:10:01.000Z",
+      "lastFailure": null
+    }
+  }
+}
+```
+
+Erros esperados:
+
+- `400 INVALID_KNOWLEDGE_CORPUS_REBUILD_INPUT`;
+- `400 KNOWLEDGE_CORPUS_INVALID`;
+- `401 AUTH_REQUIRED`;
+- `403 FORBIDDEN`;
+- `409 KNOWLEDGE_CORPUS_REBUILD_IN_PROGRESS`;
+- `429 ADMIN_KNOWLEDGE_CORPUS_REBUILD_RATE_LIMITED`;
+- `503 KNOWLEDGE_CORPUS_UNAVAILABLE`;
+- `503 KNOWLEDGE_CORPUS_REBUILD_AUDIT_UNAVAILABLE`.
+
 Resposta:
 
 ```json
@@ -226,6 +279,7 @@ Códigos de erro especificos:
 - `KNOWLEDGE_EDITORIAL_TRANSITION_NOT_ALLOWED`;
 - `KNOWLEDGE_CONFLICT`;
 - `ADMIN_KNOWLEDGE_RATE_LIMITED`.
+- `ADMIN_KNOWLEDGE_CORPUS_REBUILD_RATE_LIMITED`.
 
 ### `GET /api/studies`
 

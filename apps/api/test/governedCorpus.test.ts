@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createGovernedCorpusService,
   GovernedCorpusError,
+  GovernedCorpusRebuildInProgressError,
 } from "../src/knowledge/governedCorpus";
 import {
   buildKnowledgeEditorialManifest,
@@ -1522,5 +1523,199 @@ Conteudo com frontmatter semanticamente incompleto.
     await expect(service.getSnapshot()).rejects.toMatchObject({
       code: "GOVERNED_CORPUS_MANIFEST_UNAVAILABLE",
     });
+  });
+
+  it("rebuild administrativo ignora cache valido e publica novo snapshot mesmo com fingerprints identicos", async () => {
+    const root = await createRepositoryRoot();
+    await writeKnowledgeFile(root, "data/knowledge/emmanuel/aprovado.md");
+    const loadManifest = vi.fn(() => buildManifestResult(root, [buildCandidate()]));
+    const loadDocumentEntries = vi.fn(loadDocumentEntriesFromRoot(root));
+    const service = createGovernedCorpusService({
+      loadManifest,
+      loadDocumentEntries,
+      now: createClock([
+        "2026-07-17T02:00:00.000Z",
+        "2026-07-17T02:00:01.000Z",
+        "2026-07-17T02:00:02.000Z",
+        "2026-07-17T02:00:03.000Z",
+      ]),
+    });
+
+    const first = await service.getSnapshot();
+    const firstStatus = service.getOperationalStatus();
+    const rebuilt = await service.rebuildSnapshot();
+    const rebuiltStatus = service.getOperationalStatus();
+
+    expect(rebuilt).not.toBe(first);
+    expect(rebuilt.cacheKey).toEqual(first.cacheKey);
+    expect(rebuilt.manifestFingerprint).toBe(first.manifestFingerprint);
+    expect(rebuilt.corpusFingerprint).toBe(first.corpusFingerprint);
+    expect(loadManifest).toHaveBeenCalledTimes(2);
+    expect(loadDocumentEntries).toHaveBeenCalledTimes(2);
+    expect(firstStatus.lastSuccessfulBuildAt).toBe("2026-07-17T02:00:01.000Z");
+    expect(rebuiltStatus).toMatchObject({
+      state: "ready",
+      rebuilding: false,
+      stale: false,
+      lastAttemptAt: "2026-07-17T02:00:02.000Z",
+      lastSuccessfulBuildAt: "2026-07-17T02:00:03.000Z",
+      lastFailure: null,
+    });
+  });
+
+  it("rebuild administrativo publica fingerprints diferentes quando o conteudo fisico muda", async () => {
+    const root = await createRepositoryRoot();
+    await writeKnowledgeFile(root, "data/knowledge/emmanuel/aprovado.md", markdownContent("Aprovado", "conteudo antigo"));
+    const service = createServiceForCandidates(root, [buildCandidate()]);
+
+    const first = await service.getSnapshot();
+    await writeKnowledgeFile(root, "data/knowledge/emmanuel/aprovado.md", markdownContent("Aprovado", "conteudo novo"));
+    const rebuilt = await service.rebuildSnapshot();
+
+    expect(rebuilt).not.toBe(first);
+    expect(rebuilt.manifestFingerprint).toBe(first.manifestFingerprint);
+    expect(rebuilt.corpusFingerprint).not.toBe(first.corpusFingerprint);
+    expect(rebuilt.documents[0].content).toContain("conteudo novo");
+    expect(rebuilt.documents[0].content).not.toContain("conteudo antigo");
+  });
+
+  it("rejeita rebuild administrativo concorrente e libera lock apos sucesso", async () => {
+    const root = await createRepositoryRoot();
+    await writeKnowledgeFile(root, "data/knowledge/emmanuel/aprovado.md");
+    const releaseBuild = createDeferred();
+    const buildStarted = createDeferred();
+    const loadDocumentEntries = vi.fn(async (manifest: KnowledgeEditorialManifest) => {
+      buildStarted.resolve();
+      await releaseBuild.promise;
+      return loadKnowledgeDocumentsWithContentHashesFromManifest(manifest, { repositoryRoot: root });
+    });
+    const service = createGovernedCorpusService({
+      loadManifest: () => buildManifestResult(root, [buildCandidate()]),
+      loadDocumentEntries,
+    });
+
+    const first = service.rebuildSnapshot();
+    await buildStarted.promise;
+
+    await expect(service.rebuildSnapshot()).rejects.toBeInstanceOf(GovernedCorpusRebuildInProgressError);
+    expect(loadDocumentEntries).toHaveBeenCalledTimes(1);
+
+    releaseBuild.resolve();
+    await expect(first).resolves.toMatchObject({ documentCount: 1 });
+    await expect(service.rebuildSnapshot()).resolves.toMatchObject({ documentCount: 1 });
+    expect(loadDocumentEntries).toHaveBeenCalledTimes(2);
+  });
+
+  it("libera lock apos falha de rebuild e marca stale quando havia snapshot publicado", async () => {
+    const root = await createRepositoryRoot();
+    await writeKnowledgeFile(root, "data/knowledge/emmanuel/aprovado.md");
+    const loadDocumentEntries = vi
+      .fn()
+      .mockImplementationOnce(loadDocumentEntriesFromRoot(root))
+      .mockRejectedValueOnce(new Error("falha fisica"))
+      .mockImplementationOnce(loadDocumentEntriesFromRoot(root));
+    const service = createGovernedCorpusService({
+      loadManifest: () => buildManifestResult(root, [buildCandidate()]),
+      loadDocumentEntries,
+      now: createClock([
+        "2026-07-17T02:01:00.000Z",
+        "2026-07-17T02:01:01.000Z",
+        "2026-07-17T02:01:02.000Z",
+        "2026-07-17T02:01:03.000Z",
+        "2026-07-17T02:01:04.000Z",
+        "2026-07-17T02:01:05.000Z",
+      ]),
+    });
+
+    await service.getSnapshot();
+    await expect(service.rebuildSnapshot()).rejects.toMatchObject({
+      code: "GOVERNED_CORPUS_DOCUMENT_LOAD_FAILED",
+    });
+    expect(service.getOperationalStatus()).toMatchObject({
+      state: "unavailable",
+      rebuilding: false,
+      stale: true,
+      lastFailure: {
+        code: "GOVERNED_CORPUS_DOCUMENT_LOAD_FAILED",
+        occurredAt: "2026-07-17T02:01:03.000Z",
+      },
+    });
+
+    await expect(service.rebuildSnapshot()).resolves.toMatchObject({ documentCount: 1 });
+    expect(service.getOperationalStatus()).toMatchObject({
+      state: "ready",
+      rebuilding: false,
+      stale: false,
+      lastFailure: null,
+    });
+  });
+
+  it("tentativa publica antiga nao publica sobre rebuild administrativo mais novo", async () => {
+    const root = await createRepositoryRoot();
+    await writeKnowledgeFile(root, "data/knowledge/emmanuel/publico.md", markdownContent("Publico"));
+    await writeKnowledgeFile(root, "data/knowledge/emmanuel/admin.md", markdownContent("Admin"));
+    const publicCandidate = buildCandidate({
+      documentId: "doc-publico",
+      catalogKey: "publico",
+      filePath: "data/knowledge/emmanuel/publico.md",
+      documentTitle: "Publico",
+    });
+    const adminCandidate = buildCandidate({
+      documentId: "doc-admin",
+      catalogKey: "admin",
+      filePath: "data/knowledge/emmanuel/admin.md",
+      documentTitle: "Admin",
+      documentVersion: 2,
+    });
+    const publicResult = await buildManifestResult(root, [publicCandidate]);
+    const adminResult = await buildManifestResult(root, [adminCandidate]);
+
+    if (publicResult.status === "unavailable" || adminResult.status === "unavailable") {
+      throw new Error("Manifestos de teste deveriam estar disponiveis.");
+    }
+
+    const publicStarted = createDeferred();
+    const releasePublic = createDeferred();
+    const manifests = [publicResult, adminResult];
+    const loadDocumentEntries = vi.fn(async (manifest: KnowledgeEditorialManifest) => {
+      if (manifest.fingerprint === publicResult.manifest.fingerprint) {
+        publicStarted.resolve();
+        await releasePublic.promise;
+      }
+
+      return loadKnowledgeDocumentsWithContentHashesFromManifest(manifest, { repositoryRoot: root });
+    });
+    const service = createGovernedCorpusService({
+      loadManifest: async () => manifests.shift() ?? adminResult,
+      loadDocumentEntries,
+      now: createClock([
+        "2026-07-17T02:02:00.000Z",
+        "2026-07-17T02:02:01.000Z",
+        "2026-07-17T02:02:02.000Z",
+      ]),
+    });
+
+    const publicAttempt = service.getSnapshot();
+    await publicStarted.promise;
+    const adminSnapshot = await service.rebuildSnapshot();
+
+    expect(service.getOperationalStatus()).toMatchObject({
+      state: "ready",
+      manifestFingerprint: adminSnapshot.manifestFingerprint,
+      corpusFingerprint: adminSnapshot.corpusFingerprint,
+      lastSuccessfulBuildAt: "2026-07-17T02:02:02.000Z",
+    });
+
+    releasePublic.resolve();
+    await expect(publicAttempt).resolves.toMatchObject({
+      manifestFingerprint: publicResult.manifest.fingerprint,
+    });
+    expect(service.getOperationalStatus()).toMatchObject({
+      state: "ready",
+      manifestFingerprint: adminSnapshot.manifestFingerprint,
+      corpusFingerprint: adminSnapshot.corpusFingerprint,
+      lastSuccessfulBuildAt: "2026-07-17T02:02:02.000Z",
+    });
+    await expect(service.getSnapshot()).resolves.toBe(adminSnapshot);
   });
 });

@@ -89,6 +89,25 @@ const createCorpusService = (
   getSnapshot: () => Promise<GovernedCorpusSnapshot>,
 ): GovernedCorpusService => ({
   getSnapshot,
+  rebuildSnapshot: getSnapshot,
+  getOperationalStatus() {
+    return {
+      state: "not_built",
+      rebuilding: false,
+      stale: false,
+      manifestSourceCount: 0,
+      documentCount: 0,
+      chunkCount: 0,
+      manifestFingerprint: null,
+      corpusFingerprint: null,
+      lastAttemptAt: null,
+      lastSuccessfulBuildAt: null,
+      lastFailure: null,
+    };
+  },
+  setNowProviderForTesting() {
+    return undefined;
+  },
   resetForTesting() {
     return undefined;
   },

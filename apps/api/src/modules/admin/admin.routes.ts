@@ -3,10 +3,16 @@ import { Router } from "express";
 import { AppError } from "../../lib/app-error";
 import { sendSuccess } from "../../lib/api-response";
 import { asyncHandler } from "../../lib/async-handler";
-import { governedCorpusService } from "../../knowledge/governedCorpus";
 import {
+  GovernedCorpusError,
+  GovernedCorpusRebuildInProgressError,
+  governedCorpusService,
+} from "../../knowledge/governedCorpus";
+import {
+  assertAdminKnowledgeCorpusRebuildRateLimit,
   assertAdminKnowledgeRateLimit,
   assertAdminStudyMeetingRateLimit,
+  recordAdminKnowledgeCorpusRebuildAttempt,
   recordAdminKnowledgeAttempt,
   recordAdminStudyMeetingAttempt,
 } from "../../security/auth-rate-limit";
@@ -44,6 +50,13 @@ import {
   parseUpdateKnowledgeBookBody,
   parseUpdateKnowledgeDocumentBody,
 } from "./knowledge/query";
+import {
+  buildKnowledgeCorpusRebuildFailedAuditEntry,
+  buildKnowledgeCorpusRebuildRequestedAuditEntry,
+  buildKnowledgeCorpusRebuildSucceededAuditEntry,
+  createKnowledgeCorpusRebuildCorrelationId,
+  getKnowledgeCorpusRebuildAuditRepository,
+} from "./knowledge/corpus-rebuild.audit";
 import {
   presentGovernedCorpusOperationalStatus,
   presentKnowledgeBook,
@@ -227,6 +240,24 @@ const assertNoUnexpectedBody = (
   }
 };
 
+const assertNoUnexpectedQuery = (
+  query: Record<string, unknown>,
+  error: {
+    code: string;
+    message: string;
+  },
+) => {
+  if (Object.keys(query).length === 0) {
+    return;
+  }
+
+  throw new AppError({
+    statusCode: 400,
+    code: error.code,
+    message: error.message,
+  });
+};
+
 const requireAuthenticatedAdminRequestUser = (
   authUser: AuthUser | undefined,
 ) => {
@@ -241,6 +272,85 @@ const requireAuthenticatedAdminRequestUser = (
   return authUser;
 };
 
+const buildKnowledgeCorpusRebuildAuditUnavailableError = () =>
+  new AppError({
+    statusCode: 503,
+    code: "KNOWLEDGE_CORPUS_REBUILD_AUDIT_UNAVAILABLE",
+    message: "Nao foi possivel registrar a auditoria da reconstrucao do corpus.",
+  });
+
+const isKnowledgeFileError = (error: unknown) =>
+  Boolean(
+    error &&
+      typeof error === "object" &&
+      "code" in error &&
+      typeof error.code === "string" &&
+      error.code.startsWith("KNOWLEDGE_FILE_"),
+  );
+
+const getKnowledgeCorpusRebuildErrorCode = (error: unknown) => {
+  if (
+    error instanceof GovernedCorpusRebuildInProgressError ||
+    (
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      error.code === "KNOWLEDGE_CORPUS_REBUILD_IN_PROGRESS"
+    )
+  ) {
+    return "KNOWLEDGE_CORPUS_REBUILD_IN_PROGRESS";
+  }
+
+  if (error instanceof GovernedCorpusError) {
+    return error.code;
+  }
+
+  if (isKnowledgeFileError(error)) {
+    return "GOVERNED_CORPUS_DOCUMENT_LOAD_FAILED";
+  }
+
+  return "GOVERNED_CORPUS_UNKNOWN_ERROR";
+};
+
+const toKnowledgeCorpusRebuildHttpError = (error: unknown) => {
+  if (
+    error instanceof GovernedCorpusRebuildInProgressError ||
+    (
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      error.code === "KNOWLEDGE_CORPUS_REBUILD_IN_PROGRESS"
+    )
+  ) {
+    return new AppError({
+      statusCode: 409,
+      code: "KNOWLEDGE_CORPUS_REBUILD_IN_PROGRESS",
+      message: "Reconstrucao administrativa do corpus governado ja esta em andamento.",
+    });
+  }
+
+  if (
+    error instanceof GovernedCorpusError &&
+    (
+      error.code === "GOVERNED_CORPUS_MANIFEST_INVALID" ||
+      error.code === "GOVERNED_CORPUS_DOCUMENT_INVALID" ||
+      error.code === "GOVERNED_CORPUS_CONTENT_HASH_INVALID"
+    )
+  ) {
+    return new AppError({
+      statusCode: 400,
+      code: "KNOWLEDGE_CORPUS_INVALID",
+      message: "O corpus governado esta invalido e nao pode ser publicado.",
+    });
+  }
+
+  return new AppError({
+    statusCode: 503,
+    code: "KNOWLEDGE_CORPUS_UNAVAILABLE",
+    message: "O corpus governado esta temporariamente indisponivel.",
+  });
+};
+
 export const adminRouter = Router();
 
 adminRouter.get(
@@ -252,6 +362,94 @@ adminRouter.get(
       data: presentGovernedCorpusOperationalStatus(
         governedCorpusService.getOperationalStatus(),
       ),
+    });
+  }),
+);
+
+adminRouter.post(
+  "/knowledge/corpus/rebuild",
+  ...requireRole(["admin"]),
+  asyncHandler(async (request, response) => {
+    const authUser = requireAuthenticatedAdminRequestUser(request.authUser);
+    assertNoUnexpectedQuery(request.query, {
+      code: "INVALID_KNOWLEDGE_CORPUS_REBUILD_INPUT",
+      message: "Dados invalidos para reconstruir o corpus governado.",
+    });
+    assertNoUnexpectedBody(request.body, {
+      code: "INVALID_KNOWLEDGE_CORPUS_REBUILD_INPUT",
+      message: "Dados invalidos para reconstruir o corpus governado.",
+    });
+
+    assertAdminKnowledgeCorpusRebuildRateLimit(authUser.id);
+    recordAdminKnowledgeCorpusRebuildAttempt(authUser.id);
+
+    const auditRepository = getKnowledgeCorpusRebuildAuditRepository();
+    const correlationId = createKnowledgeCorpusRebuildCorrelationId();
+    const startedAtMs = Date.now();
+    const hadPublishedSnapshot = Boolean(
+      governedCorpusService.getOperationalStatus().corpusFingerprint,
+    );
+
+    try {
+      await auditRepository.create(
+        buildKnowledgeCorpusRebuildRequestedAuditEntry({
+          actor: authUser,
+          correlationId,
+          hadPublishedSnapshot,
+        }),
+      );
+    } catch (_error) {
+      throw buildKnowledgeCorpusRebuildAuditUnavailableError();
+    }
+
+    try {
+      await governedCorpusService.rebuildSnapshot();
+    } catch (error) {
+      const status = governedCorpusService.getOperationalStatus();
+      try {
+        await auditRepository.create(
+          buildKnowledgeCorpusRebuildFailedAuditEntry({
+            actor: authUser,
+            correlationId,
+            code: getKnowledgeCorpusRebuildErrorCode(error),
+            durationMs: Date.now() - startedAtMs,
+            finalState: status.state,
+            manifestSourceCount: status.manifestSourceCount,
+            documentCount: status.documentCount,
+            chunkCount: status.chunkCount,
+            hadPublishedSnapshot,
+          }),
+        );
+      } catch (_auditError) {
+        throw buildKnowledgeCorpusRebuildAuditUnavailableError();
+      }
+
+      throw toKnowledgeCorpusRebuildHttpError(error);
+    }
+
+    const status = governedCorpusService.getOperationalStatus();
+    try {
+      await auditRepository.create(
+        buildKnowledgeCorpusRebuildSucceededAuditEntry({
+          actor: authUser,
+          correlationId,
+          durationMs: Date.now() - startedAtMs,
+          finalState: status.state,
+          manifestSourceCount: status.manifestSourceCount,
+          documentCount: status.documentCount,
+          chunkCount: status.chunkCount,
+          hadPublishedSnapshot,
+        }),
+      );
+    } catch (_error) {
+      throw buildKnowledgeCorpusRebuildAuditUnavailableError();
+    }
+
+    return sendSuccess(response, {
+      message: "Corpus governado reconstruido com sucesso.",
+      data: {
+        status: presentGovernedCorpusOperationalStatus(status),
+      },
     });
   }),
 );
