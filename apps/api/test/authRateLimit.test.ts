@@ -2,13 +2,16 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import {
   assertLoginRateLimit,
+  assertAdminKnowledgeCorpusRebuildRateLimit,
   assertAdminInvitationCancelRateLimit,
   assertAdminInvitationResendRateLimit,
+  buildAdminKnowledgeCorpusRebuildKey,
   buildAdminInvitationCancelTargetKey,
   buildAdminInvitationResendTargetKey,
   buildLoginRateLimitKey,
   clearLoginRateLimit,
   getAuthRateLimitEntryCounts,
+  recordAdminKnowledgeCorpusRebuildAttempt,
   recordAdminInvitationCancelAttempt,
   recordAdminInvitationResendAttempt,
   recordFailedLoginAttempt,
@@ -89,6 +92,56 @@ describe("auth rate limit store", () => {
     expect(getAuthRateLimitEntryCounts().adminInvitationResendActor).toBe(1);
     expect(getAuthRateLimitEntryCounts().adminInvitationResendTarget).toBe(1);
     expect(buildAdminInvitationResendTargetKey("admin-001", invitationId)).not.toContain(invitationId);
+  });
+
+  it("limita rebuild do corpus por administrador em janela dedicada de quinze minutos", () => {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      expect(() => assertAdminKnowledgeCorpusRebuildRateLimit("admin-001")).not.toThrow();
+      recordAdminKnowledgeCorpusRebuildAttempt("admin-001");
+    }
+
+    expect(() => assertAdminKnowledgeCorpusRebuildRateLimit("admin-001")).toThrow(
+      "Muitas tentativas. Aguarde antes de tentar novamente.",
+    );
+    expect(getAuthRateLimitEntryCounts().adminKnowledgeCorpusRebuild).toBe(1);
+
+    currentTime += 15 * 60 * 1000;
+
+    expect(() => assertAdminKnowledgeCorpusRebuildRateLimit("admin-001")).not.toThrow();
+    expect(getAuthRateLimitEntryCounts().adminKnowledgeCorpusRebuild).toBe(0);
+  });
+
+  it("isola rebuild do corpus por admin e dos demais limiters administrativos", () => {
+    recordAdminKnowledgeCorpusRebuildAttempt("admin-001");
+    recordAdminKnowledgeCorpusRebuildAttempt("admin-001");
+    recordAdminKnowledgeCorpusRebuildAttempt("admin-001");
+
+    expect(() => assertAdminKnowledgeCorpusRebuildRateLimit("admin-001")).toThrow();
+    expect(() => assertAdminKnowledgeCorpusRebuildRateLimit("admin-002")).not.toThrow();
+
+    recordAdminInvitationResendAttempt("admin-001", "convite-001");
+    expect(getAuthRateLimitEntryCounts().adminKnowledgeCorpusRebuild).toBe(1);
+    expect(getAuthRateLimitEntryCounts().adminInvitationResendActor).toBe(1);
+    expect(buildAdminKnowledgeCorpusRebuildKey("admin-001")).toBe("admin-knowledge-corpus-rebuild:admin-001");
+  });
+
+  it("reseta e restaura relogio do limiter de rebuild do corpus", () => {
+    recordAdminKnowledgeCorpusRebuildAttempt("admin-001");
+    expect(getAuthRateLimitEntryCounts().adminKnowledgeCorpusRebuild).toBe(1);
+
+    resetAuthRateLimitStore();
+    setAuthRateLimitNowProviderForTesting(() => currentTime);
+
+    expect(getAuthRateLimitEntryCounts().adminKnowledgeCorpusRebuild).toBe(0);
+
+    recordAdminKnowledgeCorpusRebuildAttempt("admin-001");
+    currentTime += 16 * 60 * 1000;
+    expect(() => assertAdminKnowledgeCorpusRebuildRateLimit("admin-001")).not.toThrow();
+
+    setAuthRateLimitNowProviderForTesting(() => 0);
+    recordAdminKnowledgeCorpusRebuildAttempt("admin-001");
+    restoreAuthRateLimitNowProvider();
+    expect(() => assertAdminKnowledgeCorpusRebuildRateLimit("admin-001")).not.toThrow();
   });
 
   it("restaura o relogio padrao apos usar nowProvider de teste", () => {

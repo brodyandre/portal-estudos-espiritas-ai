@@ -4,10 +4,23 @@ import { env } from "../config/env";
 import { AppError } from "../lib/app-error";
 import type { ApiErrorBody } from "../lib/api-response";
 
-export const errorHandler: ErrorRequestHandler = (error, _request, response, _next) => {
+const isKnowledgeCorpusRebuildNullBodyError = (error: unknown, requestPath: string, method: string) =>
+  method.toUpperCase() === "POST" &&
+  requestPath === "/api/admin/knowledge/corpus/rebuild" &&
+  error instanceof SyntaxError &&
+  "body" in error &&
+  (error as { body?: unknown }).body === "null";
+
+export const errorHandler: ErrorRequestHandler = (error, request, response, _next) => {
   const appError =
     error instanceof AppError
       ? error
+      : isKnowledgeCorpusRebuildNullBodyError(error, request.originalUrl.split("?")[0] ?? "", request.method)
+        ? new AppError({
+            statusCode: 400,
+            code: "INVALID_KNOWLEDGE_CORPUS_REBUILD_INPUT",
+            message: "Dados invalidos para reconstruir o corpus governado.",
+          })
       : error instanceof SyntaxError && "body" in error
         ? new AppError({
             statusCode: 400,

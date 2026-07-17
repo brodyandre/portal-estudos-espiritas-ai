@@ -174,6 +174,9 @@ apps/api/src/
 - o estado operacional do corpus tambem e local ao processo, acoplado ao servico do corpus e consultavel por `GET /api/admin/knowledge/corpus/status`
 - esse diagnostico mantem identidade e contagens associadas atomicamente ao ultimo snapshot publicado com sucesso
 - a consulta administrativa de status le somente memoria, sem banco, filesystem, auditoria ou reconstrucao do corpus
+- a reconstrucao administrativa explicita vive em `POST /api/admin/knowledge/corpus/rebuild`, exige admin, body ausente ou `{}`, rejeita query e executa rebuild fisico sincrono do catalogo governado
+- o rebuild administrativo usa lock em memoria por processo, rate limit dedicado por administrador e auditoria persistente em `AuditLog`; nao ha fila, worker, job persistido, Redis ou lock distribuido
+- o rebuild publica somente snapshot atomico; o retriever continua lazy e e reconstruido no proximo acesso quando `manifestFingerprint` ou `corpusFingerprint` muda
 - arquivos aprovados ausentes, vazios, invalidos ou inconsistentes fazem os fluxos publicos falharem fechado, sem fallback para o loader legado
 
 ### Estado local do navegador
@@ -230,6 +233,8 @@ Professor abre /professor
 - sem upload de arquivos
 - sem pipeline de deploy automatico descrito nesta etapa
 - sem cache distribuido ou coordenacao de identidade do corpus entre multiplas instancias
+- locks, rate limits e estado operacional do corpus sao locais ao processo; em multiplas replicas futuras sera necessario redesenhar coordenacao, sem mudar o contrato HTTP
+- o projeto pode usar dominio proprio no futuro, mas os contratos da API permanecem descritos por paths relativos e nao dependem de hostname fixo nesta etapa
 
 Esses limites sao intencionais para manter a demo simples e legivel enquanto os contratos persistentes evoluem por entregas.
 

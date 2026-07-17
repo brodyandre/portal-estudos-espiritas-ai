@@ -84,6 +84,10 @@ const adminStudyMeetingActorPolicy: RateLimitPolicy = adminUserStatusActorPolicy
 const adminStudyMeetingTargetPolicy: RateLimitPolicy = adminUserStatusTargetPolicy;
 const adminKnowledgeActorPolicy: RateLimitPolicy = adminUserStatusActorPolicy;
 const adminKnowledgeTargetPolicy: RateLimitPolicy = adminUserStatusTargetPolicy;
+const adminKnowledgeCorpusRebuildPolicy: RateLimitPolicy = {
+  limit: 3,
+  windowMs: FIFTEEN_MINUTES_MS,
+};
 
 const loginLimiter = new MemorySlidingWindowRateLimiter();
 const passwordChangeLimiter = new MemorySlidingWindowRateLimiter();
@@ -109,6 +113,7 @@ const adminStudyMeetingActorLimiter = new MemorySlidingWindowRateLimiter();
 const adminStudyMeetingTargetLimiter = new MemorySlidingWindowRateLimiter();
 const adminKnowledgeActorLimiter = new MemorySlidingWindowRateLimiter();
 const adminKnowledgeTargetLimiter = new MemorySlidingWindowRateLimiter();
+const adminKnowledgeCorpusRebuildLimiter = new MemorySlidingWindowRateLimiter();
 
 const toHashedIdentity = (value: string) => {
   return createHmac("sha256", env.jwtSecret).update(value).digest("hex");
@@ -132,7 +137,8 @@ const buildRateLimitError = (
     | "ADMIN_USER_STATUS_RATE_LIMITED"
     | "ADMIN_USER_GROUP_RATE_LIMITED"
     | "ADMIN_STUDY_MEETING_RATE_LIMITED"
-    | "ADMIN_KNOWLEDGE_RATE_LIMITED",
+    | "ADMIN_KNOWLEDGE_RATE_LIMITED"
+    | "ADMIN_KNOWLEDGE_CORPUS_REBUILD_RATE_LIMITED",
   retryAfterSeconds: number,
 ) => {
   return new AppError({
@@ -254,6 +260,10 @@ export const buildAdminKnowledgeTargetKey = (
   targetId: string,
 ) => {
   return `admin-knowledge-target:${adminUserId}:${toHashedIdentity(targetId)}`;
+};
+
+export const buildAdminKnowledgeCorpusRebuildKey = (adminUserId: string) => {
+  return `admin-knowledge-corpus-rebuild:${adminUserId}`;
 };
 
 export const assertLoginRateLimit = (ipAddress: string, email: string) => {
@@ -659,6 +669,27 @@ export const recordAdminKnowledgeAttempt = (
   );
 };
 
+export const assertAdminKnowledgeCorpusRebuildRateLimit = (adminUserId: string) => {
+  const decision = adminKnowledgeCorpusRebuildLimiter.peek(
+    buildAdminKnowledgeCorpusRebuildKey(adminUserId),
+    adminKnowledgeCorpusRebuildPolicy,
+  );
+
+  if (!decision.allowed) {
+    throw buildRateLimitError(
+      "ADMIN_KNOWLEDGE_CORPUS_REBUILD_RATE_LIMITED",
+      decision.retryAfterSeconds,
+    );
+  }
+};
+
+export const recordAdminKnowledgeCorpusRebuildAttempt = (adminUserId: string) => {
+  adminKnowledgeCorpusRebuildLimiter.record(
+    buildAdminKnowledgeCorpusRebuildKey(adminUserId),
+    adminKnowledgeCorpusRebuildPolicy,
+  );
+};
+
 export const resetAuthRateLimitStore = () => {
   loginLimiter.resetAll();
   passwordChangeLimiter.resetAll();
@@ -684,6 +715,7 @@ export const resetAuthRateLimitStore = () => {
   adminStudyMeetingTargetLimiter.resetAll();
   adminKnowledgeActorLimiter.resetAll();
   adminKnowledgeTargetLimiter.resetAll();
+  adminKnowledgeCorpusRebuildLimiter.resetAll();
 };
 
 export const setAuthRateLimitNowProviderForTesting = (nowProvider: () => number) => {
@@ -709,6 +741,9 @@ export const setAuthRateLimitNowProviderForTesting = (nowProvider: () => number)
   adminUserGroupTargetLimiter.setNowProvider(nowProvider);
   adminStudyMeetingActorLimiter.setNowProvider(nowProvider);
   adminStudyMeetingTargetLimiter.setNowProvider(nowProvider);
+  adminKnowledgeActorLimiter.setNowProvider(nowProvider);
+  adminKnowledgeTargetLimiter.setNowProvider(nowProvider);
+  adminKnowledgeCorpusRebuildLimiter.setNowProvider(nowProvider);
 };
 
 export const restoreAuthRateLimitNowProvider = () => {
@@ -734,6 +769,9 @@ export const restoreAuthRateLimitNowProvider = () => {
   adminUserGroupTargetLimiter.restoreDefaultNowProvider();
   adminStudyMeetingActorLimiter.restoreDefaultNowProvider();
   adminStudyMeetingTargetLimiter.restoreDefaultNowProvider();
+  adminKnowledgeActorLimiter.restoreDefaultNowProvider();
+  adminKnowledgeTargetLimiter.restoreDefaultNowProvider();
+  adminKnowledgeCorpusRebuildLimiter.restoreDefaultNowProvider();
 };
 
 export const getAuthRateLimitEntryCounts = () => ({
@@ -759,4 +797,7 @@ export const getAuthRateLimitEntryCounts = () => ({
   adminUserGroupTarget: adminUserGroupTargetLimiter.getEntryCount(),
   adminStudyMeetingActor: adminStudyMeetingActorLimiter.getEntryCount(),
   adminStudyMeetingTarget: adminStudyMeetingTargetLimiter.getEntryCount(),
+  adminKnowledgeActor: adminKnowledgeActorLimiter.getEntryCount(),
+  adminKnowledgeTarget: adminKnowledgeTargetLimiter.getEntryCount(),
+  adminKnowledgeCorpusRebuild: adminKnowledgeCorpusRebuildLimiter.getEntryCount(),
 });

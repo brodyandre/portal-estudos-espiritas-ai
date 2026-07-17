@@ -36,6 +36,15 @@ export class GovernedCorpusError extends Error {
   }
 }
 
+export class GovernedCorpusRebuildInProgressError extends Error {
+  readonly code = "KNOWLEDGE_CORPUS_REBUILD_IN_PROGRESS";
+
+  constructor() {
+    super("Reconstrucao administrativa do corpus governado ja esta em andamento.");
+    this.name = "GovernedCorpusRebuildInProgressError";
+  }
+}
+
 type DeepReadonly<T> =
   T extends (...args: unknown[]) => unknown
     ? T
@@ -102,6 +111,7 @@ export interface GovernedCorpusServiceOptions {
 
 export interface GovernedCorpusService {
   getSnapshot(): Promise<GovernedCorpusSnapshot>;
+  rebuildSnapshot(): Promise<GovernedCorpusSnapshot>;
   getOperationalStatus(): GovernedCorpusOperationalStatus;
   setNowProviderForTesting(now: () => Date): void;
   resetForTesting(): void;
@@ -518,6 +528,7 @@ export const createGovernedCorpusService = (
   let operationalStatus = INITIAL_OPERATIONAL_STATUS;
   let nextOperationalAttemptId = 0;
   let latestOperationalAttemptId = 0;
+  let administrativeRebuildInProgress = false;
   const inFlightByFingerprint = new Map<string, Promise<GovernedCorpusSnapshot>>();
 
   const getNowIso = () => now().toISOString();
@@ -640,31 +651,88 @@ export const createGovernedCorpusService = (
     return freezeDeep(snapshot);
   };
 
+  const loadUsableManifest = async () => {
+    let manifestResult: KnowledgeEditorialManifestResult;
+    try {
+      manifestResult = await loadManifest();
+    } catch (error) {
+      const attemptId = markAttemptStarted(getNowIso());
+      markAttemptFailed(attemptId, error, {
+        occurredAt: getNowIso(),
+      });
+      throw error;
+    }
+
+    try {
+      return assertManifestIsUsable(manifestResult);
+    } catch (error) {
+      const attemptId = markAttemptStarted(getNowIso());
+      markAttemptFailed(attemptId, error, {
+        occurredAt: getNowIso(),
+      });
+      throw error;
+    }
+  };
+
+  const buildSnapshotPromise = (
+    manifest: KnowledgeEditorialManifest,
+    manifestStatus: Exclude<KnowledgeEditorialManifestResult["status"], "unavailable">,
+    nonBlockingIssueCount: number,
+    attemptId: number,
+    options: {
+      reuseCachedSnapshot: boolean;
+    },
+  ) => {
+    const promise = buildSnapshotCandidate(manifest, manifestStatus, nonBlockingIssueCount)
+      .then((candidate) => {
+        if (
+          options.reuseCachedSnapshot &&
+          cachedSnapshot &&
+          cacheKeysMatch(cachedSnapshot.cacheKey, candidate.cacheKey)
+        ) {
+          markAttemptSucceeded(attemptId, cachedSnapshot, {});
+          return cachedSnapshot;
+        }
+
+        const snapshot = publishSnapshot(candidate, manifest);
+
+        if (isLatestOperationalAttempt(attemptId) && latestRequestedFingerprint === manifest.fingerprint) {
+          cachedSnapshot = snapshot;
+          markAttemptSucceeded(attemptId, snapshot, {
+            lastSuccessfulBuildAt: getNowIso(),
+          });
+        }
+
+        return snapshot;
+      })
+      .catch((error) => {
+        markAttemptFailed(attemptId, error, {
+          occurredAt: getNowIso(),
+        });
+        throw error;
+      })
+      .finally(() => {
+        if (inFlightByFingerprint.get(manifest.fingerprint) === promise) {
+          inFlightByFingerprint.delete(manifest.fingerprint);
+        }
+      });
+
+    inFlightByFingerprint.set(manifest.fingerprint, promise);
+
+    return promise;
+  };
+
+  const acquireAdministrativeRebuildLock = () => {
+    if (administrativeRebuildInProgress) {
+      throw new GovernedCorpusRebuildInProgressError();
+    }
+
+    administrativeRebuildInProgress = true;
+  };
+
   return {
     async getSnapshot() {
-      let manifestResult: KnowledgeEditorialManifestResult;
-      try {
-        manifestResult = await loadManifest();
-      } catch (error) {
-        const attemptId = markAttemptStarted(getNowIso());
-        markAttemptFailed(attemptId, error, {
-          occurredAt: getNowIso(),
-        });
-        throw error;
-      }
-
-      let usableManifest: ReturnType<typeof assertManifestIsUsable>;
-      try {
-        usableManifest = assertManifestIsUsable(manifestResult);
-      } catch (error) {
-        const attemptId = markAttemptStarted(getNowIso());
-        markAttemptFailed(attemptId, error, {
-          occurredAt: getNowIso(),
-        });
-        throw error;
-      }
-
-      const { manifest, status, nonBlockingIssueCount } = usableManifest;
+      const { manifest, status, nonBlockingIssueCount } = await loadUsableManifest();
       latestRequestedFingerprint = manifest.fingerprint;
 
       const currentBuild = inFlightByFingerprint.get(manifest.fingerprint);
@@ -673,39 +741,24 @@ export const createGovernedCorpusService = (
       }
 
       const attemptId = markAttemptStarted(getNowIso());
-      const promise = buildSnapshotCandidate(manifest, status, nonBlockingIssueCount)
-        .then((candidate) => {
-          if (cachedSnapshot && cacheKeysMatch(cachedSnapshot.cacheKey, candidate.cacheKey)) {
-            markAttemptSucceeded(attemptId, cachedSnapshot, {});
-            return cachedSnapshot;
-          }
+      return buildSnapshotPromise(manifest, status, nonBlockingIssueCount, attemptId, {
+        reuseCachedSnapshot: true,
+      });
+    },
+    async rebuildSnapshot() {
+      acquireAdministrativeRebuildLock();
 
-          const snapshot = publishSnapshot(candidate, manifest);
+      try {
+        const { manifest, status, nonBlockingIssueCount } = await loadUsableManifest();
+        latestRequestedFingerprint = manifest.fingerprint;
+        const attemptId = markAttemptStarted(getNowIso());
 
-          if (isLatestOperationalAttempt(attemptId) && latestRequestedFingerprint === manifest.fingerprint) {
-            cachedSnapshot = snapshot;
-            markAttemptSucceeded(attemptId, snapshot, {
-              lastSuccessfulBuildAt: getNowIso(),
-            });
-          }
-
-          return snapshot;
-        })
-        .catch((error) => {
-          markAttemptFailed(attemptId, error, {
-            occurredAt: getNowIso(),
-          });
-          throw error;
-        })
-        .finally(() => {
-          if (inFlightByFingerprint.get(manifest.fingerprint) === promise) {
-            inFlightByFingerprint.delete(manifest.fingerprint);
-          }
+        return await buildSnapshotPromise(manifest, status, nonBlockingIssueCount, attemptId, {
+          reuseCachedSnapshot: false,
         });
-
-      inFlightByFingerprint.set(manifest.fingerprint, promise);
-
-      return promise;
+      } finally {
+        administrativeRebuildInProgress = false;
+      }
     },
     getOperationalStatus() {
       return operationalStatus;
@@ -718,6 +771,7 @@ export const createGovernedCorpusService = (
       latestRequestedFingerprint = undefined;
       nextOperationalAttemptId = 0;
       latestOperationalAttemptId = 0;
+      administrativeRebuildInProgress = false;
       inFlightByFingerprint.clear();
       operationalStatus = INITIAL_OPERATIONAL_STATUS;
       now = options.now ?? defaultNow;
