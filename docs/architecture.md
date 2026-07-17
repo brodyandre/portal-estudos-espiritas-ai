@@ -171,6 +171,9 @@ apps/api/src/
 - o manifesto seguro inclui apenas livros ativos e documentos aprovados
 - o corpus governado calcula identidade composta com `manifestFingerprint` editorial e `corpusFingerprint` fisico
 - o cache do corpus e do retriever e local ao processo e valido apenas enquanto a identidade composta nao muda
+- o estado operacional do corpus tambem e local ao processo, acoplado ao servico do corpus e consultavel por `GET /api/admin/knowledge/corpus/status`
+- esse diagnostico mantem identidade e contagens associadas atomicamente ao ultimo snapshot publicado com sucesso
+- a consulta administrativa de status le somente memoria, sem banco, filesystem, auditoria ou reconstrucao do corpus
 - arquivos aprovados ausentes, vazios, invalidos ou inconsistentes fazem os fluxos publicos falharem fechado, sem fallback para o loader legado
 
 ### Estado local do navegador
@@ -207,6 +210,7 @@ Professor abre /professor
 - se a API estiver indisponivel, o frontend continua util com mocks
 - se Ollama estiver indisponivel, a API responde com conteudo de contingencia
 - se o corpus governado estiver invalido ou indisponivel, os endpoints publicos de conhecimento e resposta falham fechado
+- `/health` permanece publico, barato e sem diagnostico do corpus governado
 - se o contexto estiver fraco, a resposta orienta consultar o professor
 - o sistema evita travar a interface por dependencia de um servico unico
 

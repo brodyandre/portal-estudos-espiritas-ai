@@ -1,3 +1,5 @@
+export type { GovernedCorpusOperationalStatus } from "../../../knowledge/governedCorpus";
+
 export const KNOWLEDGE_BOOK_STATUSES = ["active", "archived"] as const;
 export const KNOWLEDGE_DOCUMENT_TYPES = [
   "readme",
