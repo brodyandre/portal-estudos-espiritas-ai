@@ -29,7 +29,9 @@ COPY package.json package-lock.json ./
 COPY apps/api/package.json ./apps/api/package.json
 COPY apps/web/package.json ./apps/web/package.json
 
-RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
+RUN npm ci --omit=dev --ignore-scripts \
+  && rm -rf node_modules/prisma node_modules/.bin/prisma \
+  && npm cache clean --force
 
 COPY --from=workspace-deps /app/node_modules/.prisma ./node_modules/.prisma
 

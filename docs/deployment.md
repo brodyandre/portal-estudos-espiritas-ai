@@ -56,6 +56,8 @@ O runtime:
 
 Smoke local sem banco real:
 
+Defina localmente `JWT_SECRET` e `DATABASE_URL` com valores ficticios de smoke antes de executar o container.
+
 ```bash
 docker run --rm -d \
   --name portal-estudos-api-9c1 \
@@ -64,8 +66,8 @@ docker run --rm -d \
   -p 18080:4000 \
   -e NODE_ENV=production \
   -e PORT=4000 \
-  -e JWT_SECRET='<jwt-secret-ficticio-somente-smoke-local-nao-reutilizar>' \
-  -e DATABASE_URL='postgresql://usuario_ficticio:senha_ficticia@127.0.0.1:65432/banco_indisponivel' \
+  -e JWT_SECRET \
+  -e DATABASE_URL \
   -e APP_PUBLIC_URL='https://portal-educacao-continuada.com.br' \
   -e CORS_ORIGINS='https://portal-educacao-continuada.com.br' \
   -e TRUST_PROXY_HOPS=1 \
@@ -139,6 +141,65 @@ npm --workspace @portal-estudos-espiritas-ai/api run prisma:seed
 O seed atual e demonstrativo e destrutivo: apaga dados administrativos locais e cria usuarios e grupos de exemplo. Ele nao cria o primeiro administrador de producao com seguranca.
 
 O bootstrap seguro do primeiro administrador e pendencia P0 da 9C.2.
+
+## Bootstrap inicial seguro do administrador
+
+O primeiro administrador de producao deve ser criado por um job one-shot depois das migrations e antes da liberacao operacional do piloto. Este fluxo nao usa rota HTTP, nao depende do seed demonstrativo e nao deve ser usado como criador geral de administradores.
+
+Variaveis exigidas somente no momento do job:
+
+- `DATABASE_URL`
+- `BOOTSTRAP_ADMIN_EMAIL`
+- `BOOTSTRAP_ADMIN_PASSWORD`
+- `BOOTSTRAP_ADMIN_NAME`
+
+O e-mail e normalizado com `trim` e lowercase. A senha segue a mesma politica do aplicativo: minimo de 8 caracteres, maximo de 128 caracteres, pelo menos uma letra maiuscula, uma letra minuscula e um numero. A validacao das variaveis de bootstrap acontece antes da criacao do cliente Prisma e antes de qualquer tentativa de banco.
+
+Execucao via npm:
+
+```bash
+export DATABASE_URL
+export BOOTSTRAP_ADMIN_EMAIL
+export BOOTSTRAP_ADMIN_PASSWORD
+export BOOTSTRAP_ADMIN_NAME
+npm --workspace @portal-estudos-espiritas-ai/api run admin:bootstrap
+```
+
+Execucao via container:
+
+```bash
+docker run --rm \
+  -e DATABASE_URL='<postgresql-runtime-ou-direta-do-provedor>' \
+  -e BOOTSTRAP_ADMIN_EMAIL \
+  -e BOOTSTRAP_ADMIN_PASSWORD \
+  -e BOOTSTRAP_ADMIN_NAME \
+  --entrypoint npm \
+  portal-estudos-api-migration:9c2a-local \
+  --workspace @portal-estudos-espiritas-ai/api run admin:bootstrap
+```
+
+O bootstrap e idempotente apenas para o mesmo administrador ja existente quando ele e o unico usuario `ADMIN`. Se ja houver outro administrador, mais de um administrador, ou um usuario comum com o e-mail informado, o job termina em conflito controlado e nao promove usuarios existentes.
+
+O usuario criado fica com `role=ADMIN`, `status=ACTIVE`, conta ativada e `mustChangePassword=true`. `passwordChangedAt` recebe o instante da criacao para representar a versao atual da credencial temporaria em tokens e sessoes; isso nao substitui a troca obrigatoria feita pelo usuario. A senha informada deve ser tratada como temporaria: apos o primeiro acesso em `/login`, o administrador deve troca-la via `PATCH /api/auth/change-password`. Depois da troca, remova `BOOTSTRAP_ADMIN_EMAIL`, `BOOTSTRAP_ADMIN_PASSWORD` e `BOOTSTRAP_ADMIN_NAME` do ambiente, do secret manager ou da configuracao temporaria do job.
+
+Em conflito serializavel `P2034`, o job tenta no maximo tres transacoes: a tentativa inicial e ate duas repeticoes. `P2002` e tratado como conflito operacional somente quando a constraint afetada e a de e-mail; outros erros Prisma sao falhas de banco sanitizadas.
+
+Logs permitidos:
+
+- `bootstrap_admin_started`
+- `bootstrap_admin_created`
+- `bootstrap_admin_already_initialized`
+- `bootstrap_admin_conflict`
+- `bootstrap_admin_failed`
+
+Os logs usam e-mail mascarado e nao devem conter senha, hash, `DATABASE_URL`, objeto de usuario completo ou detalhes internos do erro.
+
+Codigos de saida:
+
+- `0`: administrador criado ou bootstrap ja inicializado com seguranca.
+- `1`: variaveis ausentes ou invalidas.
+- `2`: conflito de estado que exige avaliacao manual.
+- `3`: erro de banco ou transacao.
 
 ## Imagem da Web
 
