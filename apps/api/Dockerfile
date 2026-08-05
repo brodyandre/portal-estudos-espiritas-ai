@@ -70,3 +70,5 @@ USER node
 
 ENTRYPOINT []
 CMD ["npm", "--workspace", "@portal-estudos-espiritas-ai/api", "run", "prisma:migrate"]
+
+FROM runtime AS final
