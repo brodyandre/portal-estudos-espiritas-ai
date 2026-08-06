@@ -156,8 +156,9 @@ export const AlunoPage = () => {
   const [lastSubmittedQuestion, setLastSubmittedQuestion] = useState("");
   const [isAssistantLoading, setIsAssistantLoading] = useState(false);
   const [isSendingTeacherQuestion, setIsSendingTeacherQuestion] = useState(false);
+  const canLoadPersonalMeetings = user?.role === "student" || user?.role === "teacher";
   const userMeetings = useUserStudyMeetings({
-    enabled: studentAccessStatus === "approved",
+    enabled: studentAccessStatus === "approved" && canLoadPersonalMeetings,
     limit: 3,
   });
 
