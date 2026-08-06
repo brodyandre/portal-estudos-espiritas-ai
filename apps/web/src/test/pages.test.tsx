@@ -4,6 +4,8 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AuthProvider } from "../auth/AuthProvider";
+import { AUTH_TOKEN_STORAGE_KEY, AUTH_USER_STORAGE_KEY } from "../auth/storage";
+import type { UserRole } from "../auth/types";
 import { AlunoPage } from "../pages/AlunoPage";
 import { AdminPage } from "../pages/AdminPage";
 import { AdminUsersPage } from "../pages/AdminUsersPage";
@@ -40,6 +42,23 @@ const renderRoute = (path: string, element: ReactNode) => {
         </Routes>
       </MemoryRouter>
     </AuthProvider>,
+  );
+};
+
+const storeAuthenticatedUser = (role: Extract<UserRole, "student" | "teacher" | "admin">) => {
+  window.localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, "token-demo-local");
+  window.localStorage.setItem(
+    AUTH_USER_STORAGE_KEY,
+    JSON.stringify({
+      id: `${role}-user`,
+      fullName: `Perfil ${role}`,
+      email: `${role}.demo@example.com`,
+      role,
+      status: "active",
+      mustChangePassword: false,
+      passwordChangedAt: "2026-07-12T09:00:00.000Z",
+      permissions: [],
+    }),
   );
 };
 
@@ -218,7 +237,14 @@ describe("paginas principais com fallback local", () => {
   });
 
   it("/aluno renderiza materiais dos dois grupos e continua util sem backend", async () => {
+    storeAuthenticatedUser("student");
     window.localStorage.setItem("portal-estudos-espiritas-ai:student-access", "approved");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new Error("backend offline");
+      }),
+    );
     renderRoute("/aluno?grupo=emmanuel", <AlunoPage />);
 
     expect(
@@ -239,6 +265,7 @@ describe("paginas principais com fallback local", () => {
   });
 
   it("/aluno exibe agenda autenticada sem depender do grupo legado selecionado", async () => {
+    storeAuthenticatedUser("student");
     window.localStorage.setItem("portal-estudos-espiritas-ai:student-access", "approved");
     vi.stubGlobal("fetch", mockFetchWithUserStudyMeetings());
 
@@ -261,7 +288,41 @@ describe("paginas principais com fallback local", () => {
     );
   });
 
+  it("/aluno não consulta agenda pessoal quando o perfil autenticado é admin", async () => {
+    storeAuthenticatedUser("admin");
+    const fetchMock = vi.fn(async (..._args: Parameters<typeof fetch>) => {
+      throw new Error("backend offline");
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderRoute("/aluno?grupo=emmanuel", <AlunoPage />);
+
+    expect(await screen.findByText("Modo demonstrativo ativo")).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalled();
+    });
+    expect(
+      fetchMock.mock.calls.some(([input]) => getFetchUrl(input).includes("/api/me/study-meetings/upcoming")),
+    ).toBe(false);
+  });
+
+  it("/aluno mantém a consulta de agenda pessoal para teacher aprovado", async () => {
+    storeAuthenticatedUser("teacher");
+    window.localStorage.setItem("portal-estudos-espiritas-ai:student-access", "approved");
+    const fetchMock = mockFetchWithUserStudyMeetings();
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderRoute("/aluno?grupo=emmanuel", <AlunoPage />);
+
+    expect(await screen.findByText("Encontro autenticado")).toBeInTheDocument();
+    expect(
+      fetchMock.mock.calls.some(([input]) => getFetchUrl(input).includes("/api/me/study-meetings/upcoming")),
+    ).toBe(true);
+  });
+
   it("/aluno trata 401 e 403 sem mock nem link", async () => {
+    storeAuthenticatedUser("student");
     window.localStorage.setItem("portal-estudos-espiritas-ai:student-access", "approved");
     vi.stubGlobal(
       "fetch",
@@ -290,6 +351,7 @@ describe("paginas principais com fallback local", () => {
   });
 
   it("/aluno recupera agenda no retry e não cria link quando meetUrl está ausente", async () => {
+    storeAuthenticatedUser("student");
     window.localStorage.setItem("portal-estudos-espiritas-ai:student-access", "approved");
     vi.stubGlobal(
       "fetch",
@@ -328,6 +390,7 @@ describe("paginas principais com fallback local", () => {
   });
 
   it("/aluno envia dúvida com groupId e lessonId legados, sem StudyMeeting.id", async () => {
+    storeAuthenticatedUser("student");
     window.localStorage.setItem("portal-estudos-espiritas-ai:student-access", "approved");
     vi.stubGlobal("fetch", mockFetchWithUserStudyMeetings());
     const createQuestionSpy = vi.spyOn(questionsService, "createQuestion").mockResolvedValue({
@@ -678,6 +741,7 @@ describe("paginas principais com fallback local", () => {
     });
 
     professorView.unmount();
+    storeAuthenticatedUser("student");
     renderRoute("/aluno", <AlunoPage />);
 
     expect(await screen.findByText("Painel do Aluno")).toBeInTheDocument();
