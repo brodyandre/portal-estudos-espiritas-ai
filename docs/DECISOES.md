@@ -131,3 +131,17 @@ Mantem rastreabilidade e evita mutacoes de producao fora de autorizacao explicit
 
 Status:
 Ativa.
+
+## D013 -- Resend como provider SMTP inicial de producao
+
+Decisao:
+Resend sera o provider SMTP transacional inicial de producao. A integracao da aplicacao deve continuar usando SMTP padrao por meio da abstracao Nodemailer ja existente.
+
+Racional:
+Aproveita o transporte SMTP ja implementado, evita acoplar o dominio de autenticacao ao SDK ou API proprietaria do provider, nao exige dependencia nova, nao exige alteracao de runtime, preserva a possibilidade de substituir o provider futuramente, suporta dominio proprio e oferece porta STARTTLS alternativa util diante da restricao atual das portas SMTP tradicionais no Render Free.
+
+Pendencias operacionais:
+Ainda faltam criar/configurar conta Resend, decidir dominio ou subdominio de envio, escolher remetente, aplicar DNS autorizado, criar credencial, configurar Render Secrets e executar smoke test real autorizado. Esta decisao nao significa que SMTP de producao ja esteja ativo.
+
+Status:
+Ativa.

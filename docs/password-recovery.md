@@ -82,6 +82,110 @@ Como testar:
 
 Mailpit é apenas para desenvolvimento local e não deve ser usado em produção.
 
+## SMTP de produção com Resend
+
+Resend foi escolhido como provider SMTP transacional inicial de produção. A aplicação continua usando a arquitetura SMTP genérica já existente:
+
+```text
+Módulos de autenticação
+↓
+transactional-email
+↓
+Nodemailer
+↓
+SMTP padrão
+↓
+Resend
+```
+
+Esta decisão é arquitetural e documental. Ela não significa que a conta Resend, DNS, remetente, Render Secrets, `SMTP_ENABLED=true`, conexão SMTP ou entrega real em produção já estejam configurados ou validados.
+
+### Variáveis planejadas
+
+| Variável | Produção planejada | Observação |
+|---|---|---|
+| `SMTP_ENABLED` | `false` durante preparação; `true` somente na ativação autorizada | Em produção, sem SMTP ativo e sem prévia local, a recuperação não deve ser tratada como funcional. |
+| `SMTP_HOST` | `smtp.resend.com` | Host SMTP do Resend. |
+| `SMTP_PORT` | `2587` | Porta candidata para o piloto no Render Free; precisa de smoke test real autorizado. |
+| `SMTP_SECURE` | `false` | Cenário candidato com STARTTLS via Nodemailer. |
+| `SMTP_USER` | `resend` | Valor operacional do provider, sem credencial. |
+| `SMTP_PASSWORD` | `<SECRET_RESEND_SMTP>` | Secret operacional; nunca versionar, imprimir ou registrar. |
+| `SMTP_FROM_NAME` | `<NOME_INSTITUCIONAL_A_DEFINIR>` | Nome institucional ainda pendente. |
+| `SMTP_FROM_EMAIL` | `<REMETENTE_AUTORIZADO_A_DEFINIR>` | Remetente final depende de domínio/remetente verificado. |
+| `APP_PUBLIC_URL` | `https://portal-educacao-continuada.com.br` | Base usada para montar `/redefinir-senha?token=...`. |
+
+### Pré-requisitos operacionais
+
+Antes de ativar SMTP em produção:
+
+1. criar ou configurar a conta Resend;
+2. decidir domínio raiz ou subdomínio de envio;
+3. cadastrar o domínio no Resend;
+4. obter os registros DNS oficiais no painel do Resend;
+5. aplicar DNS somente com autorização explícita;
+6. aguardar e validar a verificação do domínio;
+7. decidir o remetente institucional;
+8. confirmar que o remetente é permitido pelo domínio verificado;
+9. criar credencial SMTP restrita;
+10. configurar Render sem expor secrets;
+11. revisar a configuração antes de ativar `SMTP_ENABLED=true`.
+
+### Comportamento de falha em produção
+
+Em produção, a prévia local fica indisponível. Se o envio SMTP não estiver disponível ou não concluir de forma segura, a resposta HTTP pública continua genérica para evitar enumeração de usuários, mas isso não confirma entrega real. O token recém-criado é invalidado conforme o comportamento atual quando não há entrega disponível ou quando o envio falha.
+
+### Smoke test autorizado
+
+O smoke test de produção deve ser executado somente em etapa autorizada:
+
+1. usar uma conta controlada;
+2. usar endereço de e-mail autorizado pelo proprietário do projeto;
+3. disparar uma única solicitação inicial em `POST /api/auth/forgot-password`;
+4. verificar recebimento;
+5. verificar remetente;
+6. verificar assunto;
+7. verificar versões HTML e texto;
+8. confirmar que o link aponta para `https://portal-educacao-continuada.com.br/redefinir-senha?token=...`;
+9. não copiar token para relatório, log ou issue;
+10. redefinir a senha uma única vez;
+11. confirmar sucesso da redefinição;
+12. tentar reutilização do token apenas se isso fizer parte do procedimento seguro autorizado;
+13. confirmar que o token não pode ser utilizado novamente;
+14. confirmar login com a nova senha;
+15. confirmar revogação das sessões anteriores conforme comportamento atual;
+16. verificar logs sanitizados.
+
+Não registrar token, senha, credencial SMTP, API key ou corpo completo sensível.
+
+### Rollback
+
+Rollback mínimo:
+
+1. retornar `SMTP_ENABLED=false`;
+2. restaurar configuração anterior, se necessário;
+3. executar restart ou redeploy controlado;
+4. validar `/health`;
+5. validar `/ready`;
+6. confirmar ausência de novas tentativas SMTP;
+7. registrar o incidente sem secrets.
+
+Com SMTP desabilitado em produção e sem prévia local, recuperação de senha não deve ser tratada como funcional. A resposta pública permanece protegida contra enumeração.
+
+### Troubleshooting
+
+- autenticação SMTP rejeitada: verificar `SMTP_USER`, `SMTP_PASSWORD`, escopo da credencial e status do provider;
+- timeout, conexão recusada ou host incorreto: revisar `SMTP_HOST`, conectividade de saída e disponibilidade do provider;
+- porta incorreta ou combinação porta/TLS incompatível: revisar `SMTP_PORT`, `SMTP_SECURE` e o uso de STARTTLS;
+- domínio não verificado ou remetente não autorizado: validar domínio/remetente no Resend antes de ativar;
+- SPF, DKIM ou DMARC pendente/incorreto: usar somente valores oficiais do Resend e política institucional autorizada;
+- mensagem em spam: revisar domínio, remetente, reputação e conteúdo sem expor corpo sensível;
+- provider indisponível ou rate limit do provider: manter resposta pública segura e observar logs sanitizados;
+- rate limit da própria API: respeitar `Retry-After` e evitar repetição manual agressiva;
+- `SMTP_ENABLED=false` ou variável ausente: revisar env e reiniciar/redeploy quando aplicável;
+- `APP_PUBLIC_URL` inválida: garantir origem HTTPS sem path, query, hash, usuário, senha ou localhost;
+- alteração de env sem restart/redeploy: reiniciar de forma controlada antes de novo smoke;
+- falha de entrega: não expor secret, token, URL completa ou payload SMTP.
+
 ## Segurança aplicada
 
 - token gerado com `randomBytes`
