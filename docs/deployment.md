@@ -300,6 +300,10 @@ Esta secao descreve a operacao planejada. Ela nao significa que conta Resend, do
 
 No estado atual, Render Free bloqueia trafego SMTP de saida nas portas tradicionais `25`, `465` e `587`. O Resend documenta `2587` entre suas portas SMTP STARTTLS; por isso `SMTP_PORT=2587` com `SMTP_SECURE=false` e a configuracao candidata para o piloto. Isso nao garante conectividade antes do smoke test autorizado.
 
+`Save only` pode ser usado para preparar variaveis no Render mantendo `SMTP_ENABLED=false`, mas nao deve ser tratado como ativacao nem como aplicacao da configuracao ao processo em execucao. Qualquer env criada ou alterada deve ser incorporada por deploy que aplique a configuracao salva, como `Save and deploy` ou operacao equivalente autorizada do servico da API.
+
+`Restart service` nao substitui esse deploy quando houver env nova ou alterada ainda nao incorporada. Ele so deve ser citado em contextos sem alteracao de env pendente.
+
 ### DNS e remetente
 
 O dominio de envio ainda precisa ser escolhido. Ele pode ser o dominio raiz ou um subdominio dedicado, mas essa decisao pertence a etapa operacional posterior.
@@ -324,16 +328,19 @@ Nao executar estes passos sem autorizacao especifica:
 7. validar dominio;
 8. definir remetente;
 9. criar credencial restrita;
-10. configurar Render mantendo `SMTP_ENABLED=false`;
+10. configurar Render mantendo `SMTP_ENABLED=false` com `Save only`;
 11. revisar env;
-12. ativar `SMTP_ENABLED=true`;
-13. executar restart ou deploy controlado;
-14. verificar `/health`;
-15. verificar `/ready`;
-16. executar smoke autorizado;
-17. verificar entrega;
-18. auditar logs;
-19. registrar resultado.
+12. aplicar a configuracao preparada por `Save and deploy` ou deploy equivalente autorizado;
+13. verificar `/health`;
+14. verificar `/ready`;
+15. ativar `SMTP_ENABLED=true`;
+16. aplicar a ativacao por `Save and deploy` ou deploy equivalente autorizado;
+17. verificar `/health`;
+18. verificar `/ready`;
+19. executar smoke autorizado;
+20. verificar entrega;
+21. auditar logs;
+22. registrar resultado.
 
 `/health` e `/ready` validam saude da aplicacao e readiness das dependencias ja cobertas pelo codigo. Eles nao validam entregabilidade SMTP. A entrega real exige smoke test autorizado conforme `docs/password-recovery.md`.
 
@@ -343,7 +350,7 @@ Rollback operacional minimo:
 
 - retornar `SMTP_ENABLED=false`;
 - restaurar env anterior, se necessario;
-- executar restart ou redeploy controlado;
+- aplicar a env alterada por `Save and deploy` ou deploy equivalente autorizado;
 - validar `/health`;
 - validar `/ready`;
 - observar logs sanitizados;

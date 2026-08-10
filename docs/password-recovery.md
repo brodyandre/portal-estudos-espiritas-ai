@@ -130,6 +130,8 @@ Antes de ativar SMTP em produção:
 10. configurar Render sem expor secrets;
 11. revisar a configuração antes de ativar `SMTP_ENABLED=true`.
 
+A preparação pode usar `Save only` com `SMTP_ENABLED=false`, mas a configuração só deve ser tratada como aplicada após deploy controlado que incorpore as envs salvas, conforme `docs/deployment.md`. `Restart service` não substitui esse deploy quando houver env nova ou alterada pendente.
+
 ### Comportamento de falha em produção
 
 Em produção, a prévia local fica indisponível. Se o envio SMTP não estiver disponível ou não concluir de forma segura, a resposta HTTP pública continua genérica para evitar enumeração de usuários, mas isso não confirma entrega real. O token recém-criado é invalidado conforme o comportamento atual quando não há entrega disponível ou quando o envio falha.
@@ -163,11 +165,12 @@ Rollback mínimo:
 
 1. retornar `SMTP_ENABLED=false`;
 2. restaurar configuração anterior, se necessário;
-3. executar restart ou redeploy controlado;
+3. aplicar a configuração alterada por deploy controlado;
 4. validar `/health`;
 5. validar `/ready`;
-6. confirmar ausência de novas tentativas SMTP;
-7. registrar o incidente sem secrets.
+6. revisar logs sanitizados;
+7. confirmar ausência de novas tentativas SMTP;
+8. registrar o incidente sem secrets.
 
 Com SMTP desabilitado em produção e sem prévia local, recuperação de senha não deve ser tratada como funcional. A resposta pública permanece protegida contra enumeração.
 
@@ -181,9 +184,9 @@ Com SMTP desabilitado em produção e sem prévia local, recuperação de senha 
 - mensagem em spam: revisar domínio, remetente, reputação e conteúdo sem expor corpo sensível;
 - provider indisponível ou rate limit do provider: manter resposta pública segura e observar logs sanitizados;
 - rate limit da própria API: respeitar `Retry-After` e evitar repetição manual agressiva;
-- `SMTP_ENABLED=false` ou variável ausente: revisar env e reiniciar/redeploy quando aplicável;
+- `SMTP_ENABLED=false` ou variável ausente: revisar env e aplicar configuração alterada por deploy controlado quando aplicável;
 - `APP_PUBLIC_URL` inválida: garantir origem HTTPS sem path, query, hash, usuário, senha ou localhost;
-- alteração de env sem restart/redeploy: reiniciar de forma controlada antes de novo smoke;
+- alteração de env salva mas ainda não incorporada: executar deploy controlado antes de novo smoke;
 - falha de entrega: não expor secret, token, URL completa ou payload SMTP.
 
 ## Segurança aplicada
