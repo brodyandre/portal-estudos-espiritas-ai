@@ -93,6 +93,31 @@ describe("api environment config", () => {
     expect(config.llmProvider).toBe("ollama");
   });
 
+  it("aceita configuração SMTP completa em produção sem conectar ao provedor", () => {
+    const config = buildEnv({
+      ...validProductionEnv,
+      SMTP_ENABLED: "true",
+      SMTP_HOST: "smtp.example.test",
+      SMTP_PORT: "587",
+      SMTP_SECURE: "false",
+      SMTP_USER: "test-user",
+      SMTP_PASSWORD: "test-password",
+      SMTP_FROM_NAME: "Portal de Estudos Espíritas",
+      SMTP_FROM_EMAIL: "no-reply@example.test",
+    });
+
+    expect(config.nodeEnv).toBe("production");
+    expect(config.appPublicUrl).toBe("https://portal-educacao-continuada.com.br");
+    expect(config.smtpEnabled).toBe(true);
+    expect(config.smtpHost).toBe("smtp.example.test");
+    expect(config.smtpPort).toBe(587);
+    expect(config.smtpSecure).toBe(false);
+    expect(config.smtpUser).toBe("test-user");
+    expect(config.smtpPassword).toBe("test-password");
+    expect(config.smtpFromName).toBe("Portal de Estudos Espíritas");
+    expect(config.smtpFromEmail).toBe("no-reply@example.test");
+  });
+
   it("aceita Groq como provider LLM quando chave e modelo sao configurados", () => {
     const config = buildEnv({
       ...validProductionEnv,
