@@ -278,6 +278,79 @@ Runtime esperado:
 
 Secrets reais devem ficar somente no ambiente do provedor ou secret manager. A imagem nao deve conter banco, JWT, senha SMTP, tokens ou chaves privadas.
 
+## SMTP transacional -- Resend
+
+Resend foi escolhido como provider SMTP transacional inicial de producao. A aplicacao continua usando SMTP padrao via Nodemailer; nao ha SDK Resend, API HTTP proprietaria, dependencia nova ou alteracao de runtime nesta decisao.
+
+Esta secao descreve a operacao planejada. Ela nao significa que conta Resend, dominio, remetente, DNS, Render Secrets, `SMTP_ENABLED=true`, conexao SMTP ou entrega real ja estejam configurados ou validados.
+
+### Render e variaveis
+
+| Variavel | Valor planejado | Classificacao | Observacao |
+|---|---|---|---|
+| `SMTP_ENABLED` | `false` ate a ativacao; depois `true` | configuracao | Ativar somente apos revisao e autorizacao. |
+| `SMTP_HOST` | `smtp.resend.com` | configuracao | Host SMTP do Resend. |
+| `SMTP_PORT` | `2587` | configuracao | Porta candidata para Render Free; a validar por smoke test real. |
+| `SMTP_SECURE` | `false` | configuracao | Cenario candidato com STARTTLS. |
+| `SMTP_USER` | `resend` | sensivel/operacional | Usuario operacional do provider. |
+| `SMTP_PASSWORD` | `<SECRET_RESEND_SMTP>` | secret | Credencial SMTP/API key; nunca versionar ou imprimir. |
+| `SMTP_FROM_NAME` | `<NOME_INSTITUCIONAL_A_DEFINIR>` | configuracao | Nome institucional pendente. |
+| `SMTP_FROM_EMAIL` | `<REMETENTE_AUTORIZADO_A_DEFINIR>` | sensivel/operacional | Depende do dominio/remetente verificado. |
+| `APP_PUBLIC_URL` | `https://portal-educacao-continuada.com.br` | configuracao | Origem publica usada nos links transacionais. |
+
+No estado atual, Render Free bloqueia trafego SMTP de saida nas portas tradicionais `25`, `465` e `587`. O Resend documenta `2587` entre suas portas SMTP STARTTLS; por isso `SMTP_PORT=2587` com `SMTP_SECURE=false` e a configuracao candidata para o piloto. Isso nao garante conectividade antes do smoke test autorizado.
+
+### DNS e remetente
+
+O dominio de envio ainda precisa ser escolhido. Ele pode ser o dominio raiz ou um subdominio dedicado, mas essa decisao pertence a etapa operacional posterior.
+
+- valores SPF e DKIM devem vir do painel oficial do Resend;
+- nenhum registro DNS deve ser inventado;
+- DMARC deve seguir a politica institucional e a recomendacao aplicavel ao dominio escolhido;
+- qualquer alteracao DNS exige autorizacao explicita;
+- o dominio deve estar verificado antes de ativar SMTP;
+- o remetente final deve ser permitido pelo dominio verificado.
+
+### Sequencia de ativacao
+
+Nao executar estes passos sem autorizacao especifica:
+
+1. criar ou configurar Resend;
+2. escolher dominio ou subdominio de envio;
+3. cadastrar dominio;
+4. obter DNS oficial no painel do Resend;
+5. autorizar alteracao DNS;
+6. publicar DNS;
+7. validar dominio;
+8. definir remetente;
+9. criar credencial restrita;
+10. configurar Render mantendo `SMTP_ENABLED=false`;
+11. revisar env;
+12. ativar `SMTP_ENABLED=true`;
+13. executar restart ou deploy controlado;
+14. verificar `/health`;
+15. verificar `/ready`;
+16. executar smoke autorizado;
+17. verificar entrega;
+18. auditar logs;
+19. registrar resultado.
+
+`/health` e `/ready` validam saude da aplicacao e readiness das dependencias ja cobertas pelo codigo. Eles nao validam entregabilidade SMTP. A entrega real exige smoke test autorizado conforme `docs/password-recovery.md`.
+
+### Rollback SMTP
+
+Rollback operacional minimo:
+
+- retornar `SMTP_ENABLED=false`;
+- restaurar env anterior, se necessario;
+- executar restart ou redeploy controlado;
+- validar `/health`;
+- validar `/ready`;
+- observar logs sanitizados;
+- nao expor credenciais.
+
+O comportamento funcional e os limites da recuperacao de senha com SMTP desabilitado estao detalhados em `docs/password-recovery.md`.
+
 ## Provider LLM
 
 A API suporta `LLM_PROVIDER=ollama` e `LLM_PROVIDER=groq`.
