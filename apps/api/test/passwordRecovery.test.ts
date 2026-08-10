@@ -346,6 +346,45 @@ describe("password recovery flow", () => {
     expect(response.body.error.code).toBe("PASSWORD_REUSE_NOT_ALLOWED");
   });
 
+  it("rejeita senha fraca no endpoint publico de redefinicao", async () => {
+    await request(app).post("/api/auth/forgot-password").send({
+      email: "aluno.demo@example.com",
+    });
+
+    const [preview] = listPasswordRecoveryPreviews();
+    const response = await request(app).post("/api/auth/reset-password").send({
+      token: preview.token,
+      newPassword: "fraca",
+      confirmPassword: "fraca",
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error.code).toBe("WEAK_PASSWORD");
+  });
+
+  it("aplica rate limit na redefinicao publica de senha", async () => {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const response = await request(app).post("/api/auth/reset-password").send({
+        token: "token-estruturalmente-valido",
+        newPassword: "NovaSenha@123",
+        confirmPassword: "NovaSenha@123",
+      });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error.code).toBe("INVALID_PASSWORD_RESET_TOKEN");
+    }
+
+    const blockedResponse = await request(app).post("/api/auth/reset-password").send({
+      token: "token-estruturalmente-valido",
+      newPassword: "NovaSenha@123",
+      confirmPassword: "NovaSenha@123",
+    });
+
+    expect(blockedResponse.status).toBe(429);
+    expect(blockedResponse.body.error.code).toBe("PASSWORD_RESET_RATE_LIMITED");
+    expect(blockedResponse.headers["retry-after"]).toBeDefined();
+  });
+
   it("rejeita token expirado, usado ou invalidado com o mesmo codigo estavel", async () => {
     try {
       vi.useFakeTimers();
