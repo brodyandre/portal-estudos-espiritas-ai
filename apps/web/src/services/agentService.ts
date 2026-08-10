@@ -3,7 +3,7 @@ import type { KnowledgeSupportFile } from "./knowledgeService";
 import type { ServiceResult } from "./api";
 import { loadWithFallback } from "./api";
 
-type AgentProvider = "ollama" | "fallback" | "local";
+type AgentProvider = "ollama" | "groq" | "fallback" | "local";
 type TeacherDraftKind = "lesson-plan" | "reflection-questions" | "summarize";
 
 interface ApiAssistantSource {

@@ -9,6 +9,7 @@ const DEFAULT_CORS_ORIGINS = [
 ];
 const DEFAULT_OLLAMA_MODEL = "llama3.1:8b";
 const DEFAULT_OLLAMA_BASE_URL = "http://127.0.0.1:11434";
+const DEFAULT_LLM_PROVIDER = "ollama";
 const DEFAULT_PASSWORD_RECOVERY_TTL_MINUTES = 30;
 const DEFAULT_APP_PUBLIC_URL = "http://localhost:5173";
 const DEFAULT_SMTP_HOST = "localhost";
@@ -45,9 +46,14 @@ export interface ApiEnv {
   smtpFromEmail: string;
   corsOrigins: string[];
   trustProxyHops: number;
+  llmProvider: LlmProvider;
   ollamaModel: string;
   ollamaBaseUrl: string;
+  groqApiKey: string | null;
+  groqModel: string | null;
 }
+
+export type LlmProvider = "ollama" | "groq";
 
 const parsePort = (value: string | undefined): number => {
   const parsed = Number(value);
@@ -86,6 +92,16 @@ const parseOptionalString = (value: string | undefined): string | null => {
   }
 
   return value.trim();
+};
+
+const parseLlmProvider = (value: string | undefined): LlmProvider => {
+  const normalized = parseNonEmptyString(value, DEFAULT_LLM_PROVIDER).toLowerCase();
+
+  if (normalized === "ollama" || normalized === "groq") {
+    return normalized;
+  }
+
+  throw new Error("LLM_PROVIDER deve ser ollama ou groq.");
 };
 
 const parseBoolean = (value: string | undefined, fallback: boolean): boolean => {
@@ -349,6 +365,20 @@ const ensureSmtpConfiguration = (config: {
   void config.smtpSecure;
 };
 
+const ensureLlmConfiguration = (config: Pick<ApiEnv, "llmProvider" | "groqApiKey" | "groqModel">) => {
+  if (config.llmProvider !== "groq") {
+    return;
+  }
+
+  if (!config.groqApiKey) {
+    throw new Error("GROQ_API_KEY é obrigatório quando LLM_PROVIDER=groq.");
+  }
+
+  if (!config.groqModel) {
+    throw new Error("GROQ_MODEL é obrigatório quando LLM_PROVIDER=groq.");
+  }
+};
+
 export const buildEnv = (source: NodeJS.ProcessEnv = process.env): ApiEnv => {
   const nodeEnv = source.NODE_ENV ?? "development";
   const isProduction = nodeEnv === "production";
@@ -381,11 +411,15 @@ export const buildEnv = (source: NodeJS.ProcessEnv = process.env): ApiEnv => {
     smtpFromEmail: parseNonEmptyString(source.SMTP_FROM_EMAIL, DEFAULT_SMTP_FROM_EMAIL),
     corsOrigins: isProduction ? parseProductionCorsOrigins(source.CORS_ORIGINS) : parseCorsOrigins(source.CORS_ORIGINS),
     trustProxyHops: parseTrustProxyHops(source.TRUST_PROXY_HOPS, nodeEnv),
+    llmProvider: parseLlmProvider(source.LLM_PROVIDER),
     ollamaModel: parseNonEmptyString(source.OLLAMA_MODEL, DEFAULT_OLLAMA_MODEL),
     ollamaBaseUrl: parseNonEmptyString(source.OLLAMA_BASE_URL, DEFAULT_OLLAMA_BASE_URL),
+    groqApiKey: parseOptionalString(source.GROQ_API_KEY),
+    groqModel: parseOptionalString(source.GROQ_MODEL),
   };
 
   ensureSmtpConfiguration(config);
+  ensureLlmConfiguration(config);
   return config;
 };
 

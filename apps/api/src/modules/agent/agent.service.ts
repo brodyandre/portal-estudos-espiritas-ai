@@ -10,7 +10,7 @@ import {
   isGovernedRetrievalOperationalError,
   toKnowledgeCorpusUnavailableError,
 } from "../../rag/governedRetrievalErrors";
-import { generateWithOllama } from "../../agent/llm";
+import { generateWithConfiguredLlm } from "../../agent/llm";
 import {
   buildLessonPlanPrompt,
   buildReflectionQuestionsPrompt,
@@ -56,13 +56,14 @@ const buildAgentDraft = (options: {
   title: string;
   content: string;
   items?: string[];
+  provider: AgentDraft["provider"];
 }): AgentDraft => {
   return {
     kind: options.kind,
     title: options.title,
     content: options.content,
     items: options.items,
-    provider: "ollama",
+    provider: options.provider,
     usedFallback: false,
     reviewNote: AGENT_REVIEW_NOTE,
     sourceNote: AGENT_SOURCE_NOTE,
@@ -83,7 +84,7 @@ export const createLessonPlanDraft = async (
     context: input.context ?? "Nao ha contexto adicional enviado.",
   });
 
-  const llmResult = await generateWithOllama(messages);
+  const llmResult = await generateWithConfiguredLlm(messages);
 
   if (!llmResult.ok) {
     return buildLessonPlanFallback(
@@ -107,6 +108,7 @@ export const createLessonPlanDraft = async (
     kind: "lesson-plan",
     title: `Roteiro inicial para ${group.name}`,
     content: safeText.text,
+    provider: llmResult.provider,
   });
 };
 
@@ -124,7 +126,7 @@ export const createReflectionQuestionsDraft = async (
     context: input.context ?? "Nao ha contexto adicional enviado.",
   });
 
-  const llmResult = await generateWithOllama(messages);
+  const llmResult = await generateWithConfiguredLlm(messages);
 
   if (!llmResult.ok) {
     return buildReflectionQuestionsFallback(
@@ -159,6 +161,7 @@ export const createReflectionQuestionsDraft = async (
     title: `Perguntas sugeridas para ${group.name}`,
     content: formatList(items),
     items,
+    provider: llmResult.provider,
   });
 };
 
@@ -174,7 +177,7 @@ export const createSummaryDraft = async (
     sourceText: input.sourceText,
   });
 
-  const llmResult = await generateWithOllama(messages);
+  const llmResult = await generateWithConfiguredLlm(messages);
 
   if (!llmResult.ok) {
     return buildSummarizeFallback(
@@ -198,6 +201,7 @@ export const createSummaryDraft = async (
     kind: "summarize",
     title: `Resumo inicial para ${group.name}`,
     content: safeText.text,
+    provider: llmResult.provider,
   });
 };
 
