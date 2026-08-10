@@ -1834,11 +1834,15 @@ Observacoes:
 - A lista `sources` pode incluir o contexto enviado pelo proprio usuario, alem dos documentos autorizados pelo corpus governado.
 - Se o corpus governado ou seu retriever estiverem indisponiveis, a API retorna `503 KNOWLEDGE_CORPUS_UNAVAILABLE`; esse erro nao e mascarado como fallback do modelo.
 
-### Fallback do modelo local
+### Provider LLM e fallback
 
-- Se o Ollama estiver indisponivel, a API responde com `success: true`, mas marca `usedFallback: true`.
+- Os endpoints em `/api/agent/*` usam o provider configurado em `LLM_PROVIDER`.
+- `LLM_PROVIDER=ollama` preserva o fluxo local com `OLLAMA_BASE_URL` e `OLLAMA_MODEL`.
+- `LLM_PROVIDER=groq` usa Groq no backend com `GROQ_API_KEY` e `GROQ_MODEL`.
+- Se o provider LLM estiver indisponivel, exceder timeout ou retornar conteudo vazio, a API responde com `success: true`, mas marca `usedFallback: true`.
 - O campo `fallbackReason` explica por que o modo de contingencia foi usado.
 - Toda resposta traz lembrete de revisao humana, sem autoridade doutrinaria e sem citacoes inventadas.
+- Chaves privadas de provider ficam somente no backend e nunca sao enviadas ao frontend ou em respostas da API.
 
 ## Testes
 
@@ -1863,7 +1867,7 @@ Testes basicos implementados:
 - Os endpoints publicos em `/api/knowledge/*` dependem do corpus governado gerado a partir do catalogo editorial e dos arquivos autorizados em `data/knowledge`.
 - A listagem da base de conhecimento nunca devolve conteudo longo dos arquivos Markdown.
 - O endpoint `GET /api/knowledge/search` reutiliza o retriever governado usado pela resposta do assistente.
-- Os endpoints em `/api/agent/*` usam `LangChain.js + Ollama` quando o modelo local estiver disponivel.
+- Os endpoints em `/api/agent/*` usam `LangChain.js` com Ollama local ou Groq remoto quando o provider configurado estiver disponivel.
 - O endpoint `POST /api/agent/answer` usa `LangGraph.js` para orquestrar pergunta, classificacao do grupo, busca governada e revisao de seguranca.
-- Quando o modelo local nao responde, a API usa um fallback simples e explicito para a demonstracao continuar.
+- Quando o provider LLM nao responde, a API usa um fallback simples e explicito para a demonstracao continuar.
 - A indisponibilidade do corpus governado falha fechado com `503`, sem expor caminhos absolutos, fingerprints ou issues internas.

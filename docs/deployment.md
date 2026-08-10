@@ -270,14 +270,23 @@ Runtime esperado:
 - `SMTP_FROM_EMAIL`
 - `PASSWORD_RECOVERY_TTL_MINUTES`
 - `PASSWORD_RECOVERY_PREVIEW_ENABLED`
+- `LLM_PROVIDER`
 - `OLLAMA_MODEL`
 - `OLLAMA_BASE_URL`
+- `GROQ_API_KEY`
+- `GROQ_MODEL`
 
 Secrets reais devem ficar somente no ambiente do provedor ou secret manager. A imagem nao deve conter banco, JWT, senha SMTP, tokens ou chaves privadas.
 
-## OLLAMA
+## Provider LLM
 
-A imagem da API nao inclui Ollama e nao inicia modelo local. `OLLAMA_MODEL` e `OLLAMA_BASE_URL` configuram um servico externo compativel. As rotas de agente usam fallback quando o modelo nao responde; a disponibilidade do modelo e decisao da 9C.3.
+A API suporta `LLM_PROVIDER=ollama` e `LLM_PROVIDER=groq`.
+
+Ollama continua indicado para desenvolvimento local. A imagem da API nao inclui Ollama e nao inicia modelo local. `OLLAMA_MODEL` e `OLLAMA_BASE_URL` configuram um servico externo compativel.
+
+Groq e o provider remoto previsto para producao. Configure `LLM_PROVIDER=groq`, `GROQ_API_KEY` e `GROQ_MODEL` somente no ambiente backend do provedor. Nao use variavel `VITE_*` para a chave.
+
+As rotas de agente usam fallback quando o provider configurado nao responde, excede timeout ou devolve conteudo vazio. Testes automatizados nao fazem chamadas reais ao Groq.
 
 ## Health e readiness
 

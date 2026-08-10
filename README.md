@@ -576,7 +576,7 @@ No ambiente local/private:
 - o painel do professor mostra o e-mail e a senha temporária apenas após a aprovação
 - a mensagem para o aluno continua sendo copiada e enviada manualmente
 
-## Uso sem Ollama
+## Uso sem provider LLM remoto
 
 Este e o caminho mais simples para portfolio, validacao de layout e demonstracao funcional.
 
@@ -589,11 +589,11 @@ Comportamento esperado:
 
 - se a API estiver ativa, a interface consome os endpoints locais
 - se a API estiver desligada, o frontend continua funcionando com mocks locais
-- se a API estiver ativa, mas o modelo local nao estiver disponivel, os endpoints de assistencia usam fallback claro
+- se a API estiver ativa, mas o provider LLM configurado nao estiver disponivel, os endpoints de assistencia usam fallback claro
 
 ## Uso com Ollama
 
-Use este modo quando quiser demonstrar o fluxo local de respostas e rascunhos apoiados por modelo.
+Use este modo quando quiser demonstrar localmente o fluxo de respostas e rascunhos apoiados por modelo.
 
 1. Garanta que o servico do Ollama esteja disponivel no endereco definido em `OLLAMA_BASE_URL`.
 2. Garanta que o modelo configurado em `OLLAMA_MODEL` exista no ambiente local.
@@ -608,9 +608,24 @@ NODE_ENV=development
 PORT=3333
 CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://127.0.0.1:3000
 VITE_API_URL=http://localhost:3333
+LLM_PROVIDER=ollama
 OLLAMA_MODEL=llama3.1:8b
 OLLAMA_BASE_URL=http://127.0.0.1:11434
 ```
+
+## Uso com Groq
+
+Use Groq como provider remoto de producao quando quiser que a API hospedada acesse um modelo por HTTPS, sem depender de Ollama local no runtime.
+
+Variaveis esperadas somente no backend:
+
+```bash
+LLM_PROVIDER=groq
+GROQ_API_KEY=
+GROQ_MODEL=
+```
+
+Nao configure `GROQ_API_KEY` como `VITE_*` nem envie a chave ao frontend. Se Groq falhar, exceder timeout ou devolver conteudo vazio, a API usa o fallback deterministico atual.
 
 Para producao da API, a entrega 9A exige configuracao fail-fast antes do `listen`:
 
@@ -649,7 +664,8 @@ Observacoes importantes:
 - o `docker-compose.yml` nao inclui banco
 - o `docker-compose.yml` nao inclui Ollama
 - o frontend e buildado com `VITE_API_URL=http://localhost:4000`
-- o Ollama deve rodar separado
+- o Ollama deve rodar separado quando `LLM_PROVIDER=ollama`
+- Groq nao e chamado nos testes automatizados; use `LLM_PROVIDER=groq` somente com chave e modelo configurados no backend
 
 ## GitHub Pages
 

@@ -6,7 +6,7 @@ export type AgentTaskKind =
   | "summarize"
   | "answer";
 
-export type AgentProvider = "ollama" | "fallback" | "local";
+export type AgentProvider = "ollama" | "groq" | "fallback" | "local";
 export type AgentAnswerGroupId = StudyGroupId | "both";
 export type AgentGroupMatchMode =
   | "selected_group"
@@ -81,7 +81,7 @@ export interface AgentAnswerResult {
 
 export interface LlmSuccessResult {
   ok: true;
-  provider: "ollama";
+  provider: "ollama" | "groq";
   text: string;
 }
 

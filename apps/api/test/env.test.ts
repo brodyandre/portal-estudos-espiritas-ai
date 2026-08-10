@@ -90,6 +90,47 @@ describe("api environment config", () => {
     expect(config.corsOrigins).toEqual(["https://portal-educacao-continuada.com.br"]);
     expect(config.trustProxyHops).toBe(1);
     expect(config.smtpEnabled).toBe(false);
+    expect(config.llmProvider).toBe("ollama");
+  });
+
+  it("aceita Groq como provider LLM quando chave e modelo sao configurados", () => {
+    const config = buildEnv({
+      ...validProductionEnv,
+      LLM_PROVIDER: "groq",
+      GROQ_API_KEY: "groq-test-key",
+      GROQ_MODEL: "groq-model-test",
+    });
+
+    expect(config.llmProvider).toBe("groq");
+    expect(config.groqApiKey).toBe("groq-test-key");
+    expect(config.groqModel).toBe("groq-model-test");
+  });
+
+  it("rejeita provider LLM desconhecido", () => {
+    expect(() =>
+      buildEnv({
+        ...validProductionEnv,
+        LLM_PROVIDER: "openai",
+      }),
+    ).toThrow("LLM_PROVIDER deve ser ollama ou groq.");
+  });
+
+  it("exige GROQ_API_KEY e GROQ_MODEL quando LLM_PROVIDER=groq sem expor valores", () => {
+    expect(() =>
+      buildEnv({
+        ...validProductionEnv,
+        LLM_PROVIDER: "groq",
+        GROQ_MODEL: "groq-model-test",
+      }),
+    ).toThrow("GROQ_API_KEY é obrigatório quando LLM_PROVIDER=groq.");
+
+    expect(() =>
+      buildEnv({
+        ...validProductionEnv,
+        LLM_PROVIDER: "groq",
+        GROQ_API_KEY: "groq-secret-value",
+      }),
+    ).toThrow("GROQ_MODEL é obrigatório quando LLM_PROVIDER=groq.");
   });
 
   it.each([

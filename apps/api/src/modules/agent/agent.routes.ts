@@ -217,7 +217,7 @@ const parseAnswerBody = (body: unknown): AnswerRequest => {
 
 const buildSuccessMessage = (usedFallback: boolean, successMessage: string) => {
   return usedFallback
-    ? "Ollama indisponivel. Conteudo de apoio gerado pelo modo de contingencia."
+    ? "Modelo LLM indisponivel. Conteudo de apoio gerado pelo modo de contingencia."
     : successMessage;
 };
 

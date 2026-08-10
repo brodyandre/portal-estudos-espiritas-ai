@@ -24,7 +24,7 @@ import {
 } from "./types";
 import { buildAnswerPrompt } from "./prompts";
 import { buildAnswerFallback, buildInsufficientContextAnswer } from "./fallbacks";
-import { generateWithOllama } from "./llm";
+import { generateWithConfiguredLlm } from "./llm";
 import {
   assessAnswerSafety,
   buildAnswerKeywords,
@@ -540,7 +540,7 @@ const generateAnswer = async (
     context: state.contextText || "Nao ha contexto adicional autorizado.",
   });
 
-  const llmResult = await generateWithOllama(messages);
+  const llmResult = await generateWithConfiguredLlm(messages);
 
   if (!llmResult.ok) {
     return mapAnswerResultToState(
@@ -595,7 +595,7 @@ const generateAnswer = async (
       AGENT_SOURCE_NOTE,
     ]),
     suggestedTeacherFollowUp: state.suggestedTeacherFollowUp,
-    provider: "ollama",
+    provider: llmResult.provider,
     usedFallback: false,
     fallbackReason: undefined,
   };

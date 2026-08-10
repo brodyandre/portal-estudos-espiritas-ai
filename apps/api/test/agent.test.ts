@@ -6,6 +6,11 @@ import {
   resetAnswerGraphRetrieverContextForTesting,
   setAnswerGraphRetrieverContextForTesting,
 } from "../src/agent/answer-graph";
+import {
+  resetLlmForTesting,
+  setLlmChatModelFactoryForTesting,
+  setLlmRuntimeConfigForTesting,
+} from "../src/agent/llm";
 import { GovernedCorpusError, type GovernedCorpusDocument } from "../src/knowledge/governedCorpus";
 import type { GovernedRetrieverContext } from "../src/rag/governedRetriever";
 import { createKeywordRetriever } from "../src/rag/retriever";
@@ -168,6 +173,7 @@ beforeEach(async () => {
 afterEach(() => {
   vi.restoreAllMocks();
   resetAnswerGraphRetrieverContextForTesting();
+  resetLlmForTesting();
 });
 
 describe("POST /api/agent/lesson-plan", () => {
@@ -425,6 +431,46 @@ describe("POST /api/agent/answer", () => {
     );
     expect(response.body.data.sources.length).toBeGreaterThan(0);
     expect(response.body.data.fallbackReason).toContain("Ollama desativado");
+  });
+
+  it("retorna provider Groq quando o LLM remoto responde com contexto governado valido", async () => {
+    setLlmRuntimeConfigForTesting({
+      provider: "groq",
+      ollamaModel: "llama3.1:8b",
+      ollamaBaseUrl: "http://127.0.0.1:11434",
+      groqApiKey: "groq-test-key",
+      groqModel: "groq-model-test",
+    });
+    setLlmChatModelFactoryForTesting(() => ({
+      invoke: vi.fn().mockResolvedValue({
+        content:
+          "Resposta inicial: o estudo pode seguir em passos pequenos e constantes, sempre com revisao do professor.",
+      }),
+    }));
+
+    const response = await request(app).post("/api/agent/answer").send({
+      groupId: "emmanuel",
+      question: "Como continuar estudando mesmo desanimado?",
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(response.body.meta).toEqual(
+      expect.objectContaining({
+        provider: "groq",
+        usedFallback: false,
+      }),
+    );
+    expect(response.body.data.provider).toBe("groq");
+    expect(response.body.data.usedFallback).toBe(false);
+    expect(response.body.data.fallbackReason).toBeUndefined();
+    expect(response.body.data.sources.length).toBeGreaterThan(0);
+    expect(response.body.data.group).toEqual(
+      expect.objectContaining({
+        id: "emmanuel",
+        matchMode: "selected_group",
+      }),
+    );
   });
 
   it("falha fechado quando o corpus governado esta indisponivel", async () => {

@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-Documentar como o projeto foi organizado para entregar uma demo funcional, portavel e facil de manter, com frontend estatico, backend local e assistencia opcional por modelo local.
+Documentar como o projeto foi organizado para entregar uma demo funcional, portavel e facil de manter, com frontend estatico, backend local e assistencia opcional por provider LLM configuravel.
 
 ## Principios
 
@@ -27,7 +27,7 @@ apps/api
   -> persistencia local em PostgreSQL para fluxos administrativos
   -> endpoints de assistencia para aluno e professor
   -> recuperacao de contexto por corpus governado em Markdown local
-  -> integracao opcional com Ollama
+  -> provider LLM configuravel com Ollama local ou Groq remoto
 
 data/knowledge
   -> documentos Markdown demonstrativos e autorizados
@@ -52,12 +52,13 @@ Melhor para demonstrar integracao ponta a ponta.
 - a API responde em JSON padronizado
 - fluxos administrativos autenticados usam persistencia local quando configurados
 
-### 3. Frontend + API local + Ollama
+### 3. Frontend + API + provider LLM
 
-Melhor para demonstrar geracao assistida local.
+Melhor para demonstrar geracao assistida.
 
-- a API tenta usar Ollama para responder ao aluno e gerar rascunhos do professor
-- se Ollama nao estiver disponivel, a API devolve resposta em modo de contingencia
+- em desenvolvimento, `LLM_PROVIDER=ollama` preserva o fluxo local com Ollama
+- em producao, `LLM_PROVIDER=groq` permite usar Groq por HTTPS a partir da API hospedada
+- se o provider configurado nao estiver disponivel, a API devolve resposta em modo de contingencia
 - a UX continua clara e sem travar o fluxo principal
 
 ## Arquitetura do frontend
@@ -195,7 +196,7 @@ Aluno abre /aluno
   -> ao enviar pergunta:
        frontend chama /api/agent/answer
        API tenta recuperar contexto no corpus governado
-       API tenta usar Ollama
+       API tenta usar o provider LLM configurado
        se falhar, responde com fallback
 ```
 
@@ -213,7 +214,7 @@ Professor abre /professor
 ## Fallbacks e resiliencia
 
 - se a API estiver indisponivel, o frontend continua util com mocks
-- se Ollama estiver indisponivel, a API responde com conteudo de contingencia
+- se o provider LLM configurado estiver indisponivel, a API responde com conteudo de contingencia
 - se o corpus governado estiver invalido ou indisponivel, os endpoints publicos de conhecimento e resposta falham fechado
 - `/health` permanece publico, barato e sem diagnostico do corpus governado
 - `/ready` permanece publico, consulta apenas conectividade minima do PostgreSQL e estado operacional em memoria do corpus, sem construir snapshot; durante o bootstrap automatico ele reporta `building` como degradado
