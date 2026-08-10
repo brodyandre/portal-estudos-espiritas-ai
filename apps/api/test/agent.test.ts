@@ -125,6 +125,41 @@ const createContext = async (
   retriever: await createKeywordRetriever({ documents }),
 });
 
+const createInstrumentedContext = async (
+  documents: readonly GovernedCorpusDocument[] = governedDocuments,
+) => {
+  const context = await createContext(documents);
+  const searchCalls: Array<{
+    query: string;
+    options: Parameters<GovernedRetrieverContext["retriever"]["search"]>[1];
+    resultGroups: string[];
+  }> = [];
+  const baseRetriever = context.retriever;
+
+  return {
+    context: {
+      ...context,
+      retriever: {
+        ...baseRetriever,
+        async search(
+          query: string,
+          options?: Parameters<GovernedRetrieverContext["retriever"]["search"]>[1],
+        ) {
+          const results = await baseRetriever.search(query, options);
+          searchCalls.push({
+            query,
+            options,
+            resultGroups: results.map((result) => result.group),
+          });
+
+          return results;
+        },
+      },
+    },
+    searchCalls,
+  };
+};
+
 beforeEach(async () => {
   const context = await createContext();
   setAnswerGraphRetrieverContextForTesting(async () => context);
@@ -155,6 +190,120 @@ describe("POST /api/agent/lesson-plan", () => {
 });
 
 describe("POST /api/agent/answer", () => {
+  it.each([
+    {
+      groupId: "emmanuel",
+      question: "Como estudar com calma quando nao entendo tudo de uma vez?",
+      expectedGroupId: "emmanuel",
+      expectedGroupName: "Emmanuel",
+      expectedFilterBook: "Emmanuel",
+    },
+    {
+      groupId: "a-caminho-da-luz",
+      question: "Como estudar com paciencia quando nao entendo tudo de uma vez?",
+      expectedGroupId: "a-caminho-da-luz",
+      expectedGroupName: "A Caminho da Luz",
+      expectedFilterBook: "A Caminho da Luz",
+    },
+  ])(
+    "preserva groupId explicito em pergunta neutra para $expectedGroupName",
+    async ({ groupId, question, expectedGroupId, expectedGroupName, expectedFilterBook }) => {
+      const { context, searchCalls } = await createInstrumentedContext();
+      setAnswerGraphRetrieverContextForTesting(async () => context);
+
+      const response = await request(app).post("/api/agent/answer").send({
+        groupId,
+        question,
+      });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.group).toEqual(
+        expect.objectContaining({
+          id: expectedGroupId,
+          name: expectedGroupName,
+          bookTitle: expectedFilterBook,
+          matchMode: "selected_group",
+        }),
+      );
+      expect(response.body.data.group.matchMode).not.toBe("broad_search");
+      expect(searchCalls[0]?.options).toEqual(
+        expect.objectContaining({
+          group: expectedGroupName,
+          book: expectedFilterBook,
+        }),
+      );
+    },
+  );
+
+  it.each([
+    {
+      groupId: "emmanuel",
+      question: "Como Emmanuel orienta a constancia no estudo?",
+      expectedGroupId: "emmanuel",
+      expectedGroupName: "Emmanuel",
+    },
+    {
+      groupId: "a-caminho-da-luz",
+      question: "No grupo A Caminho da Luz, como estudar com prudencia?",
+      expectedGroupId: "a-caminho-da-luz",
+      expectedGroupName: "A Caminho da Luz",
+    },
+  ])(
+    "mantem groupId explicito quando a pergunta menciona o mesmo grupo: $expectedGroupName",
+    async ({ groupId, question, expectedGroupId, expectedGroupName }) => {
+      const response = await request(app).post("/api/agent/answer").send({
+        groupId,
+        question,
+      });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.group).toEqual(
+        expect.objectContaining({
+          id: expectedGroupId,
+          name: expectedGroupName,
+          matchMode: "selected_group",
+        }),
+      );
+      expect(response.body.data.group.matchMode).not.toBe("broad_search");
+    },
+  );
+
+  it.each([
+    {
+      groupId: "emmanuel",
+      question: "No estudo A Caminho da Luz, como entender Capela?",
+      expectedGroupId: "a-caminho-da-luz",
+      expectedGroupName: "A Caminho da Luz",
+    },
+    {
+      groupId: "a-caminho-da-luz",
+      question: "Emmanuel fala algo sobre constancia no estudo?",
+      expectedGroupId: "emmanuel",
+      expectedGroupName: "Emmanuel",
+    },
+  ])(
+    "preserva alerta seguro quando a pergunta cita outro grupo: $expectedGroupName",
+    async ({ groupId, question, expectedGroupId, expectedGroupName }) => {
+      const response = await request(app).post("/api/agent/answer").send({
+        groupId,
+        question,
+      });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.group).toEqual(
+        expect.objectContaining({
+          id: expectedGroupId,
+          name: expectedGroupName,
+          matchMode: "question_hint",
+        }),
+      );
+      expect(response.body.data.safetyNotes.join(" ")).toMatch(/grupo selecionado esta correto/iu);
+    },
+  );
+
   it.each([
     {
       groupId: "emmanuel",

@@ -331,18 +331,14 @@ const classifyStudyGroup = (state: AnswerGraphStateValue): AnswerGraphUpdate => 
   });
 
   if (!referencedOtherGroup) {
-    if (explicitGroupHint) {
+    if (explicitGroupHint && explicitGroupHint.id !== state.request.groupId) {
       return {
         group: createGroupDescriptor(explicitGroupHint, "question_hint"),
       };
     }
 
     return {
-      group: createBroadGroupDescriptor(),
-      safetyNotes: dedupeNotes([
-        ...state.safetyNotes,
-        "A pergunta nao apontou um livro com clareza. A busca vai considerar os dois grupos.",
-      ]),
+      group: state.group,
     };
   }
 
