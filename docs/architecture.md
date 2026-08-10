@@ -174,6 +174,7 @@ apps/api/src/
 - o cache do corpus e do retriever e local ao processo e valido apenas enquanto a identidade composta nao muda
 - o estado operacional do corpus tambem e local ao processo, acoplado ao servico do corpus e consultavel por `GET /api/admin/knowledge/corpus/status`
 - esse diagnostico mantem identidade e contagens associadas atomicamente ao ultimo snapshot publicado com sucesso
+- apos o startup da API, um bootstrap assincrono chama o mesmo `getSnapshot()` governado para recompor o corpus em memoria sem bloquear `/health` e sem criar auditoria administrativa
 - a consulta administrativa de status le somente memoria, sem banco, filesystem, auditoria ou reconstrucao do corpus
 - a reconstrucao administrativa explicita vive em `POST /api/admin/knowledge/corpus/rebuild`, exige admin, body ausente ou `{}`, rejeita query e executa rebuild fisico sincrono do catalogo governado
 - o rebuild administrativo usa lock em memoria por processo, rate limit dedicado por administrador e auditoria persistente em `AuditLog`; nao ha fila, worker, job persistido, Redis ou lock distribuido
@@ -215,7 +216,7 @@ Professor abre /professor
 - se Ollama estiver indisponivel, a API responde com conteudo de contingencia
 - se o corpus governado estiver invalido ou indisponivel, os endpoints publicos de conhecimento e resposta falham fechado
 - `/health` permanece publico, barato e sem diagnostico do corpus governado
-- `/ready` permanece publico, consulta apenas conectividade minima do PostgreSQL e estado operacional em memoria do corpus, sem construir snapshot
+- `/ready` permanece publico, consulta apenas conectividade minima do PostgreSQL e estado operacional em memoria do corpus, sem construir snapshot; durante o bootstrap automatico ele reporta `building` como degradado
 - `ready` e `empty` deixam a instancia pronta; `not_built` e `building` indicam degradacao com HTTP 200; `stale`, `invalid`, `unavailable` e falha de banco deixam a instancia unready com HTTP 503
 - se o contexto estiver fraco, a resposta orienta consultar o professor
 - o sistema evita travar a interface por dependencia de um servico unico
@@ -236,7 +237,7 @@ Professor abre /professor
 - sem upload de arquivos
 - sem pipeline de deploy automatico descrito nesta etapa
 - sem cache distribuido ou coordenacao de identidade do corpus entre multiplas instancias
-- locks, rate limits e estado operacional do corpus sao locais ao processo; em multiplas replicas futuras sera necessario redesenhar coordenacao, sem mudar o contrato HTTP
+- locks, rate limits, bootstrap e estado operacional do corpus sao locais ao processo; em multiplas replicas futuras sera necessario redesenhar coordenacao, sem mudar o contrato HTTP
 - o hardening de producao da API assume uma unica replica, `TRUST_PROXY_HOPS` numerico e CORS por lista explicita de origens
 - o shutdown gracioso para de aceitar novas conexoes, aguarda o servidor HTTP encerrar e chama `prisma.$disconnect()` antes de finalizar o processo
 - o projeto pode usar dominio proprio no futuro, mas os contratos da API permanecem descritos por paths relativos e nao dependem de hostname fixo nesta etapa

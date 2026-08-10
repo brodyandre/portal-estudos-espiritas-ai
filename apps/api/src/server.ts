@@ -1,11 +1,15 @@
 import { app } from "./app";
 import { env } from "./config/env";
 import { disconnectPrisma } from "./database/prisma";
+import { startGovernedCorpusBootstrap } from "./knowledge/corpus-bootstrap";
 import { createGracefulShutdown, installGracefulShutdownHandlers } from "./server/graceful-shutdown";
 
 export const startServer = () => {
   const server = app.listen(env.port, () => {
     console.log(`[api] servidor iniciado em http://localhost:${env.port}`);
+    void startGovernedCorpusBootstrap({
+      logger: (event, details) => console.log(event, details),
+    });
   });
 
   const gracefulShutdown = createGracefulShutdown({

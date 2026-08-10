@@ -6,6 +6,10 @@ import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  resetGovernedCorpusBootstrapForTesting,
+  startGovernedCorpusBootstrap,
+} from "../src/knowledge/corpus-bootstrap";
+import {
   createGovernedCorpusService,
   GovernedCorpusError,
   GovernedCorpusRebuildInProgressError,
@@ -143,6 +147,7 @@ Conteudo fisico `, "utf8"),
   ]);
 
 afterEach(async () => {
+  resetGovernedCorpusBootstrapForTesting();
   vi.restoreAllMocks();
   await Promise.all(tempRoots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
 });
@@ -658,6 +663,37 @@ describe("governed corpus service", () => {
       rebuilding: false,
       lastAttemptAt: "2026-07-17T01:06:00.000Z",
       lastSuccessfulBuildAt: "2026-07-17T01:06:01.000Z",
+    });
+  });
+
+  it("marca rebuilding antes da leitura do manifesto quando nao ha build em andamento", async () => {
+    const root = await createRepositoryRoot();
+    const manifestGate = createDeferred<Awaited<ReturnType<typeof buildManifestResult>>>();
+    const loadDocumentEntries = vi.fn(loadDocumentEntriesFromRoot(root));
+    const service = createGovernedCorpusService({
+      loadManifest: () => manifestGate.promise,
+      loadDocumentEntries,
+      now: createClock([
+        "2026-07-17T01:06:10.000Z",
+        "2026-07-17T01:06:11.000Z",
+      ]),
+    });
+
+    const snapshotPromise = service.getSnapshot();
+
+    expect(service.getOperationalStatus()).toMatchObject({
+      state: "not_built",
+      rebuilding: true,
+      lastAttemptAt: "2026-07-17T01:06:10.000Z",
+    });
+    expect(loadDocumentEntries).not.toHaveBeenCalled();
+
+    manifestGate.resolve(await buildManifestResult(root, []));
+    await expect(snapshotPromise).resolves.toMatchObject({ documentCount: 0 });
+    expect(service.getOperationalStatus()).toMatchObject({
+      state: "empty",
+      rebuilding: false,
+      lastSuccessfulBuildAt: "2026-07-17T01:06:11.000Z",
     });
   });
 
@@ -1717,5 +1753,112 @@ Conteudo com frontmatter semanticamente incompleto.
       lastSuccessfulBuildAt: "2026-07-17T02:02:02.000Z",
     });
     await expect(service.getSnapshot()).resolves.toBe(adminSnapshot);
+  });
+
+  it("bootstrap e getSnapshot publico simultaneo compartilham a mesma tentativa fisica", async () => {
+    const root = await createRepositoryRoot();
+    await writeKnowledgeFile(root, "data/knowledge/emmanuel/aprovado.md");
+    const manifestResult = await buildManifestResult(root, [buildCandidate()]);
+    const releaseBuild = createDeferred();
+    const buildStarted = createDeferred();
+    const loadDocumentEntries = vi.fn(async (manifest: KnowledgeEditorialManifest) => {
+      buildStarted.resolve();
+      await releaseBuild.promise;
+      return loadKnowledgeDocumentsWithContentHashesFromManifest(manifest, { repositoryRoot: root });
+    });
+    const service = createGovernedCorpusService({
+      loadManifest: async () => manifestResult,
+      loadDocumentEntries,
+    });
+
+    const bootstrap = startGovernedCorpusBootstrap({
+      corpusService: service,
+      logger: () => undefined,
+    });
+    const publicSnapshot = service.getSnapshot();
+
+    await buildStarted.promise;
+    expect(loadDocumentEntries).toHaveBeenCalledTimes(1);
+
+    releaseBuild.resolve();
+    await expect(publicSnapshot).resolves.toMatchObject({ documentCount: 1 });
+    await expect(bootstrap).resolves.toBeUndefined();
+    expect(loadDocumentEntries).toHaveBeenCalledTimes(1);
+    expect(service.getOperationalStatus()).toMatchObject({
+      state: "ready",
+      rebuilding: false,
+      documentCount: 1,
+    });
+  });
+
+  it("bootstrap nao publica regressao sobre rebuild administrativo mais novo", async () => {
+    const root = await createRepositoryRoot();
+    await writeKnowledgeFile(root, "data/knowledge/emmanuel/aprovado.md");
+    const manifestResult = await buildManifestResult(root, [buildCandidate()]);
+    const releaseBootstrap = createDeferred();
+    const bootstrapStarted = createDeferred();
+    const loadDocumentEntries = vi.fn(async (manifest: KnowledgeEditorialManifest) => {
+      if (loadDocumentEntries.mock.calls.length === 1) {
+        bootstrapStarted.resolve();
+        await releaseBootstrap.promise;
+      }
+
+      return loadKnowledgeDocumentsWithContentHashesFromManifest(manifest, { repositoryRoot: root });
+    });
+    const service = createGovernedCorpusService({
+      loadManifest: async () => manifestResult,
+      loadDocumentEntries,
+      now: createClock([
+        "2026-07-17T02:03:00.000Z",
+        "2026-07-17T02:03:01.000Z",
+        "2026-07-17T02:03:02.000Z",
+      ]),
+    });
+
+    const bootstrap = startGovernedCorpusBootstrap({
+      corpusService: service,
+      logger: () => undefined,
+    });
+    await bootstrapStarted.promise;
+    const rebuilt = await service.rebuildSnapshot();
+
+    expect(service.getOperationalStatus()).toMatchObject({
+      state: "ready",
+      rebuilding: false,
+      lastAttemptAt: "2026-07-17T02:03:01.000Z",
+      lastSuccessfulBuildAt: "2026-07-17T02:03:02.000Z",
+      corpusFingerprint: rebuilt.corpusFingerprint,
+    });
+
+    releaseBootstrap.resolve();
+    await expect(bootstrap).resolves.toBeUndefined();
+    expect(loadDocumentEntries).toHaveBeenCalledTimes(2);
+    expect(service.getOperationalStatus()).toMatchObject({
+      state: "ready",
+      lastAttemptAt: "2026-07-17T02:03:01.000Z",
+      lastSuccessfulBuildAt: "2026-07-17T02:03:02.000Z",
+      corpusFingerprint: rebuilt.corpusFingerprint,
+    });
+  });
+
+  it("bootstrap restaura snapshot apos reset quando o catalogo permanece elegivel", async () => {
+    const root = await createRepositoryRoot();
+    await writeKnowledgeFile(root, "data/knowledge/emmanuel/aprovado.md");
+    const service = createServiceForCandidates(root, [buildCandidate()]);
+
+    await expect(service.getSnapshot()).resolves.toMatchObject({ documentCount: 1 });
+    service.resetForTesting();
+    expect(service.getOperationalStatus().state).toBe("not_built");
+
+    await startGovernedCorpusBootstrap({
+      corpusService: service,
+      logger: () => undefined,
+    });
+
+    expect(service.getOperationalStatus()).toMatchObject({
+      state: "ready",
+      rebuilding: false,
+      documentCount: 1,
+    });
   });
 });
