@@ -651,13 +651,13 @@ export const createGovernedCorpusService = (
     return freezeDeep(snapshot);
   };
 
-  const loadUsableManifest = async () => {
+  const loadUsableManifest = async (attemptId?: number) => {
     let manifestResult: KnowledgeEditorialManifestResult;
     try {
       manifestResult = await loadManifest();
     } catch (error) {
-      const attemptId = markAttemptStarted(getNowIso());
-      markAttemptFailed(attemptId, error, {
+      const failureAttemptId = attemptId ?? markAttemptStarted(getNowIso());
+      markAttemptFailed(failureAttemptId, error, {
         occurredAt: getNowIso(),
       });
       throw error;
@@ -666,8 +666,8 @@ export const createGovernedCorpusService = (
     try {
       return assertManifestIsUsable(manifestResult);
     } catch (error) {
-      const attemptId = markAttemptStarted(getNowIso());
-      markAttemptFailed(attemptId, error, {
+      const failureAttemptId = attemptId ?? markAttemptStarted(getNowIso());
+      markAttemptFailed(failureAttemptId, error, {
         occurredAt: getNowIso(),
       });
       throw error;
@@ -730,9 +730,18 @@ export const createGovernedCorpusService = (
     administrativeRebuildInProgress = true;
   };
 
+  const startAttemptBeforeManifestWhenIdle = () => {
+    if (operationalStatus.rebuilding || inFlightByFingerprint.size > 0) {
+      return undefined;
+    }
+
+    return markAttemptStarted(getNowIso());
+  };
+
   return {
     async getSnapshot() {
-      const { manifest, status, nonBlockingIssueCount } = await loadUsableManifest();
+      let attemptId = startAttemptBeforeManifestWhenIdle();
+      const { manifest, status, nonBlockingIssueCount } = await loadUsableManifest(attemptId);
       latestRequestedFingerprint = manifest.fingerprint;
 
       const currentBuild = inFlightByFingerprint.get(manifest.fingerprint);
@@ -740,7 +749,7 @@ export const createGovernedCorpusService = (
         return currentBuild;
       }
 
-      const attemptId = markAttemptStarted(getNowIso());
+      attemptId = attemptId ?? markAttemptStarted(getNowIso());
       return buildSnapshotPromise(manifest, status, nonBlockingIssueCount, attemptId, {
         reuseCachedSnapshot: true,
       });
@@ -749,9 +758,9 @@ export const createGovernedCorpusService = (
       acquireAdministrativeRebuildLock();
 
       try {
-        const { manifest, status, nonBlockingIssueCount } = await loadUsableManifest();
-        latestRequestedFingerprint = manifest.fingerprint;
         const attemptId = markAttemptStarted(getNowIso());
+        const { manifest, status, nonBlockingIssueCount } = await loadUsableManifest(attemptId);
+        latestRequestedFingerprint = manifest.fingerprint;
 
         return await buildSnapshotPromise(manifest, status, nonBlockingIssueCount, attemptId, {
           reuseCachedSnapshot: false,
