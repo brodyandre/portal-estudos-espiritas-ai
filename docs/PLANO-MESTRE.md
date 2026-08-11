@@ -71,7 +71,7 @@ Finding separado:
 
 ### 9C.12.3 -- Documentacao e validacao final
 
-Em implementacao. Esta etapa corrige documentacao desatualizada apos 9C.12.1 e 9C.12.2, formaliza a distincao entre nome interno/historico do projeto e identidade publica do produto, preserva findings nao bloqueantes e registra validacao local final. Nao altera runtime, testes, `.env.example`, Render, Resend, DNS, Neon, banco, deploy ou SMTP real.
+Concluida e integrada pelo PR #49 no commit `75d8baaa3878ad5a0c57a844ef09e0cb534dcab2`. Esta etapa corrigiu documentacao desatualizada apos 9C.12.1 e 9C.12.2, formalizou a distincao entre nome interno/historico do projeto e identidade publica do produto, preservou findings nao bloqueantes e registrou validacao local final. Nao alterou runtime, testes, `.env.example`, Render, Resend, DNS, Neon, banco, deploy ou SMTP real.
 
 Validacao local executada nesta etapa:
 
@@ -90,7 +90,7 @@ Achados nao bloqueantes registrados:
 
 ## Depois da 9C.12
 
-A 9C.12 fica pronta para encerramento apos integracao da documentacao/validacao final. Backlog futuro identificado, sem virar entrega aprovada automaticamente:
+A 9C.12 esta encerrada quanto ao escopo consolidado de hardening final de experiencia, identidade transacional e validacao. Backlog futuro identificado, sem virar entrega aprovada automaticamente:
 
 - reavaliar timeout/retry curto de readiness para Neon Free;
 - substituir rate limit em memoria por armazenamento distribuido antes de multiplas replicas;
