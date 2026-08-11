@@ -7,6 +7,7 @@ import {
   escapeHtml,
   formatEmailExpiryLabel,
   NodemailerTransactionalEmailTransport,
+  TRANSACTIONAL_EMAIL_BRAND_NAME,
   type TransactionalEmailMessage,
   type TransactionalEmailTransport,
 } from "./transactional-email";
@@ -34,7 +35,7 @@ export interface AccountInvitationNotifier {
 export type AccountInvitationTransportMessage = TransactionalEmailMessage;
 export type AccountInvitationMailTransport = TransactionalEmailTransport;
 
-const ACCOUNT_INVITATION_SUBJECT = "Seu acesso ao Portal de Estudos Espíritas";
+const ACCOUNT_INVITATION_SUBJECT = `Seu acesso ao ${TRANSACTIONAL_EMAIL_BRAND_NAME}`;
 const memoryPreviews: AccountInvitationPreview[] = [];
 const memoryMessages: AccountInvitationMemoryMessage[] = [];
 

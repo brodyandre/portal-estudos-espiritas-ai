@@ -7,6 +7,7 @@ import {
   escapeHtml,
   formatEmailExpiryLabel,
   NodemailerTransactionalEmailTransport,
+  TRANSACTIONAL_EMAIL_BRAND_NAME,
   type TransactionalEmailMessage,
   type TransactionalEmailTransport,
 } from "./transactional-email";
@@ -33,7 +34,7 @@ export interface PasswordRecoveryNotifier {
 export type PasswordRecoveryTransportMessage = TransactionalEmailMessage;
 export type PasswordRecoveryMailTransport = TransactionalEmailTransport;
 
-const PASSWORD_RECOVERY_SUBJECT = "Recuperação de acesso — Portal de Estudos Espíritas";
+const PASSWORD_RECOVERY_SUBJECT = `Recuperação de acesso — ${TRANSACTIONAL_EMAIL_BRAND_NAME}`;
 const memoryPreviews: PasswordRecoveryPreview[] = [];
 const memoryMessages: PasswordRecoveryMemoryMessage[] = [];
 
@@ -53,7 +54,7 @@ export const buildPasswordRecoveryEmail = (input: PasswordRecoveryNotifierInput)
   const text = [
     `Olá, ${input.recipientName.trim() || "participante"}.`,
     "",
-    "Recebemos uma solicitação para recuperar o acesso ao Portal de Estudos Espíritas.",
+    `Recebemos uma solicitação para recuperar o acesso ao ${TRANSACTIONAL_EMAIL_BRAND_NAME}.`,
     `Use este link para redefinir sua senha: ${input.recoveryUrl}`,
     `Este link é válido até ${formatEmailExpiryLabel(input.expiresAt)}.`,
     "Se você não fez esta solicitação, ignore este e-mail.",
@@ -65,7 +66,7 @@ export const buildPasswordRecoveryEmail = (input: PasswordRecoveryNotifierInput)
       <div style="max-width: 640px; margin: 0 auto; background: #ffffff; border-radius: 20px; padding: 32px; border: 1px solid #d8c9a5;">
         <p style="margin: 0 0 16px;">Olá, ${safeRecipientName}.</p>
         <p style="margin: 0 0 16px;">
-          Recebemos uma solicitação para recuperar o acesso ao Portal de Estudos Espíritas.
+          Recebemos uma solicitação para recuperar o acesso ao ${TRANSACTIONAL_EMAIL_BRAND_NAME}.
         </p>
         <p style="margin: 0 0 24px;">
           Use o botão abaixo para criar uma nova senha com segurança.
