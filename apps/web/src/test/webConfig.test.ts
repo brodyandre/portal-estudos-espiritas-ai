@@ -18,6 +18,8 @@ describe("buildWebConfig", () => {
 
     expect(config.appMode).toBe("local");
     expect(config.apiUrl).toBe("https://api.portal-educacao-continuada.com.br");
+    expect(config.isProductionRuntime).toBe(true);
+    expect(config.canShowDemoCredentials).toBe(false);
     expect(config.canShowRealMeetLink).toBe(true);
     expect(config.canUseAdminFeatures).toBe(true);
     expect(config.canUseTeacherFeatures).toBe(false);
@@ -33,7 +35,23 @@ describe("buildWebConfig", () => {
 
     expect(config.appMode).toBe("demo");
     expect(config.apiUrl).toBeNull();
+    expect(config.isProductionRuntime).toBe(false);
+    expect(config.canShowDemoCredentials).toBe(false);
     expect(config.canShowRealMeetLink).toBe(false);
+  });
+
+  it("mantem desenvolvimento local fora do runtime de produção", () => {
+    const config = buildWebConfig({
+      MODE: "development",
+      BASE_URL: "/",
+      VITE_APP_MODE: "local",
+      VITE_API_URL: "",
+    });
+
+    expect(config.appMode).toBe("local");
+    expect(config.apiUrl).toBe("http://localhost:3333");
+    expect(config.isProductionRuntime).toBe(false);
+    expect(config.canShowDemoCredentials).toBe(true);
   });
 
   it("rejeita modo desconhecido", () => {
