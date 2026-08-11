@@ -28,6 +28,20 @@ Documentar o fluxo de recuperação de senha com entrega transacional por SMTP, 
 9. O usuário abre o link recebido e define uma nova senha em `/redefinir-senha`.
 10. A redefinição revoga todas as sessões anteriores e exige novo login.
 
+## Identidade transacional
+
+A identidade publica atual do produto nos e-mails transacionais e `Portal de Educação Continuada`.
+
+Na recuperacao de senha, o subject atual e:
+
+```text
+Recuperação de acesso — Portal de Educação Continuada
+```
+
+O texto e o HTML do e-mail tambem usam `Portal de Educação Continuada`. A expiracao continua obedecendo `PASSWORD_RECOVERY_TTL_MINUTES` e e formatada com o timezone institucional `America/Sao_Paulo`, apresentada ao usuario como `horário de Brasília`.
+
+O nome interno/historico do projeto, `Portal de Estudos Espiritas com IA`, permanece valido para repositorio, namespaces e documentacao historica. Nao deve ser usado para substituir a identidade publica atual em templates transacionais de producao.
+
 ## Variáveis de ambiente
 
 ```env
@@ -267,14 +281,11 @@ O armazenamento atual é `MemorySlidingWindowRateLimiter`, em memória do proces
 - sem fila assíncrona
 - sem armazenamento distribuído do rate limit
 - sem dashboard SMTP dedicado
-- conteúdo textual do e-mail ainda usa Portal de Estudos Espíritas no assunto/corpo, enquanto o remetente validado usa Portal de Educação Continuada
-- expiração funcional tem TTL de 30 minutos, mas o template ainda formata data/hora sem timezone institucional explícito
-- frontend de produção ainda possui textos local/demo em telas de autenticação
+- a marca antiga ainda pode aparecer em fixtures `SMTP_FROM_NAME`, asserts negativos e exemplos locais deliberados, sem impacto no template transacional atual
+- a 9C.12.2 nao alterou transporte SMTP, TTL, Resend, Render, DNS, Neon ou banco
 
 ## Próxima evolução natural
 
 - mover observabilidade para ferramenta dedicada
 - adicionar fila de entrega se o volume justificar
-- alinhar identidade textual do e-mail ao remetente institucional
-- explicitar timezone de expiração, preferencialmente alinhado à operação em São Paulo
 - substituir rate limit em memória por armazenamento distribuído antes de escala horizontal

@@ -2,7 +2,7 @@
 
 ## Visão geral
 
-O fluxo de convites de conta é usado quando uma inscrição é aprovada no ambiente local. Em vez de enviar senha por e-mail, o backend cria um convite de ativação com uso único e validade de 48 horas. O participante recebe um link para definir a própria senha no primeiro acesso.
+O fluxo de convites de conta é usado quando uma inscrição é aprovada em ambiente com autenticação e persistência. Em vez de enviar senha por e-mail, o backend cria um convite de ativação com uso único e validade de 48 horas. O participante recebe um link para definir a própria senha no primeiro acesso.
 
 ## Arquitetura do fluxo
 
@@ -208,6 +208,6 @@ Em desenvolvimento local, o fluxo pode usar Mailpit ou outro SMTP de testes. Iss
 
 ## Limitações atuais
 
-- o fluxo é pensado para ambiente local ou privado;
+- o fluxo depende de backend, banco e SMTP configurado quando houver entrega real;
 - o GitHub Pages continua em modo público e demonstrativo;
-- produção real exigirá backend hospedado, autenticação endurecida e observabilidade adicional.
+- observabilidade dedicada de entrega SMTP ainda é evolução futura.

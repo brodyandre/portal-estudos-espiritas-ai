@@ -4,7 +4,7 @@
 
 Producao operacional.
 
-Baseline atual: `ebeb9143e042ea39e790ccb0e61efdca0a287a31`.
+Baseline de referência da entrega em curso: `400038c8299ce9cd3db99f424a246774ce83bb32`.
 
 Web:
 
@@ -24,6 +24,8 @@ Estado operacional oficial previamente validado:
 - fallback LLM preservado
 - Resend operacional como provider SMTP transacional inicial
 - recuperacao de senha validada em producao por smoke real controlado
+- frontend de producao sem credenciais demonstrativas ou copy local nas telas de autenticacao
+- e-mails transacionais alinhados a identidade publica Portal de Educação Continuada e timezone America/Sao_Paulo
 
 ## Capacidades Concluidas
 
@@ -44,47 +46,52 @@ Estado operacional oficial previamente validado:
 - Infraestrutura SMTP configuravel com `nodemailer`.
 - Mailpit para desenvolvimento local.
 - Recuperacao e redefinicao de senha ja implementadas em codigo.
+- Hardening production/demo/local do frontend autenticado.
+- Identidade publica e timezone institucional nos e-mails transacionais.
 
 ## Entrega Atual
 
-9C.11 -- SMTP e Recuperacao de Senha em Producao.
+9C.12 -- Hardening final de experiencia, identidade transacional e validacao.
 
-### 9C.11.1 -- Hardening local de testes/env SMTP
+### 9C.12.1 -- Frontend production/demo mode hardening
 
-Concluida. Testes e validacoes locais de SMTP/password recovery foram reforcados sem configurar provedor real nesta etapa.
+Concluida e integrada pelo PR #47 no commit `cf61c4d8d10b6c513e7db9d5e8bce114179bb685`. Producao real nao exibe credenciais demonstrativas nem copy de backend/local nas telas de autenticacao. GitHub Pages permanece em modo demo seguro e desenvolvimento local continua utilizavel.
 
-### 9C.11.2 -- Documentacao operacional do provider SMTP
+Finding separado:
 
-Concluida. Resend foi registrado como provider SMTP inicial de producao, preservando SMTP padrao via Nodemailer e a separacao entre codigo e operacao.
+- F-001 -- P2: variable/flaky timeouts in unmodified tests, without evidence of relation to 9C.12.1.
 
-### 9C.11.3 -- Configuracao controlada de secrets no Render
+### 9C.12.2 -- Identidade e timezone dos e-mails transacionais
 
-Concluida operacionalmente. O dominio `email.portal-educacao-continuada.com.br` foi verificado no Resend na regiao Sao Paulo (`sa-east-1`), DNS oficial foi aplicado, credencial restrita foi criada e `portal-estudos-api` foi configurado no Render com `SMTP_ENABLED=true`. Secrets permanecem fora do repositorio.
+Concluida e integrada pelo PR #48 no commit `400038c8299ce9cd3db99f424a246774ce83bb32`. Password recovery usa o subject `Recuperação de acesso — Portal de Educação Continuada`; account invitation usa `Seu acesso ao Portal de Educação Continuada`; expiracoes usam `America/Sao_Paulo` e copy `horário de Brasília`. TTL, transporte SMTP, Resend, Render, DNS, Neon e banco nao foram alterados.
 
-### 9C.11.4 -- Validacao minima autorizada com envio real
+Finding separado:
 
-Concluida. Foi executado um smoke real controlado: Resend registrou `Sent` e `Delivered`, o e-mail foi recebido, o link HTTPS oficial permitiu redefinir a senha, o login com a nova senha funcionou e a area `/aluno` foi acessada.
+- W-001 -- P3: marca antiga permanece somente em fixtures `SMTP_FROM_NAME`, asserts negativos e contextos locais deliberados, sem impacto no runtime/template transacional.
 
-### 9C.11.5 -- Relatorio pos-validacao e observabilidade
+### 9C.12.3 -- Documentacao e validacao final
 
-Fechamento documental. Esta etapa consolida o estado operacional validado da 9C.11, sem alterar runtime, Render, Resend, DNS, Neon ou banco.
+Em implementacao. Esta etapa corrige documentacao desatualizada apos 9C.12.1 e 9C.12.2, formaliza a distincao entre nome interno/historico do projeto e identidade publica do produto, preserva findings nao bloqueantes e registra validacao local final. Nao altera runtime, testes, `.env.example`, Render, Resend, DNS, Neon, banco, deploy ou SMTP real.
+
+Validacao local executada nesta etapa:
+
+- testes focados Web de autenticacao/configuracao/recovery/routing: 4 arquivos, 27 testes, PASS;
+- testes focados API de e-mail transacional: 3 arquivos, 8 testes, PASS;
+- fluxos API relacionados a recuperacao, convites, inscricoes e auth: 4 arquivos, 164 testes, PASS;
+- suite completa API: 61 arquivos, 708 testes, PASS;
+- suite completa Web: 42 arquivos, 460 testes, PASS;
+- typecheck Web e API, build oficial e `make pages-check`: PASS.
 
 Achados nao bloqueantes registrados:
 
 - readiness de banco apresentou timeout temporario compativel com cold start/wake-up do Neon Free, sem evidencia causal com SMTP;
 - rate limit de password recovery/reset permanece em memoria do processo e deve ser distribuido antes de escala horizontal;
-- frontend ainda possui textos local/demo em producao;
-- assunto/corpo do e-mail ainda usam Portal de Estudos Espíritas, enquanto o remetente validado e Portal de Educação Continuada;
-- expiracao do e-mail usa TTL funcional de 30 minutos, mas sem timezone institucional explicito no template;
 - observabilidade SMTP ainda nao possui dashboard ou metricas dedicadas.
 
-## Depois da 9C.11
+## Depois da 9C.12
 
-A 9C.11 fica operacionalmente concluida apos a integracao desta documentacao. Backlog futuro identificado, sem virar entrega aprovada automaticamente:
+A 9C.12 fica pronta para encerramento apos integracao da documentacao/validacao final. Backlog futuro identificado, sem virar entrega aprovada automaticamente:
 
-- corrigir textos local/demo e credenciais demonstrativas em telas de autenticacao antes de exposicao mais ampla;
-- alinhar identidade textual do e-mail ao remetente institucional aprovado;
-- explicitar timezone de expiracao, preferencialmente alinhado a Sao Paulo;
 - reavaliar timeout/retry curto de readiness para Neon Free;
 - substituir rate limit em memoria por armazenamento distribuido antes de multiplas replicas;
 - adicionar observabilidade dedicada para envio SMTP e taxa de entrega.
