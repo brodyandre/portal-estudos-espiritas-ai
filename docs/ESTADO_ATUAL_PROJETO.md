@@ -110,7 +110,9 @@ Nenhum valor secreto, token, senha, API key, URL completa com token ou e-mail pe
 
 9C.12.2 foi integrada pelo PR #48 no commit de integracao `400038c8299ce9cd3db99f424a246774ce83bb32`. Os e-mails transacionais usam a identidade publica `Portal de Educação Continuada`, formatam expiracao com `America/Sao_Paulo` e apresentam o horario como `horário de Brasília`. A alteracao nao mudou TTL, transporte SMTP, Resend, Render, DNS, Neon ou banco.
 
-9C.12.3 esta em fechamento documental e validacao local. Ela nao deve afirmar conclusao integrada antes do futuro merge da propria entrega. Na implementacao local desta etapa, passaram os testes focados Web relacionados a auth/config/recovery/routing (4 arquivos, 27 testes), os testes focados API de templates transacionais (3 arquivos, 8 testes), os fluxos API relacionados (4 arquivos, 164 testes), a suite completa API (61 arquivos, 708 testes), a suite completa Web (42 arquivos, 460 testes), os typechecks Web/API, o build oficial e `make pages-check`.
+9C.12.3 foi concluida e integrada pelo PR #49 no commit de integracao `75d8baaa3878ad5a0c57a844ef09e0cb534dcab2`. Nesta etapa, passaram os testes focados Web relacionados a auth/config/recovery/routing (4 arquivos, 27 testes), os testes focados API de templates transacionais (3 arquivos, 8 testes), os fluxos API relacionados (4 arquivos, 164 testes), a suite completa API (61 arquivos, 708 testes), a suite completa Web (42 arquivos, 460 testes), os typechecks Web/API, o build oficial e `make pages-check`.
+
+A 9C.12 esta encerrada quanto ao escopo consolidado de hardening de experiencia, identidade transacional e validacao. Os achados remanescentes abaixo seguem como backlog separado e nao reabrem a 9C.12.
 
 ## Limites Pos-Validacao
 
@@ -125,4 +127,4 @@ Achados nao bloqueantes registrados para evolucao futura:
 
 ## Proxima Entrega
 
-A 9C.12.3 deve concluir a atualizacao documental e registrar a validacao local final da 9C.12. Novas entregas devem ser decididas separadamente a partir do backlog tecnico/UX pos-validacao.
+O proximo item numerado do plano-mestre ainda nao esta definido. Novas entregas devem ser decididas separadamente a partir do backlog tecnico/UX pos-validacao.
