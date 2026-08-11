@@ -10,18 +10,27 @@ import {
   type PasswordRecoveryMailTransport,
 } from "../src/modules/auth/password-recovery.notifier";
 
+const OLD_BRAND_NAME = "Portal de Estudos Espíritas";
+const TRANSACTIONAL_BRAND_NAME = "Portal de Educação Continuada";
+const EXPECTED_EXPIRY_LABEL = "12/07/2026, 15:30 (horário de Brasília)";
+
 describe("password recovery notifier", () => {
   it("gera versoes html e texto com escape seguro do nome", () => {
     const template = buildPasswordRecoveryEmail({
       recipientEmail: "aluno.demo@example.com",
       recipientName: "<Aluno & Turma>",
-      recoveryUrl: "http://localhost:5173/redefinir-senha?token=token-demo",
+      recoveryUrl: "http://localhost:5173/redefinir-senha?token=token-demo%2Bseguro",
       expiresAt: "2026-07-12T18:30:00.000Z",
     });
 
-    expect(template.subject).toBe("Recuperação de acesso — Portal de Estudos Espíritas");
+    expect(template.subject).toBe(`Recuperação de acesso — ${TRANSACTIONAL_BRAND_NAME}`);
+    expect(template.text).toContain(TRANSACTIONAL_BRAND_NAME);
+    expect(template.html).toContain(TRANSACTIONAL_BRAND_NAME);
+    expect(`${template.subject}\n${template.text}\n${template.html}`).not.toContain(OLD_BRAND_NAME);
     expect(template.text).toContain("Use este link para redefinir sua senha");
-    expect(template.text).toContain("http://localhost:5173/redefinir-senha?token=token-demo");
+    expect(template.text).toContain("http://localhost:5173/redefinir-senha?token=token-demo%2Bseguro");
+    expect(template.text).toContain(EXPECTED_EXPIRY_LABEL);
+    expect(template.html).toContain(EXPECTED_EXPIRY_LABEL);
     expect(template.html).toContain("&lt;Aluno &amp; Turma&gt;");
     expect(template.html).not.toContain("<Aluno & Turma>");
     expect(template.html).toContain("Redefinir minha senha");
@@ -51,7 +60,7 @@ describe("password recovery notifier", () => {
     expect(sendMail).toHaveBeenCalledWith(
       expect.objectContaining({
         to: "aluno.demo@example.com",
-        subject: "Recuperação de acesso — Portal de Estudos Espíritas",
+        subject: `Recuperação de acesso — ${TRANSACTIONAL_BRAND_NAME}`,
       }),
     );
     expect(JSON.stringify(sendMail.mock.calls[0][0])).toContain("token-seguro");

@@ -17,6 +17,9 @@ export interface TransactionalEmailTransport {
   sendMail(message: TransactionalEmailMessage): Promise<void>;
 }
 
+export const TRANSACTIONAL_EMAIL_BRAND_NAME = "Portal de Educação Continuada";
+export const TRANSACTIONAL_EMAIL_TIME_ZONE = "America/Sao_Paulo";
+
 export class NodemailerTransactionalEmailTransport implements TransactionalEmailTransport {
   private readonly transporter;
 
@@ -64,5 +67,6 @@ export const formatEmailExpiryLabel = (expiresAt: string) => {
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-  }).format(expiresDate);
+    timeZone: TRANSACTIONAL_EMAIL_TIME_ZONE,
+  }).format(expiresDate) + " (horário de Brasília)";
 };
