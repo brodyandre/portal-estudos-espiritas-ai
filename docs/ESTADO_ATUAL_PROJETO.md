@@ -1,6 +1,6 @@
 # Estado Atual do Projeto
 
-Baseline Git atual: `9738fdc3e62e975b3ea15e19dde721b52996f754`.
+Baseline Git atual: `ebeb9143e042ea39e790ccb0e61efdca0a287a31`.
 
 ## Identificacao
 
@@ -82,10 +82,35 @@ Fallback do Agent Answer permanece preservado para falhas do provider LLM.
 
 ## E-mail Transacional e Recuperacao de Senha
 
-O codigo ja possui `nodemailer`, infraestrutura SMTP configuravel, Mailpit local, notifiers transacionais, recuperacao de senha, reset de senha, token criptograficamente seguro, armazenamento por hash, expiracao, uso unico, anti-enumeracao, templates HTML/texto e frontend para solicitacao e redefinicao.
+O codigo possui `nodemailer`, infraestrutura SMTP configuravel, Mailpit local, notifiers transacionais, recuperacao de senha, reset de senha, token criptograficamente seguro, armazenamento por hash, expiracao, uso unico, anti-enumeracao, templates HTML/texto e frontend para solicitacao e redefinicao.
+
+Estado operacional validado da 9C.11:
+
+- provider SMTP inicial de producao: Resend;
+- transporte da aplicacao: SMTP padrao via Nodemailer;
+- dominio de envio: `email.portal-educacao-continuada.com.br`;
+- regiao Resend: Sao Paulo (`sa-east-1`);
+- dominio Resend verificado, Sending habilitado e Receiving desabilitado;
+- DNS oficial do Resend aplicado no Registro.br para DKIM, Return-Path/SPF e SPF;
+- remetente institucional: `Portal de Educação Continuada <no-reply@email.portal-educacao-continuada.com.br>`;
+- credencial restrita criada no Resend com permissao de envio para o dominio aprovado, mantida fora do repositorio;
+- API em producao configurada com `SMTP_ENABLED=true`, `SMTP_HOST=smtp.resend.com`, `SMTP_PORT=2587`, `SMTP_SECURE=false`, `SMTP_USER=resend`, remetente institucional e `APP_PUBLIC_URL=https://portal-educacao-continuada.com.br`.
+
+Smoke real controlado da recuperacao de senha foi concluido com sucesso: solicitacao publica com resposta generica, entrega Resend `Sent` e `Delivered`, recebimento no endereco controlado, link HTTPS para `/redefinir-senha`, redefinicao de senha, redirecionamento para `/login`, login com a nova senha e acesso autenticado a `/aluno`.
+
+Nenhum valor secreto, token, senha, API key, URL completa com token ou e-mail pessoal usado no smoke deve ser documentado.
+
+## Limites Pos-Validacao
+
+Achados nao bloqueantes registrados para evolucao futura:
+
+- readiness: apos a ativacao SMTP, `/ready` apresentou temporariamente `database.status=timeout` com corpus `ready`; a evidencia sugere comportamento compativel com cold start/wake-up do Neon Free, sem evidencia causal com SMTP;
+- o timeout de 2 segundos do readiness de banco pode ser agressivo para wake-up e deve ser reavaliado com retry curto e observabilidade dedicada;
+- rate limit de recuperacao/redefinicao usa memoria do processo, aceitavel para piloto em replica unica, mas inadequado como autoridade distribuida antes de escala horizontal;
+- frontend ainda exibe textos de modo local/demo e credenciais demonstrativas em telas de autenticacao, achado de UX/apresentacao antes de exposicao mais ampla;
+- o remetente real usa Portal de Educação Continuada, mas assunto/corpo do e-mail ainda usam Portal de Estudos Espíritas;
+- a expiracao segue TTL funcional de 30 minutos, mas o template formata horario sem timezone institucional explicito.
 
 ## Proxima Entrega
 
-9C.11 -- SMTP e Recuperacao de Senha em Producao.
-
-Pelo estado atual do codigo, a entrega e predominantemente hardening, documentacao operacional, configuracao controlada de secrets e validacao autorizada em producao.
+A 9C.11 fica operacionalmente concluida apos a integracao desta documentacao. Novas entregas devem ser decididas separadamente a partir do backlog tecnico/UX pos-validacao.

@@ -140,8 +140,20 @@ Resend sera o provider SMTP transacional inicial de producao. A integracao da ap
 Racional:
 Aproveita o transporte SMTP ja implementado, evita acoplar o dominio de autenticacao ao SDK ou API proprietaria do provider, nao exige dependencia nova, nao exige alteracao de runtime, preserva a possibilidade de substituir o provider futuramente, suporta dominio proprio e oferece porta STARTTLS alternativa util diante da restricao atual das portas SMTP tradicionais no Render Free.
 
-Pendencias operacionais:
-Ainda faltam criar/configurar conta Resend, decidir dominio ou subdominio de envio, escolher remetente, aplicar DNS autorizado, criar credencial, configurar Render Secrets e executar smoke test real autorizado. Esta decisao nao significa que SMTP de producao ja esteja ativo.
+Estado operacional:
+O SMTP de producao foi configurado e validado para o piloto da 9C.11. O dominio de envio aprovado e `email.portal-educacao-continuada.com.br`, criado no Resend na regiao Sao Paulo (`sa-east-1`), com Sending habilitado, Receiving desabilitado e estado verificado. Os registros oficiais de DKIM, Return-Path/SPF e SPF foram aplicados no Registro.br. Nenhuma configuracao DMARC adicional foi adotada como requisito desta entrega.
+
+O remetente institucional aprovado e `Portal de Educação Continuada <no-reply@email.portal-educacao-continuada.com.br>`. Reply-To nao esta implementado e nao e requisito do piloto. Mailbox humana para esse endereco tambem nao e pre-requisito do fluxo transacional atual.
+
+Foi criada credencial restrita no Resend com nome operacional `portal-production-smtp`, permissao `Sending access` e restricao ao dominio aprovado. O valor da credencial, `SMTP_PASSWORD`, tokens e demais secrets permanecem fora do repositorio e nao devem ser impressos ou documentados.
+
+O servico `portal-estudos-api` foi configurado no Render com SMTP ativo via `SMTP_ENABLED=true`, `SMTP_HOST=smtp.resend.com`, `SMTP_PORT=2587`, `SMTP_SECURE=false`, `SMTP_USER=resend`, remetente institucional e `APP_PUBLIC_URL=https://portal-educacao-continuada.com.br`.
+
+Validacao:
+Um smoke real controlado de recuperacao de senha foi executado com sucesso: o Resend registrou `Sent` e `Delivered`, o e-mail chegou ao endereco controlado, o link HTTPS oficial permitiu redefinir a senha e o login com a nova senha foi concluido.
+
+Limites e evolucoes:
+Permanecem como backlog nao bloqueante a revisao de textos local/demo no frontend, alinhamento textual do assunto/corpo do e-mail com o remetente institucional, timezone explicito no template de expiracao, observabilidade dedicada para SMTP, rate limit distribuido antes de escala horizontal e reavaliacao do readiness de banco diante de cold start/wake-up do Neon Free.
 
 Status:
 Ativa.

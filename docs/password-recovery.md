@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-Documentar o fluxo local de recuperação de senha com entrega transacional por SMTP, mantendo resposta pública genérica, testes isolados e desenvolvimento reproduzível.
+Documentar o fluxo de recuperação de senha com entrega transacional por SMTP, mantendo resposta pública genérica, testes isolados, desenvolvimento reproduzível e operação de produção validada.
 
 ## Rotas públicas
 
@@ -84,7 +84,7 @@ Mailpit é apenas para desenvolvimento local e não deve ser usado em produção
 
 ## SMTP de produção com Resend
 
-Resend foi escolhido como provider SMTP transacional inicial de produção. A aplicação continua usando a arquitetura SMTP genérica já existente:
+Resend é o provider SMTP transacional inicial de produção. A aplicação continua usando a arquitetura SMTP genérica já existente:
 
 ```text
 Módulos de autenticação
@@ -98,37 +98,55 @@ SMTP padrão
 Resend
 ```
 
-Esta decisão é arquitetural e documental. Ela não significa que a conta Resend, DNS, remetente, Render Secrets, `SMTP_ENABLED=true`, conexão SMTP ou entrega real em produção já estejam configurados ou validados.
+Estado validado da 9C.11:
 
-### Variáveis planejadas
+- domínio de envio: `email.portal-educacao-continuada.com.br`;
+- região Resend: São Paulo (`sa-east-1`);
+- domínio Resend: `Verified`;
+- Sending habilitado e Receiving desabilitado;
+- DNS oficial do Resend aplicado no Registro.br para DKIM, Return-Path/SPF e SPF;
+- DMARC adicional não foi requisito do piloto;
+- remetente validado: `Portal de Educação Continuada <no-reply@email.portal-educacao-continuada.com.br>`;
+- credencial restrita `portal-production-smtp`, com `Sending access` e restrição ao domínio aprovado, mantida fora do repositório;
+- API `portal-estudos-api` configurada no Render com `SMTP_ENABLED=true`;
+- smoke real controlado concluído com entrega, redefinição de senha e login.
 
-| Variável | Produção planejada | Observação |
+Reply-To não está implementado atualmente e não é requisito do piloto. Mailbox humana para o remetente `no-reply` também não é pré-requisito do fluxo transacional atual.
+
+### Variáveis de produção
+
+| Variável | Produção validada | Observação |
 |---|---|---|
-| `SMTP_ENABLED` | `false` durante preparação; `true` somente na ativação autorizada | Em produção, sem SMTP ativo e sem prévia local, a recuperação não deve ser tratada como funcional. |
+| `SMTP_ENABLED` | `true` | SMTP transacional ativo em produção após validação controlada. |
 | `SMTP_HOST` | `smtp.resend.com` | Host SMTP do Resend. |
-| `SMTP_PORT` | `2587` | Porta candidata para o piloto no Render Free; precisa de smoke test real autorizado. |
-| `SMTP_SECURE` | `false` | Cenário candidato com STARTTLS via Nodemailer. |
+| `SMTP_PORT` | `2587` | Porta STARTTLS validada no Render Free. |
+| `SMTP_SECURE` | `false` | STARTTLS via Nodemailer. |
 | `SMTP_USER` | `resend` | Valor operacional do provider, sem credencial. |
 | `SMTP_PASSWORD` | `<SECRET_RESEND_SMTP>` | Secret operacional; nunca versionar, imprimir ou registrar. |
-| `SMTP_FROM_NAME` | `<NOME_INSTITUCIONAL_A_DEFINIR>` | Nome institucional ainda pendente. |
-| `SMTP_FROM_EMAIL` | `<REMETENTE_AUTORIZADO_A_DEFINIR>` | Remetente final depende de domínio/remetente verificado. |
+| `SMTP_FROM_NAME` | `Portal de Educação Continuada` | Nome institucional aprovado. |
+| `SMTP_FROM_EMAIL` | `no-reply@email.portal-educacao-continuada.com.br` | Remetente autorizado pelo domínio verificado. |
 | `APP_PUBLIC_URL` | `https://portal-educacao-continuada.com.br` | Base usada para montar `/redefinir-senha?token=...`. |
 
-### Pré-requisitos operacionais
+### Ativação operacional validada
 
-Antes de ativar SMTP em produção:
+Sequência executada na 9C.11:
 
 1. criar ou configurar a conta Resend;
-2. decidir domínio raiz ou subdomínio de envio;
+2. decidir o subdomínio de envio `email.portal-educacao-continuada.com.br`;
 3. cadastrar o domínio no Resend;
 4. obter os registros DNS oficiais no painel do Resend;
 5. aplicar DNS somente com autorização explícita;
 6. aguardar e validar a verificação do domínio;
-7. decidir o remetente institucional;
+7. definir o remetente institucional;
 8. confirmar que o remetente é permitido pelo domínio verificado;
 9. criar credencial SMTP restrita;
-10. configurar Render sem expor secrets;
-11. revisar a configuração antes de ativar `SMTP_ENABLED=true`.
+10. configurar Render sem expor secrets, inicialmente com `SMTP_ENABLED=false`;
+11. aplicar a configuração preparada por deploy controlado;
+12. validar `/health` e `/ready`;
+13. ativar `SMTP_ENABLED=true`;
+14. aplicar a ativação por `Save and deploy`;
+15. validar novo deploy Live;
+16. executar smoke real controlado.
 
 A preparação pode usar `Save only` com `SMTP_ENABLED=false`, mas a configuração só deve ser tratada como aplicada após deploy controlado que incorpore as envs salvas, conforme `docs/deployment.md`. `Restart service` não substitui esse deploy quando houver env nova ou alterada pendente.
 
@@ -136,28 +154,27 @@ A preparação pode usar `Save only` com `SMTP_ENABLED=false`, mas a configuraç
 
 Em produção, a prévia local fica indisponível. Se o envio SMTP não estiver disponível ou não concluir de forma segura, a resposta HTTP pública continua genérica para evitar enumeração de usuários, mas isso não confirma entrega real. O token recém-criado é invalidado conforme o comportamento atual quando não há entrega disponível ou quando o envio falha.
 
-### Smoke test autorizado
+### Smoke test de produção
 
-O smoke test de produção deve ser executado somente em etapa autorizada:
+Foi executado exatamente um smoke real controlado na 9C.11.4:
 
 1. usar uma conta controlada;
 2. usar endereço de e-mail autorizado pelo proprietário do projeto;
 3. disparar uma única solicitação inicial em `POST /api/auth/forgot-password`;
-4. verificar recebimento;
-5. verificar remetente;
-6. verificar assunto;
-7. verificar versões HTML e texto;
-8. confirmar que o link aponta para `https://portal-educacao-continuada.com.br/redefinir-senha?token=...`;
-9. não copiar token para relatório, log ou issue;
+4. preservar resposta pública genérica anti-enumeração;
+5. confirmar `Sent` e `Delivered` no Resend;
+6. confirmar recebimento no endereço controlado;
+7. confirmar remetente institucional correto;
+8. confirmar HTML renderizado;
+9. confirmar link para `https://portal-educacao-continuada.com.br/redefinir-senha?token=...`;
 10. redefinir a senha uma única vez;
-11. confirmar sucesso da redefinição;
-12. tentar reutilização do token apenas se isso fizer parte do procedimento seguro autorizado;
-13. confirmar que o token não pode ser utilizado novamente;
-14. confirmar login com a nova senha;
-15. confirmar revogação das sessões anteriores conforme comportamento atual;
-16. verificar logs sanitizados.
+11. confirmar redirecionamento para `/login`;
+12. confirmar login com a nova senha;
+13. confirmar acesso autenticado à área `/aluno`.
 
-Não registrar token, senha, credencial SMTP, API key ou corpo completo sensível.
+Não foi executado teste manual de reutilização do mesmo token nesta etapa. O uso único, expiração, invalidação e revogação de sessões são comportamento implementado e coberto por testes automatizados.
+
+Não registrar token, senha, credencial SMTP, API key, e-mail pessoal do smoke, URL completa com token ou corpo completo sensível.
 
 ### Rollback
 
@@ -201,6 +218,8 @@ Com SMTP desabilitado em produção e sem prévia local, recuperação de senha 
 - sem enumeração de contas na solicitação
 - `mustChangePassword` volta para `false` após redefinição bem-sucedida
 - falha de entrega invalida o token recém-gerado
+- novo pedido invalida tokens anteriores ainda ativos
+- redefinição bem-sucedida consome o token e revoga sessões anteriores
 
 ## Observabilidade segura
 
@@ -219,12 +238,22 @@ Não registrar:
 - URL de recuperação
 - hash do token
 - senha SMTP
+- API key
 - corpo completo da mensagem
+
+Limites atuais de observabilidade:
+
+- sem dashboard SMTP dedicado;
+- sem métricas próprias de taxa de entrega;
+- sem integração dedicada com Resend para visão agregada de sucesso/falha;
+- sem fila assíncrona de envio.
 
 ## Rate limiting
 
 - `POST /api/auth/forgot-password`: 5 solicitações por IP e por identidade de e-mail em 30 minutos
 - `POST /api/auth/reset-password`: 5 tentativas por IP e por token protegido em 15 minutos
+
+O armazenamento atual é `MemorySlidingWindowRateLimiter`, em memória do processo. Isso é aceitável para o piloto atual em réplica única, mas não deve ser tratado como autoridade distribuída em escala horizontal. Antes de múltiplas réplicas, avaliar armazenamento distribuído como Redis.
 
 ## Estratégia de falha
 
@@ -237,11 +266,15 @@ Não registrar:
 
 - sem fila assíncrona
 - sem armazenamento distribuído do rate limit
-- sem backend hospedado
-- sem provedor transacional externo configurado por padrão
+- sem dashboard SMTP dedicado
+- conteúdo textual do e-mail ainda usa Portal de Estudos Espíritas no assunto/corpo, enquanto o remetente validado usa Portal de Educação Continuada
+- expiração funcional tem TTL de 30 minutos, mas o template ainda formata data/hora sem timezone institucional explícito
+- frontend de produção ainda possui textos local/demo em telas de autenticação
 
 ## Próxima evolução natural
 
-- trocar Mailpit por provedor SMTP real no ambiente privado
 - mover observabilidade para ferramenta dedicada
-- adicionar fila de entrega quando houver hospedagem do backend
+- adicionar fila de entrega se o volume justificar
+- alinhar identidade textual do e-mail ao remetente institucional
+- explicitar timezone de expiração, preferencialmente alinhado à operação em São Paulo
+- substituir rate limit em memória por armazenamento distribuído antes de escala horizontal
