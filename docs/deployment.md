@@ -278,6 +278,16 @@ Runtime esperado:
 
 Secrets reais devem ficar somente no ambiente do provedor ou secret manager. A imagem nao deve conter banco, JWT, senha SMTP, tokens ou chaves privadas.
 
+### Metadata de revisão da API
+
+A API expoe `GET /version` para retornar somente a revisao Git sanitizada do processo em execucao. Em runtime no Render, a fonte esperada e a metadata automatica `RENDER_GIT_COMMIT`, disponibilizada pelo provedor para o commit associado ao servico/deploy. A aplicacao valida esse valor antes de expo-lo e aceita apenas SHA Git hexadecimal completo de 40 caracteres, normalizado para lowercase.
+
+Se `RENDER_GIT_COMMIT` estiver ausente, vazio ou invalido, `/version` continua respondendo HTTP 200 com `revision=unknown`. A ausencia dessa metadata nao impede startup, nao torna `/health` unhealthy e nao altera `/ready`.
+
+`RENDER_GIT_COMMIT` nao e secret e nao precisa ser criado manualmente apenas para identificar o commit do deploy. O endpoint nao expoe `RENDER_GIT_BRANCH`, service id, instance id, hostname, `process.env`, banco, JWT, SMTP, chaves LLM ou outras configuracoes.
+
+`/version` pode ser usado em validacoes operacionais para correlacionar a revisao live da API com o commit esperado em `main`. Ele nao prova, sozinho, que auto-deploy esta habilitado nem que todo merge foi automaticamente publicado; esses fatos dependem da configuracao operacional real do servico.
+
 ## SMTP transacional -- Resend
 
 Resend e o provider SMTP transacional inicial de producao. A aplicacao continua usando SMTP padrao via Nodemailer; nao ha SDK Resend, API HTTP proprietaria, dependencia nova ou alteracao de runtime nesta decisao.

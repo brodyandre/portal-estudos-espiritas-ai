@@ -152,6 +152,44 @@ Retorna o estado basico da API.
 - nao le nem constroi corpus;
 - retorna `Cache-Control: no-store`.
 
+### `GET /version`
+
+Retorna metadata publica e sanitizada para identificar a revisao da API em execucao.
+
+- publico;
+- read-only;
+- nao consulta banco;
+- nao le nem constroi corpus;
+- nao chama Git em runtime;
+- nao consulta a API do Render;
+- retorna `Cache-Control: no-store`.
+
+Resposta:
+
+```json
+{
+  "success": true,
+  "message": "Metadata de revisão da API carregada com sucesso.",
+  "data": {
+    "revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  }
+}
+```
+
+`revision` vem de metadata local do runtime quando disponivel. No Render, a fonte esperada e `RENDER_GIT_COMMIT`. A API aceita somente SHA Git hexadecimal completo de 40 caracteres e normaliza para lowercase. Se a variavel estiver ausente, vazia ou invalida, a resposta permanece HTTP 200 com:
+
+```json
+{
+  "success": true,
+  "message": "Metadata de revisão da API carregada com sucesso.",
+  "data": {
+    "revision": "unknown"
+  }
+}
+```
+
+A resposta nao expoe `process.env`, branch, service id, instance id, hostname, sistema operacional, paths, configuracao, `DATABASE_URL`, `JWT_SECRET`, `SMTP_PASSWORD`, chaves LLM ou outros secrets. O endpoint serve apenas para correlacionar a revisao live com o commit esperado em validacoes operacionais.
+
 ### `GET /ready`
 
 Readiness publica e sanitizada para plataformas que verificam se a instancia pode receber trafego. A rota nao exige autenticacao e nao dispara build do corpus. A checagem de banco usa tentativas curtas e limitadas para tolerar falha transitória, mantendo resposta sanitizada e HTTP 503 quando a indisponibilidade persiste.
