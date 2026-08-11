@@ -129,17 +129,104 @@ describe("readiness endpoints", () => {
     const timeoutHandle = { id: "readiness-timeout" } as unknown as NodeJS.Timeout;
     const setTimeoutFn = vi.fn((_callback: () => void, _timeoutMs: number) => timeoutHandle);
     const clearTimeoutFn = vi.fn();
+    const query = vi.fn(async () => 1);
+    const delayFn = vi.fn(async () => undefined);
 
     await expect(
       checkDatabaseReadiness({
-        query: vi.fn(async () => 1),
+        query,
         timeoutMs: 2_000,
+        delayFn,
         setTimeoutFn,
         clearTimeoutFn,
       }),
     ).resolves.toBe("ok");
 
+    expect(query).toHaveBeenCalledTimes(1);
+    expect(delayFn).not.toHaveBeenCalled();
     expect(setTimeoutFn).toHaveBeenCalledWith(expect.any(Function), 2_000);
     expect(clearTimeoutFn).toHaveBeenCalledWith(timeoutHandle);
+  });
+
+  it("recupera quando a primeira tentativa de banco falha e o retry funciona", async () => {
+    const query = vi.fn().mockRejectedValueOnce(new Error("transient connection error")).mockResolvedValueOnce(1);
+    const delayFn = vi.fn(async () => undefined);
+
+    await expect(
+      checkDatabaseReadiness({
+        query,
+        retryDelayMs: 100,
+        delayFn,
+      }),
+    ).resolves.toBe("ok");
+
+    expect(query).toHaveBeenCalledTimes(2);
+    expect(delayFn).toHaveBeenCalledTimes(1);
+    expect(delayFn).toHaveBeenCalledWith(100);
+  });
+
+  it("retorna timeout quando todas as tentativas atingem o timeout", async () => {
+    const timeoutHandle = { id: "readiness-timeout" } as unknown as NodeJS.Timeout;
+    const query = vi.fn(() => new Promise(() => undefined));
+    const setTimeoutFn = vi.fn((callback: () => void, _timeoutMs: number) => {
+      callback();
+      return timeoutHandle;
+    });
+    const clearTimeoutFn = vi.fn();
+    const delayFn = vi.fn(async () => undefined);
+
+    await expect(
+      checkDatabaseReadiness({
+        query,
+        maxAttempts: 2,
+        retryDelayMs: 100,
+        delayFn,
+        setTimeoutFn,
+        clearTimeoutFn,
+      }),
+    ).resolves.toBe("timeout");
+
+    expect(query).toHaveBeenCalledTimes(2);
+    expect(delayFn).toHaveBeenCalledTimes(1);
+    expect(setTimeoutFn).toHaveBeenCalledTimes(2);
+    expect(clearTimeoutFn).toHaveBeenCalledTimes(2);
+  });
+
+  it("retorna error quando todas as tentativas falham e respeita o limite maximo", async () => {
+    const query = vi.fn().mockRejectedValue(new Error("postgres://user:password@private-host:5432/db"));
+    const delayFn = vi.fn(async () => undefined);
+
+    await expect(
+      checkDatabaseReadiness({
+        query,
+        maxAttempts: 2,
+        retryDelayMs: 100,
+        delayFn,
+      }),
+    ).resolves.toBe("error");
+
+    expect(query).toHaveBeenCalledTimes(2);
+    expect(delayFn).toHaveBeenCalledTimes(1);
+  });
+
+  it("/ready permanece sanitizado quando o banco falha persistentemente", async () => {
+    setReadinessDependenciesForTesting({
+      checkDatabase: vi.fn(async () => "error"),
+      getCorpusStatus: () =>
+        buildStatus({
+          lastFailure: "postgres://user:password@private-host:5432/db stack trace",
+        }),
+    });
+
+    const response = await request(app).get("/ready");
+    const serializedBody = JSON.stringify(response.body);
+
+    expect(response.status).toBe(503);
+    expect(response.body.status).toBe("not_ready");
+    expect(response.body.checks.database.status).toBe("error");
+    expect(serializedBody).not.toContain("postgres://");
+    expect(serializedBody).not.toContain("password");
+    expect(serializedBody).not.toContain("private-host");
+    expect(serializedBody).not.toContain("stack trace");
   });
 });

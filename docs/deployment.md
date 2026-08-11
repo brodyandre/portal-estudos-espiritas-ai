@@ -376,11 +376,11 @@ O comportamento funcional e os limites da recuperacao de senha com SMTP desabili
 
 ### Achado readiness/Neon
 
-Apos a ativacao SMTP, `/health` permaneceu saudavel, mas `/ready` apresentou temporariamente `status=not_ready`, `database.status=timeout` e `corpus.status=ready`. O codigo de readiness executa `SELECT 1` via Prisma com timeout fixo de 2 segundos; se o banco nao responder nesse limite, retorna HTTP 503.
+Apos a ativacao SMTP, `/health` permaneceu saudavel, mas `/ready` apresentou temporariamente `status=not_ready`, `database.status=timeout` e `corpus.status=ready`. O codigo de readiness executa `SELECT 1` via Prisma com timeout curto por tentativa; se o banco nao responder apos as tentativas limitadas, retorna HTTP 503.
 
 Durante a investigacao controlada, o Neon estava no plano Free; um `SELECT 1` manual no Neon concluiu com sucesso em aproximadamente 17 ms, o compute Primary apareceu Active e, imediatamente depois, `/ready` voltou a `status=ready`, `database.status=ok` e `corpus.status=ready`.
 
-A evidencia sugere comportamento compativel com cold start/wake-up do Neon Free, sem evidencia causal com SMTP. O achado nao bloqueia o piloto atual, mas recomenda avaliar futuramente retry curto, ajuste do timeout de readiness e observabilidade dedicada.
+A evidencia sugere comportamento compativel com cold start/wake-up do Neon Free, sem evidencia causal com SMTP. O hardening PILOT-01 adicionou retry curto e limitado na checagem de banco para reduzir falso negativo transitório. O achado nao bloqueia o piloto atual; ajuste adicional de timeout e observabilidade dedicada continuam sujeitos a entrega futura.
 
 ## Provider LLM
 
@@ -395,7 +395,7 @@ As rotas de agente usam fallback quando o provider configurado nao responde, exc
 ## Health e readiness
 
 - `/health`: liveness simples, sem banco e sem corpus.
-- `/ready`: readiness sanitizada, consulta PostgreSQL e estado operacional em memoria do corpus.
+- `/ready`: readiness sanitizada, consulta PostgreSQL com retry curto e limitado e estado operacional em memoria do corpus.
 
 Plataformas devem usar `/health` para healthcheck de container e `/ready` para liberacao de trafego quando banco estiver disponivel.
 
