@@ -26,11 +26,16 @@ export interface ReadinessDependencies {
 export interface DatabaseReadinessOptions {
   query?: () => Promise<unknown>;
   timeoutMs?: number;
+  maxAttempts?: number;
+  retryDelayMs?: number;
+  delayFn?: (delayMs: number) => Promise<void>;
   setTimeoutFn?: typeof setTimeout;
   clearTimeoutFn?: typeof clearTimeout;
 }
 
 const READINESS_DATABASE_TIMEOUT_MS = 2_000;
+const READINESS_DATABASE_MAX_ATTEMPTS = 2;
+const READINESS_DATABASE_RETRY_DELAY_MS = 100;
 
 const withDatabaseTimeout = async (
   operation: Promise<DatabaseReadinessStatus>,
@@ -50,21 +55,47 @@ const withDatabaseTimeout = async (
   }
 };
 
+const waitForRetryDelay = (delayMs: number): Promise<void> =>
+  new Promise((resolve) => {
+    setTimeout(resolve, delayMs);
+  });
+
 export const checkDatabaseReadiness = async (
   options: DatabaseReadinessOptions = {},
 ): Promise<DatabaseReadinessStatus> => {
   const query = options.query ?? (() => getPrismaClient().$queryRaw`SELECT 1`);
+  const maxAttempts = Math.max(
+    1,
+    Math.floor(options.maxAttempts ?? READINESS_DATABASE_MAX_ATTEMPTS),
+  );
+  const retryDelayMs = Math.max(0, options.retryDelayMs ?? READINESS_DATABASE_RETRY_DELAY_MS);
+  const delayFn = options.delayFn ?? waitForRetryDelay;
+  let lastStatus: DatabaseReadinessStatus = "error";
 
   try {
-    const databaseCheck = query()
-      .then((): DatabaseReadinessStatus => "ok")
-      .catch((): DatabaseReadinessStatus => "error");
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      const databaseCheck = query()
+        .then((): DatabaseReadinessStatus => "ok")
+        .catch((): DatabaseReadinessStatus => "error");
 
-    return await withDatabaseTimeout(databaseCheck, {
-      timeoutMs: options.timeoutMs ?? READINESS_DATABASE_TIMEOUT_MS,
-      setTimeoutFn: options.setTimeoutFn ?? setTimeout,
-      clearTimeoutFn: options.clearTimeoutFn ?? clearTimeout,
-    });
+      const status = await withDatabaseTimeout(databaseCheck, {
+        timeoutMs: options.timeoutMs ?? READINESS_DATABASE_TIMEOUT_MS,
+        setTimeoutFn: options.setTimeoutFn ?? setTimeout,
+        clearTimeoutFn: options.clearTimeoutFn ?? clearTimeout,
+      });
+
+      if (status === "ok") {
+        return "ok";
+      }
+
+      lastStatus = status;
+
+      if (attempt < maxAttempts && retryDelayMs > 0) {
+        await delayFn(retryDelayMs);
+      }
+    }
+
+    return lastStatus;
   } catch (_error) {
     return "error";
   }

@@ -154,7 +154,7 @@ Retorna o estado basico da API.
 
 ### `GET /ready`
 
-Readiness publica e sanitizada para plataformas que verificam se a instancia pode receber trafego. A rota nao exige autenticacao e nao dispara build do corpus.
+Readiness publica e sanitizada para plataformas que verificam se a instancia pode receber trafego. A rota nao exige autenticacao e nao dispara build do corpus. A checagem de banco usa tentativas curtas e limitadas para tolerar falha transitória, mantendo resposta sanitizada e HTTP 503 quando a indisponibilidade persiste.
 
 Resposta:
 
