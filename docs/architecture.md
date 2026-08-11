@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-Documentar como o projeto foi organizado para entregar uma demo funcional, portavel e facil de manter, com frontend estatico, backend local e assistencia opcional por provider LLM configuravel.
+Documentar como o projeto foi organizado para entregar uma experiencia funcional, portavel e facil de manter, com frontend estatico, backend Express, producao hospedada e assistencia opcional por provider LLM configuravel.
 
 ## Principios
 
@@ -10,6 +10,7 @@ Documentar como o projeto foi organizado para entregar uma demo funcional, porta
 - conteudo simples, educativo e revisavel
 - desacoplamento entre frontend e backend
 - funcionamento demonstrativo do frontend mesmo sem API
+- separacao entre producao real, demo publica e desenvolvimento local
 - funcionamento da interface mesmo quando a API falha
 - assistencia como apoio, nunca como substituicao do professor
 
@@ -34,17 +35,31 @@ data/knowledge
   -> armazenamento fisico governado do RAG
 ```
 
+Nome interno/historico do projeto: `Portal de Estudos Espiritas com IA`.
+
+Identidade publica atual do produto: `Portal de Educação Continuada`.
+
 ## Modos de execucao
 
-### 1. Frontend sozinho
+### 1. Frontend em modo demo
 
-Melhor para portfolio publico e deploy estatico.
+Melhor para GitHub Pages, portfolio publico e preview estatico.
 
-- o frontend tenta chamar a API local
-- quando a API nao responde, a camada de servicos usa mocks locais
+- `VITE_APP_MODE=demo` nao autentica usuarios reais
+- credenciais demonstrativas nao sao expostas como senha reutilizavel
+- quando a API nao responde, a camada de servicos usa mocks locais quando aplicavel
 - a navegacao e o conteudo principal continuam funcionando
 
-### 2. Frontend + API local
+### 2. Producao real
+
+Melhor para uso com os dominios oficiais.
+
+- a Web publica usa `https://portal-educacao-continuada.com.br`
+- a API publica usa `https://api.portal-educacao-continuada.com.br`
+- o frontend em runtime de producao nao exibe credenciais demonstrativas nem copy de backend/local nas telas de autenticacao
+- e-mails transacionais usam a identidade publica `Portal de Educação Continuada`
+
+### 3. Frontend + API local
 
 Melhor para demonstrar integracao ponta a ponta.
 
@@ -52,7 +67,7 @@ Melhor para demonstrar integracao ponta a ponta.
 - a API responde em JSON padronizado
 - fluxos administrativos autenticados usam persistencia local quando configurados
 
-### 3. Frontend + API + provider LLM
+### 4. Frontend + API + provider LLM
 
 Melhor para demonstrar geracao assistida.
 

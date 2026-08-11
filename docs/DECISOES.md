@@ -153,7 +153,32 @@ Validacao:
 Um smoke real controlado de recuperacao de senha foi executado com sucesso: o Resend registrou `Sent` e `Delivered`, o e-mail chegou ao endereco controlado, o link HTTPS oficial permitiu redefinir a senha e o login com a nova senha foi concluido.
 
 Limites e evolucoes:
-Permanecem como backlog nao bloqueante a revisao de textos local/demo no frontend, alinhamento textual do assunto/corpo do e-mail com o remetente institucional, timezone explicito no template de expiracao, observabilidade dedicada para SMTP, rate limit distribuido antes de escala horizontal e reavaliacao do readiness de banco diante de cold start/wake-up do Neon Free.
+Permanecem como backlog nao bloqueante a observabilidade dedicada para SMTP, rate limit distribuido antes de escala horizontal e reavaliacao do readiness de banco diante de cold start/wake-up do Neon Free. O hardening production/demo do frontend, o alinhamento textual dos e-mails e o timezone explicito do template foram tratados na 9C.12.
+
+Status:
+Ativa.
+
+## D014 -- Identidade publica do produto
+
+Decisao:
+Manter a distincao entre o nome interno/historico do projeto e a identidade publica apresentada ao usuario.
+
+Racional:
+`Portal de Estudos Espiritas com IA` continua valido para repositorio, packages, namespaces, documentacao historica e referencias tecnicas. `Portal de Educação Continuada` e a identidade publica/transacional atual do produto, usada em experiencia de producao e comunicacoes ao usuario.
+
+Status:
+Ativa.
+
+## D015 -- Identidade e timezone dos e-mails transacionais
+
+Decisao:
+Os templates transacionais de recuperacao de senha e convite de conta usam a identidade textual `Portal de Educação Continuada`. A expiracao e formatada com `America/Sao_Paulo` e apresentada ao usuario como `horário de Brasília`.
+
+Racional:
+Alinha os e-mails ao remetente institucional validado em producao sem acoplar a copy dos templates aos campos operacionais `SMTP_FROM_*`.
+
+Notas:
+A 9C.12.2 nao alterou TTL, transporte SMTP, provider Resend, Render, DNS, Neon ou banco. `SMTP_FROM_NAME` e `SMTP_FROM_EMAIL` permanecem configuracoes operacionais separadas.
 
 Status:
 Ativa.

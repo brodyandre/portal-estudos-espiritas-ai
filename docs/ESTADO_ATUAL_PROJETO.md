@@ -1,10 +1,14 @@
 # Estado Atual do Projeto
 
-Baseline Git atual: `ebeb9143e042ea39e790ccb0e61efdca0a287a31`.
+Baseline de referência para início da 9C.12.3: `400038c8299ce9cd3db99f424a246774ce83bb32`.
 
 ## Identificacao
 
 Portal de Estudos Espiritas com IA, monorepo privado com API Express/TypeScript e Web React/Vite. O objetivo e apoiar grupos de estudo com areas publicas, aluno, professor e administracao, preservando revisao humana e governanca editorial.
+
+Nome interno/historico do projeto: Portal de Estudos Espiritas com IA.
+
+Identidade publica atual do produto: Portal de Educação Continuada.
 
 ## Arquitetura Principal
 
@@ -100,6 +104,14 @@ Smoke real controlado da recuperacao de senha foi concluido com sucesso: solicit
 
 Nenhum valor secreto, token, senha, API key, URL completa com token ou e-mail pessoal usado no smoke deve ser documentado.
 
+## Fechamento 9C.12
+
+9C.12.1 foi integrada pelo PR #47 no commit de integracao `cf61c4d8d10b6c513e7db9d5e8bce114179bb685`. A producao real nao exibe credenciais demonstrativas nem copy de backend/local nas telas de autenticacao; o GitHub Pages permanece em modo demo seguro; o desenvolvimento local continua utilizavel.
+
+9C.12.2 foi integrada pelo PR #48 no commit de integracao `400038c8299ce9cd3db99f424a246774ce83bb32`. Os e-mails transacionais usam a identidade publica `Portal de Educação Continuada`, formatam expiracao com `America/Sao_Paulo` e apresentam o horario como `horário de Brasília`. A alteracao nao mudou TTL, transporte SMTP, Resend, Render, DNS, Neon ou banco.
+
+9C.12.3 esta em fechamento documental e validacao local. Ela nao deve afirmar conclusao integrada antes do futuro merge da propria entrega. Na implementacao local desta etapa, passaram os testes focados Web relacionados a auth/config/recovery/routing (4 arquivos, 27 testes), os testes focados API de templates transacionais (3 arquivos, 8 testes), os fluxos API relacionados (4 arquivos, 164 testes), a suite completa API (61 arquivos, 708 testes), a suite completa Web (42 arquivos, 460 testes), os typechecks Web/API, o build oficial e `make pages-check`.
+
 ## Limites Pos-Validacao
 
 Achados nao bloqueantes registrados para evolucao futura:
@@ -107,10 +119,10 @@ Achados nao bloqueantes registrados para evolucao futura:
 - readiness: apos a ativacao SMTP, `/ready` apresentou temporariamente `database.status=timeout` com corpus `ready`; a evidencia sugere comportamento compativel com cold start/wake-up do Neon Free, sem evidencia causal com SMTP;
 - o timeout de 2 segundos do readiness de banco pode ser agressivo para wake-up e deve ser reavaliado com retry curto e observabilidade dedicada;
 - rate limit de recuperacao/redefinicao usa memoria do processo, aceitavel para piloto em replica unica, mas inadequado como autoridade distribuida antes de escala horizontal;
-- frontend ainda exibe textos de modo local/demo e credenciais demonstrativas em telas de autenticacao, achado de UX/apresentacao antes de exposicao mais ampla;
-- o remetente real usa Portal de Educação Continuada, mas assunto/corpo do e-mail ainda usam Portal de Estudos Espíritas;
-- a expiracao segue TTL funcional de 30 minutos, mas o template formata horario sem timezone institucional explicito.
+- F-001 -- P2: variable/flaky timeouts in unmodified tests, without evidence of relation to 9C.12.1;
+- W-001 -- P3: marca antiga permanece somente em fixtures `SMTP_FROM_NAME`, asserts negativos e contextos locais deliberados, sem impacto no runtime/template transacional;
+- observabilidade SMTP ainda nao possui dashboard ou metricas dedicadas.
 
 ## Proxima Entrega
 
-A 9C.11 fica operacionalmente concluida apos a integracao desta documentacao. Novas entregas devem ser decididas separadamente a partir do backlog tecnico/UX pos-validacao.
+A 9C.12.3 deve concluir a atualizacao documental e registrar a validacao local final da 9C.12. Novas entregas devem ser decididas separadamente a partir do backlog tecnico/UX pos-validacao.
