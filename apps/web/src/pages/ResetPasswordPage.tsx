@@ -88,7 +88,7 @@ export const ResetPasswordPage = () => {
     <div className="page-stack">
       <ProfileHeader
         badge="Redefinição"
-        eyebrow="Acesso local"
+        eyebrow={appConfig.isProductionRuntime ? "Redefinição segura" : "Acesso local"}
         title="Criar nova senha"
         description="Use o link temporário de recuperação para definir uma nova senha e entrar novamente no portal."
       />

@@ -15,6 +15,7 @@ export const ForgotPasswordPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isDemoMode = appConfig.appMode !== "local";
+  const isProductionRuntime = appConfig.isProductionRuntime;
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -45,16 +46,25 @@ export const ForgotPasswordPage = () => {
     }
   };
 
+  const currentModeLabel = isDemoMode ? "Demonstração" : isProductionRuntime ? "Produção" : "Local";
+  const deliveryLabel = isDemoMode ? "Indisponível" : isProductionRuntime ? "E-mail transacional" : "Prévia local segura";
+  const eyebrow = isDemoMode ? "Demonstração" : isProductionRuntime ? "Acesso" : "Acesso local";
+  const description = isDemoMode
+    ? "No GitHub Pages, esta página permanece apenas como referência visual segura."
+    : isProductionRuntime
+      ? "Informe seu e-mail para receber instruções de recuperação com segurança."
+      : "Informe seu e-mail para receber instruções de recuperação no ambiente local.";
+
   return (
     <div className="page-stack">
       <ProfileHeader
         badge="Recuperação"
-        eyebrow="Acesso local"
+        eyebrow={eyebrow}
         title="Esqueci minha senha"
-        description="Informe seu e-mail para receber instruções de recuperação no ambiente local."
+        description={description}
         meta={[
-          { label: "Modo atual", value: isDemoMode ? "Demonstração" : "Local" },
-          { label: "Entrega", value: isDemoMode ? "Indisponível" : "Prévia local segura" },
+          { label: "Modo atual", value: currentModeLabel },
+          { label: "Entrega", value: deliveryLabel },
         ]}
       />
 

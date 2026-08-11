@@ -8,6 +8,7 @@ import { AlertBox } from "../components/ui/AlertBox";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { TextInput } from "../components/ui/TextInput";
+import { appConfig } from "../config/appMode";
 import { resolveSafeRedirectTarget } from "../routing/publicUrls";
 
 const localDemoCredentials = [
@@ -46,6 +47,8 @@ export const LoginPage = () => {
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isProductionRuntime = appConfig.isProductionRuntime;
+  const canShowDemoCredentials = appConfig.canShowDemoCredentials;
 
   const redirectTarget = useMemo(() => {
     const fallbackTarget =
@@ -77,20 +80,34 @@ export const LoginPage = () => {
       const loggedUser = await login(email, password);
       navigate(loggedUser.mustChangePassword ? "/primeiro-acesso" : redirectTarget, { replace: true });
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Não foi possível concluir o login local.");
+      setErrorMessage(error instanceof Error ? error.message : "Não foi possível concluir o login agora.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const accessBadge = isDemoMode ? "Demonstração" : isProductionRuntime ? "Acesso" : "Acesso local";
+  const accessDescription = isDemoMode
+    ? "No GitHub Pages, esta tela continua apenas como demonstração segura."
+    : isProductionRuntime
+      ? "Use seu e-mail e senha para entrar no Portal de Educação Continuada."
+      : "Use o ambiente local para entrar com um perfil real de Admin, Professor ou Aluno.";
+  const currentModeLabel = isDemoMode ? "Demonstração" : isProductionRuntime ? "Produção" : "Local";
+  const formEyebrow = isDemoMode ? "Acesso demonstrativo" : isProductionRuntime ? "Acesso ao portal" : "Login local";
+  const formDescription = isDemoMode
+    ? "Nesta versão pública, o formulário não autentica usuários reais."
+    : isProductionRuntime
+      ? "Informe suas credenciais cadastradas para acessar sua área no portal."
+      : "As credenciais abaixo foram preparadas para a máquina local com backend e PostgreSQL.";
+
   return (
     <div className="page-stack">
       <ProfileHeader
-        badge="Acesso local"
-        description="Use o ambiente local para entrar com um perfil real de Admin, Professor ou Aluno. No GitHub Pages, esta tela continua apenas como demonstração segura."
+        badge={accessBadge}
+        description={accessDescription}
         eyebrow="Login"
         meta={[
-          { label: "Modo atual", value: isDemoMode ? "Demonstração" : "Local" },
+          { label: "Modo atual", value: currentModeLabel },
           { label: "Backend", value: isDemoMode ? "Não conectado" : "Obrigatório" },
         ]}
         title="Entrar no portal"
@@ -110,13 +127,9 @@ export const LoginPage = () => {
 
       <div className="two-column-grid">
         <Card tone="default">
-          <p className="card-eyebrow">Login local</p>
+          <p className="card-eyebrow">{formEyebrow}</p>
           <h2>Use e-mail e senha</h2>
-          <p className="student-panel__note">
-            {isDemoMode
-              ? "Nesta versão pública, o formulário não autentica usuários reais."
-              : "As credenciais abaixo foram preparadas para a máquina local com backend e PostgreSQL."}
-          </p>
+          <p className="student-panel__note">{formDescription}</p>
 
           <form className="form-grid" onSubmit={handleSubmit}>
             <TextInput
@@ -155,52 +168,54 @@ export const LoginPage = () => {
           </form>
         </Card>
 
-        <Card tone="soft">
-          <p className="card-eyebrow">{isDemoMode ? "Perfis demonstrativos" : "Credenciais demonstrativas"}</p>
-          <h2>{isDemoMode ? "Escolha um perfil demo" : "Perfis locais para teste"}</h2>
-          <div className="stack-list">
-            {isDemoMode
-              ? demoProfiles.map((profile) => (
-                  <div className="support-card" key={profile.role}>
-                    <h3>{profile.label}</h3>
-                    <p className="student-panel__note">
-                      Ativa um perfil demonstrativo seguro para revisar a navegação no GitHub Pages.
-                    </p>
-                    <Button
-                      onClick={() => {
-                        setCurrentUserRole(profile.role);
-                        navigate(profile.to);
-                      }}
-                      type="button"
-                      variant="secondary"
-                    >
-                      Usar perfil {profile.label}
-                    </Button>
-                  </div>
-                ))
-              : localDemoCredentials.map((credential) => (
-                  <div className="support-card" key={credential.email}>
-                    <h3>{credential.title}</h3>
-                    <p className="student-panel__note">{credential.description}</p>
-                    <p className="student-panel__note">
-                      <strong>E-mail:</strong> {credential.email}
-                      <br />
-                      <strong>Senha:</strong> {credential.password}
-                    </p>
-                    <Button
-                      onClick={() => {
-                        setEmail(credential.email);
-                        setPassword(credential.password);
-                      }}
-                      type="button"
-                      variant="secondary"
-                    >
-                      Preencher credenciais
-                    </Button>
-                  </div>
-                ))}
-          </div>
-        </Card>
+        {isDemoMode || canShowDemoCredentials ? (
+          <Card tone="soft">
+            <p className="card-eyebrow">{isDemoMode ? "Perfis demonstrativos" : "Credenciais demonstrativas"}</p>
+            <h2>{isDemoMode ? "Escolha um perfil demo" : "Perfis locais para teste"}</h2>
+            <div className="stack-list">
+              {isDemoMode
+                ? demoProfiles.map((profile) => (
+                    <div className="support-card" key={profile.role}>
+                      <h3>{profile.label}</h3>
+                      <p className="student-panel__note">
+                        Ativa um perfil demonstrativo seguro para revisar a navegação no GitHub Pages.
+                      </p>
+                      <Button
+                        onClick={() => {
+                          setCurrentUserRole(profile.role);
+                          navigate(profile.to);
+                        }}
+                        type="button"
+                        variant="secondary"
+                      >
+                        Usar perfil {profile.label}
+                      </Button>
+                    </div>
+                  ))
+                : localDemoCredentials.map((credential) => (
+                    <div className="support-card" key={credential.email}>
+                      <h3>{credential.title}</h3>
+                      <p className="student-panel__note">{credential.description}</p>
+                      <p className="student-panel__note">
+                        <strong>E-mail:</strong> {credential.email}
+                        <br />
+                        <strong>Senha:</strong> {credential.password}
+                      </p>
+                      <Button
+                        onClick={() => {
+                          setEmail(credential.email);
+                          setPassword(credential.password);
+                        }}
+                        type="button"
+                        variant="secondary"
+                      >
+                        Preencher credenciais
+                      </Button>
+                    </div>
+                  ))}
+            </div>
+          </Card>
+        ) : null}
       </div>
     </div>
   );
