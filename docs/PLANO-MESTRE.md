@@ -4,7 +4,7 @@
 
 Producao operacional.
 
-Baseline atual: `9738fdc3e62e975b3ea15e19dde721b52996f754`.
+Baseline atual: `ebeb9143e042ea39e790ccb0e61efdca0a287a31`.
 
 Web:
 
@@ -22,6 +22,8 @@ Estado operacional oficial previamente validado:
 - `corpus = ready`
 - Groq operacional como provider principal
 - fallback LLM preservado
+- Resend operacional como provider SMTP transacional inicial
+- recuperacao de senha validada em producao por smoke real controlado
 
 ## Capacidades Concluidas
 
@@ -49,24 +51,42 @@ Estado operacional oficial previamente validado:
 
 ### 9C.11.1 -- Hardening local de testes/env SMTP
 
-Reforcar testes e validacoes locais relacionadas a SMTP de producao, sem configurar provedor real e sem alterar ambiente externo.
+Concluida. Testes e validacoes locais de SMTP/password recovery foram reforcados sem configurar provedor real nesta etapa.
 
 ### 9C.11.2 -- Documentacao operacional do provider SMTP
 
-Documentar variaveis, placeholders, seguranca, operacao esperada e limites do provedor SMTP real escolhido.
+Concluida. Resend foi registrado como provider SMTP inicial de producao, preservando SMTP padrao via Nodemailer e a separacao entre codigo e operacao.
 
 ### 9C.11.3 -- Configuracao controlada de secrets no Render
 
-Configurar secrets SMTP reais somente mediante autorizacao explicita. Esta etapa nao deve ser acoplada a commit de codigo.
+Concluida operacionalmente. O dominio `email.portal-educacao-continuada.com.br` foi verificado no Resend na regiao Sao Paulo (`sa-east-1`), DNS oficial foi aplicado, credencial restrita foi criada e `portal-estudos-api` foi configurado no Render com `SMTP_ENABLED=true`. Secrets permanecem fora do repositorio.
 
 ### 9C.11.4 -- Validacao minima autorizada com envio real
 
-Executar teste operacional minimo de recuperacao de senha em producao somente com autorizacao explicita e conta/endereco previamente definidos.
+Concluida. Foi executado um smoke real controlado: Resend registrou `Sent` e `Delivered`, o e-mail foi recebido, o link HTTPS oficial permitiu redefinir a senha, o login com a nova senha funcionou e a area `/aluno` foi acessada.
 
 ### 9C.11.5 -- Relatorio pos-validacao e observabilidade
 
-Registrar resultado, limites remanescentes e necessidade futura de observabilidade dedicada ou rate limit distribuido.
+Fechamento documental. Esta etapa consolida o estado operacional validado da 9C.11, sem alterar runtime, Render, Resend, DNS, Neon ou banco.
+
+Achados nao bloqueantes registrados:
+
+- readiness de banco apresentou timeout temporario compativel com cold start/wake-up do Neon Free, sem evidencia causal com SMTP;
+- rate limit de password recovery/reset permanece em memoria do processo e deve ser distribuido antes de escala horizontal;
+- frontend ainda possui textos local/demo em producao;
+- assunto/corpo do e-mail ainda usam Portal de Estudos Espíritas, enquanto o remetente validado e Portal de Educação Continuada;
+- expiracao do e-mail usa TTL funcional de 30 minutos, mas sem timezone institucional explicito no template;
+- observabilidade SMTP ainda nao possui dashboard ou metricas dedicadas.
 
 ## Depois da 9C.11
 
-Backlog futuro a definir. Nao ha decisao consolidada neste documento para novas funcionalidades alem da operacionalizacao segura de SMTP e recuperacao de senha em producao.
+A 9C.11 fica operacionalmente concluida apos a integracao desta documentacao. Backlog futuro identificado, sem virar entrega aprovada automaticamente:
+
+- corrigir textos local/demo e credenciais demonstrativas em telas de autenticacao antes de exposicao mais ampla;
+- alinhar identidade textual do e-mail ao remetente institucional aprovado;
+- explicitar timezone de expiracao, preferencialmente alinhado a Sao Paulo;
+- reavaliar timeout/retry curto de readiness para Neon Free;
+- substituir rate limit em memoria por armazenamento distribuido antes de multiplas replicas;
+- adicionar observabilidade dedicada para envio SMTP e taxa de entrega.
+
+Novas entregas dependem de decisao futura.

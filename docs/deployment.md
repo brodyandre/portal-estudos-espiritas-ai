@@ -4,12 +4,12 @@
 
 Este documento descreve os artefatos neutros de container, build e operacao para o piloto publico do portal.
 
-Dominios planejados:
+Dominios de producao:
 
 - Web: `https://portal-educacao-continuada.com.br`
 - API: `https://api.portal-educacao-continuada.com.br`
 
-Esta documentacao nao escolhe provedor, nao configura DNS, nao provisiona banco, nao configura TLS e nao armazena secrets.
+Esta documentacao descreve o estado operacional e os procedimentos seguros. Ela nao armazena secrets, nao substitui o provedor de configuracao e nao autoriza novas alteracoes de Render, DNS, TLS ou banco sem etapa explicita.
 
 ## Divisao da Entrega 9C
 
@@ -280,25 +280,40 @@ Secrets reais devem ficar somente no ambiente do provedor ou secret manager. A i
 
 ## SMTP transacional -- Resend
 
-Resend foi escolhido como provider SMTP transacional inicial de producao. A aplicacao continua usando SMTP padrao via Nodemailer; nao ha SDK Resend, API HTTP proprietaria, dependencia nova ou alteracao de runtime nesta decisao.
+Resend e o provider SMTP transacional inicial de producao. A aplicacao continua usando SMTP padrao via Nodemailer; nao ha SDK Resend, API HTTP proprietaria, dependencia nova ou alteracao de runtime nesta decisao.
 
-Esta secao descreve a operacao planejada. Ela nao significa que conta Resend, dominio, remetente, DNS, Render Secrets, `SMTP_ENABLED=true`, conexao SMTP ou entrega real ja estejam configurados ou validados.
+Estado validado da 9C.11:
+
+- dominio de envio: `email.portal-educacao-continuada.com.br`;
+- regiao Resend: Sao Paulo (`sa-east-1`);
+- dominio Resend: `Verified`;
+- Sending: habilitado;
+- Receiving: desabilitado;
+- DNS oficial do Resend aplicado no Registro.br para DKIM, Return-Path/SPF e SPF;
+- DMARC adicional nao configurado nesta entrega;
+- remetente: `Portal de Educação Continuada <no-reply@email.portal-educacao-continuada.com.br>`;
+- credencial restrita `portal-production-smtp` criada com `Sending access` e restrita ao dominio aprovado;
+- smoke real de recuperacao de senha aprovado com `Sent`, `Delivered`, recebimento, link HTTPS oficial, reset de senha e login com a nova senha.
+
+Nao documentar valor de API key, `SMTP_PASSWORD`, tokens, senha, e-mail pessoal do smoke ou URL completa contendo token.
 
 ### Render e variaveis
 
-| Variavel | Valor planejado | Classificacao | Observacao |
+Servico: `portal-estudos-api`.
+
+| Variavel | Valor operacional | Classificacao | Observacao |
 |---|---|---|---|
-| `SMTP_ENABLED` | `false` ate a ativacao; depois `true` | configuracao | Ativar somente apos revisao e autorizacao. |
+| `SMTP_ENABLED` | `true` | configuracao | SMTP transacional ativo em producao apos validacao controlada. |
 | `SMTP_HOST` | `smtp.resend.com` | configuracao | Host SMTP do Resend. |
-| `SMTP_PORT` | `2587` | configuracao | Porta candidata para Render Free; a validar por smoke test real. |
-| `SMTP_SECURE` | `false` | configuracao | Cenario candidato com STARTTLS. |
+| `SMTP_PORT` | `2587` | configuracao | Porta STARTTLS usada no Render Free. |
+| `SMTP_SECURE` | `false` | configuracao | STARTTLS via Nodemailer. |
 | `SMTP_USER` | `resend` | sensivel/operacional | Usuario operacional do provider. |
 | `SMTP_PASSWORD` | `<SECRET_RESEND_SMTP>` | secret | Credencial SMTP/API key; nunca versionar ou imprimir. |
-| `SMTP_FROM_NAME` | `<NOME_INSTITUCIONAL_A_DEFINIR>` | configuracao | Nome institucional pendente. |
-| `SMTP_FROM_EMAIL` | `<REMETENTE_AUTORIZADO_A_DEFINIR>` | sensivel/operacional | Depende do dominio/remetente verificado. |
+| `SMTP_FROM_NAME` | `Portal de Educação Continuada` | configuracao | Nome institucional aprovado. |
+| `SMTP_FROM_EMAIL` | `no-reply@email.portal-educacao-continuada.com.br` | sensivel/operacional | Remetente autorizado pelo dominio verificado. |
 | `APP_PUBLIC_URL` | `https://portal-educacao-continuada.com.br` | configuracao | Origem publica usada nos links transacionais. |
 
-No estado atual, Render Free bloqueia trafego SMTP de saida nas portas tradicionais `25`, `465` e `587`. O Resend documenta `2587` entre suas portas SMTP STARTTLS; por isso `SMTP_PORT=2587` com `SMTP_SECURE=false` e a configuracao candidata para o piloto. Isso nao garante conectividade antes do smoke test autorizado.
+No estado atual, Render Free bloqueia trafego SMTP de saida nas portas tradicionais `25`, `465` e `587`. O Resend documenta `2587` entre suas portas SMTP STARTTLS; por isso `SMTP_PORT=2587` com `SMTP_SECURE=false` foi adotado e validado no smoke real do piloto.
 
 `Save only` pode ser usado para preparar variaveis no Render mantendo `SMTP_ENABLED=false`, mas nao deve ser tratado como ativacao nem como aplicacao da configuracao ao processo em execucao. Qualquer env criada ou alterada deve ser incorporada por deploy que aplique a configuracao salva, como `Save and deploy` ou operacao equivalente autorizada do servico da API.
 
@@ -306,18 +321,17 @@ No estado atual, Render Free bloqueia trafego SMTP de saida nas portas tradicion
 
 ### DNS e remetente
 
-O dominio de envio ainda precisa ser escolhido. Ele pode ser o dominio raiz ou um subdominio dedicado, mas essa decisao pertence a etapa operacional posterior.
+O dominio de envio aprovado e `email.portal-educacao-continuada.com.br`.
 
-- valores SPF e DKIM devem vir do painel oficial do Resend;
-- nenhum registro DNS deve ser inventado;
-- DMARC deve seguir a politica institucional e a recomendacao aplicavel ao dominio escolhido;
-- qualquer alteracao DNS exige autorizacao explicita;
-- o dominio deve estar verificado antes de ativar SMTP;
-- o remetente final deve ser permitido pelo dominio verificado.
+- os valores SPF, DKIM e Return-Path/SPF aplicados vieram do painel oficial do Resend;
+- nenhum valor longo de DKIM ou secret deve ser reproduzido neste repositorio;
+- DMARC adicional nao foi adotado como requisito desta entrega;
+- qualquer alteracao DNS futura exige autorizacao explicita;
+- o remetente aprovado e permitido pelo dominio verificado.
 
-### Sequencia de ativacao
+### Sequencia operacional validada
 
-Nao executar estes passos sem autorizacao especifica:
+Sequencia executada na 9C.11:
 
 1. criar ou configurar Resend;
 2. escolher dominio ou subdominio de envio;
@@ -344,6 +358,8 @@ Nao executar estes passos sem autorizacao especifica:
 
 `/health` e `/ready` validam saude da aplicacao e readiness das dependencias ja cobertas pelo codigo. Eles nao validam entregabilidade SMTP. A entrega real exige smoke test autorizado conforme `docs/password-recovery.md`.
 
+Para qualquer repeticao, rollback ou nova alteracao operacional, obter autorizacao explicita antes de alterar Render, Resend, DNS, Neon, banco ou enviar e-mail real.
+
 ### Rollback SMTP
 
 Rollback operacional minimo:
@@ -357,6 +373,14 @@ Rollback operacional minimo:
 - nao expor credenciais.
 
 O comportamento funcional e os limites da recuperacao de senha com SMTP desabilitado estao detalhados em `docs/password-recovery.md`.
+
+### Achado readiness/Neon
+
+Apos a ativacao SMTP, `/health` permaneceu saudavel, mas `/ready` apresentou temporariamente `status=not_ready`, `database.status=timeout` e `corpus.status=ready`. O codigo de readiness executa `SELECT 1` via Prisma com timeout fixo de 2 segundos; se o banco nao responder nesse limite, retorna HTTP 503.
+
+Durante a investigacao controlada, o Neon estava no plano Free; um `SELECT 1` manual no Neon concluiu com sucesso em aproximadamente 17 ms, o compute Primary apareceu Active e, imediatamente depois, `/ready` voltou a `status=ready`, `database.status=ok` e `corpus.status=ready`.
+
+A evidencia sugere comportamento compativel com cold start/wake-up do Neon Free, sem evidencia causal com SMTP. O achado nao bloqueia o piloto atual, mas recomenda avaliar futuramente retry curto, ajuste do timeout de readiness e observabilidade dedicada.
 
 ## Provider LLM
 
@@ -400,11 +424,8 @@ Rollback de aplicacao deve voltar para a imagem ou commit anterior. Rollback de 
 
 ## Limites desta etapa
 
-- Nenhum banco remoto provisionado.
-- Nenhuma migration executada.
-- Nenhum seed executado.
-- Nenhum administrador criado.
-- Nenhum SMTP real configurado.
-- Nenhum DNS ou TLS configurado.
-- Nenhum deploy executado.
-- Nenhuma configuracao especifica de provedor.
+- Nenhum secret deve ser versionado ou impresso.
+- Nenhum DNS, Render, Resend, Neon ou banco deve ser alterado sem etapa operacional explicita.
+- Nenhuma migration, seed ou bootstrap deve ser executado como parte de deploy documental.
+- O piloto segue assumindo uma unica replica.
+- Rate limits, locks e estado operacional em memoria devem ser reavaliados antes de escala horizontal.
