@@ -11,6 +11,7 @@ import { createSecurityHeadersMiddleware } from "./middleware/security-headers";
 import { apiRouter } from "./routes/api.routes";
 import { healthRouter } from "./routes/health.routes";
 import { readinessRouter } from "./routes/readiness.routes";
+import { versionRouter } from "./routes/version.routes";
 
 export interface CreateAppOptions {
   env?: ApiEnv;
@@ -38,6 +39,7 @@ export const createApp = (options: CreateAppOptions = {}) => {
 
   expressApp.use(healthRouter);
   expressApp.use(readinessRouter);
+  expressApp.use(versionRouter);
   expressApp.use("/api", apiRouter);
 
   expressApp.use(notFoundHandler);
