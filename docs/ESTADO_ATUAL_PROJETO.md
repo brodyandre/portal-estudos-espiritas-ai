@@ -1,6 +1,20 @@
 # Estado Atual do Projeto
 
-Baseline de referência para início da 9C.12.3: `400038c8299ce9cd3db99f424a246774ce83bb32`.
+Baseline Git atual de referência: `2a419c660768166071fc6af811e3b90fab2d6336`.
+
+Estado Git esperado:
+
+- branch oficial: `main`;
+- `HEAD`, `main` e `origin/main`: `2a419c660768166071fc6af811e3b90fab2d6336`;
+- workspace limpo.
+
+Produção conhecida:
+
+- revisão live da API previamente validada: `a336b6e540d6bc5624b6448ae96507696c3a8f57`;
+- `Auto-Deploy = Off`, conforme observação operacional do Render Dashboard;
+- OBS-001 está integrado em `main`, mas ainda não foi publicado em produção.
+
+A diferença entre `main` e produção é temporária, intencional e controlada. Não deve ser tratada como incidente nem como evidência de que produção avançou automaticamente.
 
 ## Identificacao
 
@@ -104,7 +118,7 @@ Smoke real controlado da recuperacao de senha foi concluido com sucesso: solicit
 
 Nenhum valor secreto, token, senha, API key, URL completa com token ou e-mail pessoal usado no smoke deve ser documentado.
 
-## Fechamento 9C.12
+## Fechamento 9C.12 e Pós-Piloto
 
 9C.12.1 foi integrada pelo PR #47 no commit de integracao `cf61c4d8d10b6c513e7db9d5e8bce114179bb685`. A producao real nao exibe credenciais demonstrativas nem copy de backend/local nas telas de autenticacao; o GitHub Pages permanece em modo demo seguro; o desenvolvimento local continua utilizavel.
 
@@ -112,19 +126,27 @@ Nenhum valor secreto, token, senha, API key, URL completa com token ou e-mail pe
 
 9C.12.3 foi concluida e integrada pelo PR #49 no commit de integracao `75d8baaa3878ad5a0c57a844ef09e0cb534dcab2`. Nesta etapa, passaram os testes focados Web relacionados a auth/config/recovery/routing (4 arquivos, 27 testes), os testes focados API de templates transacionais (3 arquivos, 8 testes), os fluxos API relacionados (4 arquivos, 164 testes), a suite completa API (61 arquivos, 708 testes), a suite completa Web (42 arquivos, 460 testes), os typechecks Web/API, o build oficial e `make pages-check`.
 
-A 9C.12 esta encerrada quanto ao escopo consolidado de hardening de experiencia, identidade transacional e validacao. Os achados remanescentes abaixo seguem como backlog separado e nao reabrem a 9C.12.
+PILOT-01 foi integrado e encerrado pelo PR #51 no commit de integracao `11b2e0dfa01a40c6b8b8321cee03c48a47e1536b`. O hardening operacional do readiness para banco/Neon adicionou retry limitado e timeout controlado, preservando o contrato publico.
+
+PILOT-02 foi integrado, publicado, validado operacionalmente e encerrado pelo PR #52 no commit de integracao `a336b6e540d6bc5624b6448ae96507696c3a8f57`. A entrega adicionou `GET /version` com revisao sanitizada via `RENDER_GIT_COMMIT` e fallback seguro `unknown`. DEP-002 esta resolvido.
+
+OBS-001 foi integrado e Git-closed pelo PR #53 no commit de integracao `2a419c660768166071fc6af811e3b90fab2d6336`. A entrega adicionou observabilidade SMTP transacional inicial com eventos estruturados e sanitizados para sucesso/falha, cobrindo `password_recovery` e `account_invitation`, sem registrar destinatario, e-mail, token, URL sensivel, secrets, erro bruto sensivel ou resposta bruta do Nodemailer.
+
+OBS-001 ainda nao foi publicado em producao. O proximo passo operacional possivel e decidir e executar um deploy controlado dessa revisao, em checkpoint separado e sem assumir auto-deploy.
+
+A 9C.12, PILOT-01, PILOT-02 e OBS-001 estao encerrados quanto ao escopo Git correspondente. Os achados remanescentes abaixo seguem como backlog separado.
 
 ## Limites Pos-Validacao
 
 Achados nao bloqueantes registrados para evolucao futura:
 
-- readiness: apos a ativacao SMTP, `/ready` apresentou temporariamente `database.status=timeout` com corpus `ready`; a evidencia sugere comportamento compativel com cold start/wake-up do Neon Free, sem evidencia causal com SMTP;
-- o timeout de 2 segundos do readiness de banco pode ser agressivo para wake-up e deve ser reavaliado com retry curto e observabilidade dedicada;
+- readiness: apos a ativacao SMTP, `/ready` apresentou temporariamente `database.status=timeout` com corpus `ready`; a evidencia sugere comportamento compativel com cold start/wake-up do Neon Free, sem evidencia causal com SMTP; PILOT-01 mitigou esse risco com retry curto e limitado;
 - rate limit de recuperacao/redefinicao usa memoria do processo, aceitavel para piloto em replica unica, mas inadequado como autoridade distribuida antes de escala horizontal;
-- F-001 -- P2: variable/flaky timeouts in unmodified tests, without evidence of relation to 9C.12.1;
+- F-001 -- P2: variable/flaky timeouts in unmodified tests, without evidence of relation to 9C.12.1. Investigacao recente nao reproduziu o problema; arquivos focados passaram; duas suites Web completas passaram; CI #51, #52 e #53 passou. Rebaixamento para P3 recomendado, ainda nao formalizado;
 - W-001 -- P3: marca antiga permanece somente em fixtures `SMTP_FROM_NAME`, asserts negativos e contextos locais deliberados, sem impacto no runtime/template transacional;
-- observabilidade SMTP ainda nao possui dashboard ou metricas dedicadas.
+- DOC-001 -- P3: cleanup documental remanescente, sem risco operacional imediato;
+- observabilidade SMTP inicial foi integrada em `main`, mas ainda nao publicada em producao; dashboard e metricas agregadas seguem fora do escopo atual.
 
 ## Proxima Entrega
 
-O proximo item numerado do plano-mestre ainda nao esta definido. Novas entregas devem ser decididas separadamente a partir do backlog tecnico/UX pos-validacao.
+O proximo checkpoint recomendado e publicar a branch documental de GOV-001B por PR e validar CI, sem merge automatico. Deploy controlado do OBS-001 deve ser uma etapa operacional posterior e explicitamente autorizada.

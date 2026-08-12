@@ -2,9 +2,13 @@
 
 ## Estado
 
-Producao operacional.
+Producao operacional, com diferenca controlada entre `main` e a revisao live conhecida.
 
-Baseline de referência da entrega em curso: `400038c8299ce9cd3db99f424a246774ce83bb32`.
+Baseline Git atual: `2a419c660768166071fc6af811e3b90fab2d6336`.
+
+Producao conhecida da API: `a336b6e540d6bc5624b6448ae96507696c3a8f57`.
+
+OBS-001 esta integrado em `main`, mas ainda nao foi publicado em producao. O estado operacional conhecido inclui `Auto-Deploy = Off`, conforme observacao do Render Dashboard. Deploy manual permanece gate operacional separado.
 
 Web:
 
@@ -48,12 +52,17 @@ Estado operacional oficial previamente validado:
 - Recuperacao e redefinicao de senha ja implementadas em codigo.
 - Hardening production/demo/local do frontend autenticado.
 - Identidade publica e timezone institucional nos e-mails transacionais.
+- Readiness de banco/Neon com retry curto e limitado.
+- Metadata segura de revisao via `GET /version`.
+- Observabilidade SMTP transacional inicial com eventos estruturados e sanitizados.
 
-## Entrega Atual
+## Entregas Encerradas
 
-9C.12 -- Hardening final de experiencia, identidade transacional e validacao.
+### 9C.12 -- Hardening final de experiencia, identidade transacional e validacao
 
-### 9C.12.1 -- Frontend production/demo mode hardening
+Encerrada quanto ao escopo consolidado de experiencia, identidade transacional e validacao.
+
+#### 9C.12.1 -- Frontend production/demo mode hardening
 
 Concluida e integrada pelo PR #47 no commit `cf61c4d8d10b6c513e7db9d5e8bce114179bb685`. Producao real nao exibe credenciais demonstrativas nem copy de backend/local nas telas de autenticacao. GitHub Pages permanece em modo demo seguro e desenvolvimento local continua utilizavel.
 
@@ -61,7 +70,7 @@ Finding separado:
 
 - F-001 -- P2: variable/flaky timeouts in unmodified tests, without evidence of relation to 9C.12.1.
 
-### 9C.12.2 -- Identidade e timezone dos e-mails transacionais
+#### 9C.12.2 -- Identidade e timezone dos e-mails transacionais
 
 Concluida e integrada pelo PR #48 no commit `400038c8299ce9cd3db99f424a246774ce83bb32`. Password recovery usa o subject `Recuperação de acesso — Portal de Educação Continuada`; account invitation usa `Seu acesso ao Portal de Educação Continuada`; expiracoes usam `America/Sao_Paulo` e copy `horário de Brasília`. TTL, transporte SMTP, Resend, Render, DNS, Neon e banco nao foram alterados.
 
@@ -69,7 +78,7 @@ Finding separado:
 
 - W-001 -- P3: marca antiga permanece somente em fixtures `SMTP_FROM_NAME`, asserts negativos e contextos locais deliberados, sem impacto no runtime/template transacional.
 
-### 9C.12.3 -- Documentacao e validacao final
+#### 9C.12.3 -- Documentacao e validacao final
 
 Concluida e integrada pelo PR #49 no commit `75d8baaa3878ad5a0c57a844ef09e0cb534dcab2`. Esta etapa corrigiu documentacao desatualizada apos 9C.12.1 e 9C.12.2, formalizou a distincao entre nome interno/historico do projeto e identidade publica do produto, preservou findings nao bloqueantes e registrou validacao local final. Nao alterou runtime, testes, `.env.example`, Render, Resend, DNS, Neon, banco, deploy ou SMTP real.
 
@@ -82,18 +91,36 @@ Validacao local executada nesta etapa:
 - suite completa Web: 42 arquivos, 460 testes, PASS;
 - typecheck Web e API, build oficial e `make pages-check`: PASS.
 
-Achados nao bloqueantes registrados:
+### PILOT-01 -- Hardening operacional do readiness
 
-- readiness de banco apresentou timeout temporario compativel com cold start/wake-up do Neon Free, sem evidencia causal com SMTP;
-- rate limit de password recovery/reset permanece em memoria do processo e deve ser distribuido antes de escala horizontal;
-- observabilidade SMTP ainda nao possui dashboard ou metricas dedicadas.
+Concluido e integrado pelo PR #51 no commit `11b2e0dfa01a40c6b8b8321cee03c48a47e1536b`. A entrega adicionou retry curto e limitado para readiness de banco/Neon, com timeout controlado e contrato publico preservado.
 
-## Depois da 9C.12
+### PILOT-02 -- Metadata segura de revisao
 
-A 9C.12 esta encerrada quanto ao escopo consolidado de hardening final de experiencia, identidade transacional e validacao. Backlog futuro identificado, sem virar entrega aprovada automaticamente:
+Concluido, publicado, validado operacionalmente e encerrado pelo PR #52 no commit `a336b6e540d6bc5624b6448ae96507696c3a8f57`. A entrega adicionou `GET /version`, revisao sanitizada via `RENDER_GIT_COMMIT` e fallback seguro `unknown`. DEP-002 esta resolvido.
 
-- reavaliar timeout/retry curto de readiness para Neon Free;
-- substituir rate limit em memoria por armazenamento distribuido antes de multiplas replicas;
-- adicionar observabilidade dedicada para envio SMTP e taxa de entrega.
+### OBS-001 -- Observabilidade inicial de SMTP transacional
 
-Novas entregas dependem de decisao futura.
+Integrado e Git-closed pelo PR #53 no commit `2a419c660768166071fc6af811e3b90fab2d6336`. A entrega adicionou eventos SMTP estruturados e sanitizados para sucesso/falha, com tipos `password_recovery` e `account_invitation`, sem expor destinatario, e-mail, token, URL sensivel, secrets, erro bruto sensivel ou resposta bruta do Nodemailer.
+
+OBS-001 ainda nao foi publicado em producao.
+
+## Entrega Atual
+
+GOV-001B -- Reconciliacao documental pos-OBS-001.
+
+Objetivo:
+
+- reconciliar documentos de governanca viva com `main=2a419c660768166071fc6af811e3b90fab2d6336`;
+- registrar que producao conhecida permanece em `a336b6e540d6bc5624b6448ae96507696c3a8f57`;
+- preservar a distincao entre OBS-001 integrado em Git e ainda nao publicado em producao;
+- manter F-001 formalmente P2, com rebaixamento para P3 recomendado mas nao formalizado.
+
+## Backlog Atual
+
+- PROD-OBS-001: decidir e executar deploy controlado do OBS-001, sem assumir auto-deploy e sem smoke SMTP real sem autorizacao separada.
+- F-001 -- P2: timeouts historicos variaveis/flaky em testes nao modificados; investigacao recente nao reproduziu o problema, arquivos focados passaram, duas suites Web completas passaram e CI #51, #52 e #53 passou. Rebaixamento para P3 recomendado, ainda nao formalizado.
+- W-001 -- P3: marca antiga permanece somente em fixtures `SMTP_FROM_NAME`, asserts negativos e contextos locais deliberados, sem impacto no runtime/template transacional.
+- DOC-001 -- P3: cleanup documental remanescente, sem risco operacional imediato.
+- Rate limit de password recovery/reset em memoria do processo: P2 conceitual antes de escala horizontal, nao bloqueante enquanto houver replica unica.
+- Observabilidade SMTP futura: dashboard, metricas agregadas, webhooks ou integracoes de provider permanecem fora do escopo atual e dependem de necessidade operacional concreta.
