@@ -368,6 +368,8 @@ Sequencia executada na 9C.11:
 
 `/health` e `/ready` validam saude da aplicacao e readiness das dependencias ja cobertas pelo codigo. Eles nao validam entregabilidade SMTP. A entrega real exige smoke test autorizado conforme `docs/password-recovery.md`.
 
+O transporte SMTP registra eventos operacionais sanitizados para sucesso e falha de envio transacional. Esses logs podem ser usados para confirmar `messageType`, resultado, duracao e categoria segura de erro, sem expor destinatario, token, URL completa, corpo da mensagem, credenciais, resposta bruta do provider ou erro bruto.
+
 Para qualquer repeticao, rollback ou nova alteracao operacional, obter autorizacao explicita antes de alterar Render, Resend, DNS, Neon, banco ou enviar e-mail real.
 
 ### Rollback SMTP

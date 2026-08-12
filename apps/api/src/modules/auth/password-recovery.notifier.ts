@@ -138,6 +138,7 @@ export class SmtpPasswordRecoveryNotifier implements PasswordRecoveryNotifier {
     const template = buildPasswordRecoveryEmail(input);
 
     await this.transport.sendMail({
+      messageType: "password_recovery",
       from: {
         name: this.smtpConfig.smtpFromName,
         address: this.smtpConfig.smtpFromEmail,

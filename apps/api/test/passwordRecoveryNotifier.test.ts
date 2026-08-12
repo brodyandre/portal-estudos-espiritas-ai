@@ -59,6 +59,7 @@ describe("password recovery notifier", () => {
     expect(sendMail).toHaveBeenCalledTimes(1);
     expect(sendMail).toHaveBeenCalledWith(
       expect.objectContaining({
+        messageType: "password_recovery",
         to: "aluno.demo@example.com",
         subject: `Recuperação de acesso — ${TRANSACTIONAL_BRAND_NAME}`,
       }),

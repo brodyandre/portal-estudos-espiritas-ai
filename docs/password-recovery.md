@@ -239,11 +239,12 @@ Com SMTP desabilitado em produção e sem prévia local, recuperação de senha 
 
 Os logs operacionais do fluxo permitem apenas:
 
-- início da tentativa de entrega
-- conclusão da entrega
-- falha do provedor
-- identificador interno de correlação
-- tipo do notifier
+- conclusão da entrega SMTP;
+- falha do provedor SMTP;
+- tipo transacional da mensagem (`password_recovery`);
+- resultado seguro (`succeeded` ou `failed`);
+- duração da tentativa em milissegundos;
+- categoria segura de erro quando houver falha.
 
 Não registrar:
 

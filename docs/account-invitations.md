@@ -202,6 +202,17 @@ O projeto não persiste nem registra:
 
 Os audit logs descrevem a operação de forma segura e resumida.
 
+## Observabilidade SMTP
+
+O envio SMTP transacional de convites registra somente eventos operacionais sanitizados no transporte central:
+
+- tipo transacional da mensagem (`account_invitation`);
+- resultado seguro (`succeeded` ou `failed`);
+- duração da tentativa em milissegundos;
+- categoria segura de erro quando houver falha.
+
+Esses eventos não incluem e-mail completo, token, URL de ativação, corpo da mensagem, credenciais SMTP, resposta bruta do provedor ou erro bruto.
+
 ## Mailpit e ambiente local
 
 Em desenvolvimento local, o fluxo pode usar Mailpit ou outro SMTP de testes. Isso facilita a revisão do convite sem depender de serviços externos.
@@ -210,4 +221,4 @@ Em desenvolvimento local, o fluxo pode usar Mailpit ou outro SMTP de testes. Iss
 
 - o fluxo depende de backend, banco e SMTP configurado quando houver entrega real;
 - o GitHub Pages continua em modo público e demonstrativo;
-- observabilidade dedicada de entrega SMTP ainda é evolução futura.
+- sem dashboard SMTP dedicado ou métrica agregada de entregabilidade.
