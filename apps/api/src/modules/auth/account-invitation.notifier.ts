@@ -134,6 +134,7 @@ export class SmtpAccountInvitationNotifier implements AccountInvitationNotifier 
     const template = buildAccountInvitationEmail(input);
 
     await this.transport.sendMail({
+      messageType: "account_invitation",
       from: {
         name: this.smtpConfig.smtpFromName,
         address: this.smtpConfig.smtpFromEmail,

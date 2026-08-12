@@ -1,6 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { buildAccountInvitationEmail } from "../src/modules/auth/account-invitation.notifier";
+import {
+  buildAccountInvitationEmail,
+  SmtpAccountInvitationNotifier,
+  type AccountInvitationMailTransport,
+} from "../src/modules/auth/account-invitation.notifier";
 
 const OLD_BRAND_NAME = "Portal de Estudos Espíritas";
 const TRANSACTIONAL_BRAND_NAME = "Portal de Educação Continuada";
@@ -42,6 +46,34 @@ describe("account invitation notifier", () => {
     );
     expect(template.html).toContain(
       "Um novo convite de acesso foi preparado para que você escolha sua senha com segurança.",
+    );
+  });
+
+  it("envia convite por SMTP com tipo transacional explicito", async () => {
+    const sendMail = vi.fn(async () => undefined);
+    const transport: AccountInvitationMailTransport = {
+      sendMail,
+    };
+    const notifier = new SmtpAccountInvitationNotifier(transport, {
+      smtpFromEmail: "no-reply@example.com",
+      smtpFromName: "Portal de Educação Continuada",
+    });
+
+    await notifier.sendAccountInvitation({
+      recipientEmail: "aluno.demo@example.com",
+      recipientName: "Aluno Demo",
+      invitationUrl: "http://localhost:5173/ativar-conta?token=token-demo",
+      expiresAt: "2026-08-11T18:30:00.000Z",
+      invitationType: "enrollment_approval",
+    });
+
+    expect(sendMail).toHaveBeenCalledTimes(1);
+    expect(sendMail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messageType: "account_invitation",
+        to: "aluno.demo@example.com",
+        subject: `Seu acesso ao ${TRANSACTIONAL_BRAND_NAME}`,
+      }),
     );
   });
 });
