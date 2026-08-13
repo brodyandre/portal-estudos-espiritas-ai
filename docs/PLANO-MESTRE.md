@@ -73,7 +73,7 @@ Concluida e integrada pelo PR #47 no commit `cf61c4d8d10b6c513e7db9d5e8bce114179
 
 Finding separado:
 
-- F-001 -- P2: variable/flaky timeouts in unmodified tests, without evidence of relation to 9C.12.1.
+- F-001 -- P3: variable/flaky timeouts in unmodified tests, without evidence of relation to 9C.12.1. Aberto originalmente como P2 durante 9C.12.1, foi reclassificado para P3 apos a reavaliacao formal F-001A.
 
 #### 9C.12.2 -- Identidade e timezone dos e-mails transacionais
 
@@ -132,7 +132,7 @@ Limites: o smoke nao validou `transactional_email_send_failed` em producao, flux
 
 ## Backlog Atual
 
-- F-001 -- P2: timeouts historicos variaveis/flaky em testes nao modificados; investigacao recente nao reproduziu o problema, arquivos focados passaram, duas suites Web completas passaram e CI #51, #52 e #53 passou. Rebaixamento para P3 recomendado, ainda nao formalizado.
+- F-001 -- P3: timeouts historicos variaveis/flaky em testes nao modificados; F-001A nao reproduziu o problema, validou testes historicos Web/API repetidamente, suites completas Web/API e CIs recentes, sem evidencia de mascaramento por aumento global de timeout. Permanece como risco residual/historico.
 - W-001 -- P3: marca antiga permanece somente em fixtures `SMTP_FROM_NAME`, asserts negativos e contextos locais deliberados, sem impacto no runtime/template transacional.
 - DOC-001 -- P3: cleanup documental remanescente, sem risco operacional imediato.
 - Rate limit de password recovery/reset em memoria do processo: P2 conceitual antes de escala horizontal, nao bloqueante enquanto houver replica unica.
