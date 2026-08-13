@@ -1,20 +1,20 @@
 # Estado Atual do Projeto
 
-Baseline Git atual de referência: `2a419c660768166071fc6af811e3b90fab2d6336`.
+Baseline Git atual de referência: `e965352f5c76627d706362bc18ec6c8539c9c8a6`.
 
 Estado Git esperado:
 
 - branch oficial: `main`;
-- `HEAD`, `main` e `origin/main`: `2a419c660768166071fc6af811e3b90fab2d6336`;
+- `HEAD`, `main` e `origin/main`: `e965352f5c76627d706362bc18ec6c8539c9c8a6`;
 - workspace limpo.
 
 Produção conhecida:
 
-- revisão live da API previamente validada: `a336b6e540d6bc5624b6448ae96507696c3a8f57`;
+- revisão live da API previamente validada: `e965352f5c76627d706362bc18ec6c8539c9c8a6`;
 - `Auto-Deploy = Off`, conforme observação operacional do Render Dashboard;
-- OBS-001 está integrado em `main`, mas ainda não foi publicado em produção.
+- OBS-001 está integrado, Git-closed, publicado em produção e validado operacionalmente.
 
-A diferença entre `main` e produção é temporária, intencional e controlada. Não deve ser tratada como incidente nem como evidência de que produção avançou automaticamente.
+`main` e produção estão alinhadas na revisão acima. `Auto-Deploy = Off` permanece como estado operacional observado, não como decisão arquitetural imutável.
 
 ## Identificacao
 
@@ -42,8 +42,9 @@ O banco configurado e PostgreSQL via Prisma. Fluxos persistidos incluem usuarios
 
 Estado operacional oficial previamente validado:
 
+- `/version = e965352f5c76627d706362bc18ec6c8539c9c8a6`
 - `/health = OK`
-- `/ready = ready`
+- `/ready = ready` em 5/5 chamadas controladas
 - `database = ok`
 - `corpus = ready`
 
@@ -132,9 +133,15 @@ PILOT-02 foi integrado, publicado, validado operacionalmente e encerrado pelo PR
 
 OBS-001 foi integrado e Git-closed pelo PR #53 no commit de integracao `2a419c660768166071fc6af811e3b90fab2d6336`. A entrega adicionou observabilidade SMTP transacional inicial com eventos estruturados e sanitizados para sucesso/falha, cobrindo `password_recovery` e `account_invitation`, sem registrar destinatario, e-mail, token, URL sensivel, secrets, erro bruto sensivel ou resposta bruta do Nodemailer.
 
-OBS-001 ainda nao foi publicado em producao. O proximo passo operacional possivel e decidir e executar um deploy controlado dessa revisao, em checkpoint separado e sem assumir auto-deploy.
+GOV-001B foi integrado e Git-closed pelo PR #54 no commit de integracao `e965352f5c76627d706362bc18ec6c8539c9c8a6`, reconciliando a governanca viva pos-OBS-001.
 
-A 9C.12, PILOT-01, PILOT-02 e OBS-001 estao encerrados quanto ao escopo Git correspondente. Os achados remanescentes abaixo seguem como backlog separado.
+PROD-OBS-001 publicou a revisao `e965352f5c76627d706362bc18ec6c8539c9c8a6` no servico `portal-estudos-api` e validou `/version` com `REVISION_MATCH`, `/health` HTTP 200 `status=ok` e `/ready` estavel em 5/5 chamadas com `database=ok`, `corpus=ready` e `status=ready`. OPS-001 nao foi criado.
+
+SMTP-SMOKE-001 foi aprovado com uma unica solicitacao real de recuperacao de senha em producao via `POST /api/auth/forgot-password`, sem retry. A resposta publica retornou HTTP 200 com anti-enumeration preservado. O evento real observado foi `transactional_email_send_succeeded`, com `messageType=password_recovery`, `result=succeeded` e `durationMs=1354`. O evento foi observado sanitizado, sem recipient/e-mail, token, reset URL, corpo de mensagem, secrets, erro bruto, resposta bruta do Nodemailer ou stack sensivel. OBS-SEC-001 nao foi criado.
+
+O smoke nao validou o caminho `transactional_email_send_failed` em producao, fluxo de convite, entregabilidade universal, bounce, uso do reset URL, expiracao do token ou redefinicao de senha. O link de redefinicao nao foi utilizado, a senha nao foi redefinida e o recebimento final na caixa ficou nao verificado.
+
+A 9C.12, PILOT-01, PILOT-02, OBS-001, PROD-OBS-001 e SMTP-SMOKE-001 estao encerrados quanto ao escopo correspondente. Os achados remanescentes abaixo seguem como backlog separado.
 
 ## Limites Pos-Validacao
 
@@ -145,8 +152,8 @@ Achados nao bloqueantes registrados para evolucao futura:
 - F-001 -- P2: variable/flaky timeouts in unmodified tests, without evidence of relation to 9C.12.1. Investigacao recente nao reproduziu o problema; arquivos focados passaram; duas suites Web completas passaram; CI #51, #52 e #53 passou. Rebaixamento para P3 recomendado, ainda nao formalizado;
 - W-001 -- P3: marca antiga permanece somente em fixtures `SMTP_FROM_NAME`, asserts negativos e contextos locais deliberados, sem impacto no runtime/template transacional;
 - DOC-001 -- P3: cleanup documental remanescente, sem risco operacional imediato;
-- observabilidade SMTP inicial foi integrada em `main`, mas ainda nao publicada em producao; dashboard e metricas agregadas seguem fora do escopo atual.
+- observabilidade SMTP inicial esta publicada em producao e teve evento real de sucesso validado para `password_recovery`; dashboard, metricas agregadas, webhooks, integracoes de provider, fluxo de convite e caminho SMTP de falha seguem fora do escopo atual.
 
 ## Proxima Entrega
 
-O proximo checkpoint recomendado e publicar a branch documental de GOV-001B por PR e validar CI, sem merge automatico. Deploy controlado do OBS-001 deve ser uma etapa operacional posterior e explicitamente autorizada.
+Proximos itens ja previstos no backlog incluem reavaliacao formal do F-001, cleanup documental DOC-001, acompanhamento do W-001, evolucao de rate limit distribuido antes de escala horizontal e observabilidade SMTP futura, sem testar caminho SMTP de falha em producao automaticamente.
