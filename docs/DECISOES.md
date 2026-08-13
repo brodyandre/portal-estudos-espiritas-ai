@@ -182,3 +182,28 @@ A 9C.12.2 nao alterou TTL, transporte SMTP, provider Resend, Render, DNS, Neon o
 
 Status:
 Ativa.
+
+## D016 -- Observabilidade SMTP transacional segura
+
+Decisao:
+A observabilidade operacional de SMTP transacional deve ocorrer no transporte transacional central, com eventos estruturados e sanitizados para sucesso e falha:
+
+- `transactional_email_send_succeeded`;
+- `transactional_email_send_failed`.
+
+Os tipos de mensagem inicialmente suportados sao:
+
+- `password_recovery`;
+- `account_invitation`.
+
+Racional:
+O transporte central e o ponto unico que conhece o resultado real de `sendMail`, evitando duplicidade entre controller, notifier e mailer. A telemetria operacional deve permanecer separada da auditoria persistente de negocio, que tem semantica e finalidade diferentes.
+
+Privacidade:
+Os eventos nao devem registrar destinatario, e-mail, nome do destinatario, token, URL sensivel, querystring, corpo HTML/text, credenciais SMTP, secrets, erro bruto sensivel ou resposta bruta do Nodemailer.
+
+Limites:
+Nao introduzir dashboard, webhook, SDK de provider, endpoint, banco de metricas, contador artificial ou infraestrutura nova sem necessidade operacional concreta.
+
+Status:
+Ativa.
