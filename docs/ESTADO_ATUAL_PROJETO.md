@@ -1,12 +1,13 @@
 # Estado Atual do Projeto
 
-Baseline Git atual de referência: `e965352f5c76627d706362bc18ec6c8539c9c8a6`.
-
 Estado Git esperado:
 
 - branch oficial: `main`;
-- `HEAD`, `main` e `origin/main`: `e965352f5c76627d706362bc18ec6c8539c9c8a6`;
+- `HEAD`, `main` e `origin/main` sincronizados;
+- ahead/behind esperado entre `main` e `origin/main`: `0 0`;
 - workspace limpo.
+
+O SHA efetivo da `main` deve ser verificado operacionalmente via Git no inicio de cada checkpoint, em vez de inferido a partir deste documento.
 
 Produção conhecida:
 
@@ -14,7 +15,7 @@ Produção conhecida:
 - `Auto-Deploy = Off`, conforme observação operacional do Render Dashboard;
 - OBS-001 está integrado, Git-closed, publicado em produção e validado operacionalmente.
 
-`main` e produção estão alinhadas na revisão acima. `Auto-Deploy = Off` permanece como estado operacional observado, não como decisão arquitetural imutável.
+A `main` contém o runtime de `e965352f5c76627d706362bc18ec6c8539c9c8a6` mais alterações documentais posteriores. Produção continua na revisão runtime conhecida acima, sem drift funcional conhecido que justifique deploy. `Auto-Deploy = Off` permanece como estado operacional observado, não como decisão arquitetural imutável.
 
 ## Identificacao
 
@@ -134,6 +135,8 @@ PILOT-02 foi integrado, publicado, validado operacionalmente e encerrado pelo PR
 OBS-001 foi integrado e Git-closed pelo PR #53 no commit de integracao `2a419c660768166071fc6af811e3b90fab2d6336`. A entrega adicionou observabilidade SMTP transacional inicial com eventos estruturados e sanitizados para sucesso/falha, cobrindo `password_recovery` e `account_invitation`, sem registrar destinatario, e-mail, token, URL sensivel, secrets, erro bruto sensivel ou resposta bruta do Nodemailer.
 
 GOV-001B foi integrado e Git-closed pelo PR #54 no commit de integracao `e965352f5c76627d706362bc18ec6c8539c9c8a6`, reconciliando a governanca viva pos-OBS-001.
+
+GOV-002 foi integrado e Git-closed pelo PR #55 no commit de integracao `9aa04eba56869810e65cce6e30d6fcc6b7cf7759`. O escopo foi exclusivamente documental e nao alterou producao.
 
 PROD-OBS-001 publicou a revisao `e965352f5c76627d706362bc18ec6c8539c9c8a6` no servico `portal-estudos-api` e validou `/version` com `REVISION_MATCH`, `/health` HTTP 200 `status=ok` e `/ready` estavel em 5/5 chamadas com `database=ok`, `corpus=ready` e `status=ready`. OPS-001 nao foi criado.
 
