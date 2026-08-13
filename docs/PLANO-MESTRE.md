@@ -2,11 +2,13 @@
 
 ## Estado
 
-Producao operacional, alinhada com `main`.
+Producao operacional no runtime conhecido abaixo.
 
-Baseline Git atual: `e965352f5c76627d706362bc18ec6c8539c9c8a6`.
+Estado Git esperado: branch oficial `main`, `HEAD`/`main`/`origin/main` sincronizados, ahead/behind `0 0` e workspace limpo. O SHA efetivo da `main` deve ser verificado operacionalmente via Git no inicio de cada checkpoint.
 
 Producao conhecida da API: `e965352f5c76627d706362bc18ec6c8539c9c8a6`.
+
+A `main` contém o runtime de `e965352f5c76627d706362bc18ec6c8539c9c8a6` mais alterações documentais posteriores. Producao continua na revisao runtime conhecida, sem drift funcional conhecido que justifique deploy.
 
 OBS-001 esta integrado, Git-closed, publicado em producao e validado operacionalmente. O estado operacional conhecido inclui `Auto-Deploy = Off`, conforme observacao do Render Dashboard, sem tratar isso como decisao arquitetural imutavel.
 
@@ -111,6 +113,10 @@ Publicado em producao em PROD-OBS-001 pela revisao `e965352f5c76627d706362bc18ec
 ### GOV-001B -- Reconciliacao documental pos-OBS-001
 
 Integrado e Git-closed pelo PR #54 no commit `e965352f5c76627d706362bc18ec6c8539c9c8a6`, reconciliando a governanca viva apos OBS-001.
+
+### GOV-002 -- Reconciliacao documental pos-PROD-OBS-001
+
+Integrado e Git-closed pelo PR #55 no commit `9aa04eba56869810e65cce6e30d6fcc6b7cf7759`. O escopo foi exclusivamente documental e nao alterou producao.
 
 ### PROD-OBS-001 -- Publicacao controlada do OBS-001
 
