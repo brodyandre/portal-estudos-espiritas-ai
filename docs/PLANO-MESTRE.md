@@ -2,13 +2,13 @@
 
 ## Estado
 
-Producao operacional, com diferenca controlada entre `main` e a revisao live conhecida.
+Producao operacional, alinhada com `main`.
 
-Baseline Git atual: `2a419c660768166071fc6af811e3b90fab2d6336`.
+Baseline Git atual: `e965352f5c76627d706362bc18ec6c8539c9c8a6`.
 
-Producao conhecida da API: `a336b6e540d6bc5624b6448ae96507696c3a8f57`.
+Producao conhecida da API: `e965352f5c76627d706362bc18ec6c8539c9c8a6`.
 
-OBS-001 esta integrado em `main`, mas ainda nao foi publicado em producao. O estado operacional conhecido inclui `Auto-Deploy = Off`, conforme observacao do Render Dashboard. Deploy manual permanece gate operacional separado.
+OBS-001 esta integrado, Git-closed, publicado em producao e validado operacionalmente. O estado operacional conhecido inclui `Auto-Deploy = Off`, conforme observacao do Render Dashboard, sem tratar isso como decisao arquitetural imutavel.
 
 Web:
 
@@ -21,7 +21,8 @@ API:
 Estado operacional oficial previamente validado:
 
 - `/health = OK`
-- `/ready = ready`
+- `/version = e965352f5c76627d706362bc18ec6c8539c9c8a6`
+- `/ready = ready` em 5/5 chamadas controladas
 - `database = ok`
 - `corpus = ready`
 - Groq operacional como provider principal
@@ -55,6 +56,8 @@ Estado operacional oficial previamente validado:
 - Readiness de banco/Neon com retry curto e limitado.
 - Metadata segura de revisao via `GET /version`.
 - Observabilidade SMTP transacional inicial com eventos estruturados e sanitizados.
+- PROD-OBS-001 publicado com revision match, health ok e readiness estavel.
+- SMTP-SMOKE-001 aprovado para evento real de sucesso `password_recovery`, sem retry e sem teste de falha em producao.
 
 ## Entregas Encerradas
 
@@ -103,24 +106,28 @@ Concluido, publicado, validado operacionalmente e encerrado pelo PR #52 no commi
 
 Integrado e Git-closed pelo PR #53 no commit `2a419c660768166071fc6af811e3b90fab2d6336`. A entrega adicionou eventos SMTP estruturados e sanitizados para sucesso/falha, com tipos `password_recovery` e `account_invitation`, sem expor destinatario, e-mail, token, URL sensivel, secrets, erro bruto sensivel ou resposta bruta do Nodemailer.
 
-OBS-001 ainda nao foi publicado em producao.
+Publicado em producao em PROD-OBS-001 pela revisao `e965352f5c76627d706362bc18ec6c8539c9c8a6`. A validacao operacional confirmou `/version` com `REVISION_MATCH`, `/health` HTTP 200 `status=ok`, `/ready` estavel em 5/5 chamadas com `database=ok`, `corpus=ready` e `status=ready`. OPS-001 nao foi criado.
 
-## Entrega Atual
+### GOV-001B -- Reconciliacao documental pos-OBS-001
 
-GOV-001B -- Reconciliacao documental pos-OBS-001.
+Integrado e Git-closed pelo PR #54 no commit `e965352f5c76627d706362bc18ec6c8539c9c8a6`, reconciliando a governanca viva apos OBS-001.
 
-Objetivo:
+### PROD-OBS-001 -- Publicacao controlada do OBS-001
 
-- reconciliar documentos de governanca viva com `main=2a419c660768166071fc6af811e3b90fab2d6336`;
-- registrar que producao conhecida permanece em `a336b6e540d6bc5624b6448ae96507696c3a8f57`;
-- preservar a distincao entre OBS-001 integrado em Git e ainda nao publicado em producao;
-- manter F-001 formalmente P2, com rebaixamento para P3 recomendado mas nao formalizado.
+Concluido. A API de producao esta executando `e965352f5c76627d706362bc18ec6c8539c9c8a6`, com `/version`, `/health` e `/ready` validados. OPS-001 nao foi criado.
+
+### SMTP-SMOKE-001 -- Smoke transacional real controlado
+
+Aprovado com uma unica solicitacao real de recuperacao de senha em producao via `POST /api/auth/forgot-password`, sem retry. A resposta publica retornou HTTP 200 com anti-enumeration preservado. O evento observado foi `transactional_email_send_succeeded`, com `messageType=password_recovery`, `result=succeeded` e `durationMs=1354`.
+
+O evento foi observado sanitizado, sem recipient/e-mail, token, reset URL, corpo de mensagem, secrets, erro bruto, resposta bruta do Nodemailer ou stack sensivel. OBS-SEC-001 nao foi criado.
+
+Limites: o smoke nao validou `transactional_email_send_failed` em producao, fluxo de convite, entregabilidade universal, bounce, uso do reset URL, expiracao do token ou redefinicao de senha. O link de redefinicao nao foi utilizado, a senha nao foi redefinida e o recebimento final na caixa ficou nao verificado.
 
 ## Backlog Atual
 
-- PROD-OBS-001: decidir e executar deploy controlado do OBS-001, sem assumir auto-deploy e sem smoke SMTP real sem autorizacao separada.
 - F-001 -- P2: timeouts historicos variaveis/flaky em testes nao modificados; investigacao recente nao reproduziu o problema, arquivos focados passaram, duas suites Web completas passaram e CI #51, #52 e #53 passou. Rebaixamento para P3 recomendado, ainda nao formalizado.
 - W-001 -- P3: marca antiga permanece somente em fixtures `SMTP_FROM_NAME`, asserts negativos e contextos locais deliberados, sem impacto no runtime/template transacional.
 - DOC-001 -- P3: cleanup documental remanescente, sem risco operacional imediato.
 - Rate limit de password recovery/reset em memoria do processo: P2 conceitual antes de escala horizontal, nao bloqueante enquanto houver replica unica.
-- Observabilidade SMTP futura: dashboard, metricas agregadas, webhooks ou integracoes de provider permanecem fora do escopo atual e dependem de necessidade operacional concreta.
+- Observabilidade SMTP futura: dashboard, metricas agregadas, webhooks, integracoes de provider, fluxo de convite e caminho SMTP de falha em producao permanecem fora do escopo atual e dependem de necessidade operacional concreta.
