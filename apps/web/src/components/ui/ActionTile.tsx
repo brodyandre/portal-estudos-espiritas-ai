@@ -13,7 +13,7 @@ interface ActionTileProps {
   to?: string;
   href?: string;
   footer?: ReactNode;
-  tone?: "default" | "soft" | "brand" | "sand";
+  tone?: "default" | "elevated" | "subtle" | "interactive" | "soft" | "brand" | "sand";
   className?: string;
 }
 
