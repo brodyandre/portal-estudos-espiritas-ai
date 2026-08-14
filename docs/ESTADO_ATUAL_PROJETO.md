@@ -11,11 +11,12 @@ O SHA efetivo da `main` deve ser verificado operacionalmente via Git no inicio d
 
 Produção conhecida:
 
-- revisão live da API previamente validada: `e965352f5c76627d706362bc18ec6c8539c9c8a6`;
-- `Auto-Deploy = Off`, conforme observação operacional do Render Dashboard;
-- OBS-001 está integrado, Git-closed, publicado em produção e validado operacionalmente.
+- Web oficial: `https://portal-educacao-continuada.com.br`, revisão live `1f92154cdaad211bcc7c080220f5df253f54f472`, serviço Render `portal-estudos-web`, tipo `static_site`;
+- API: `https://api.portal-educacao-continuada.com.br`, revisão live previamente validada `e965352f5c76627d706362bc18ec6c8539c9c8a6`;
+- `Auto-Deploy = Off/no` observado na Web como estado operacional, não como decisão arquitetural imutável;
+- OBS-001 está integrado, Git-closed, publicado na API de produção e validado operacionalmente.
 
-A `main` contém o runtime de `e965352f5c76627d706362bc18ec6c8539c9c8a6` mais alterações documentais posteriores. Produção continua na revisão runtime conhecida acima, sem drift funcional conhecido que justifique deploy. `Auto-Deploy = Off` permanece como estado operacional observado, não como decisão arquitetural imutável.
+A Web oficial foi publicada manualmente e validada na revisão `1f92154cdaad211bcc7c080220f5df253f54f472`. A API permanece na revisão runtime conhecida `e965352f5c76627d706362bc18ec6c8539c9c8a6`. Essa diferença por superfície é esperada e não representa, por si só, drift indevido; W-001 não exigiu deploy da API nem alinhamento numérico entre Web e API.
 
 ## Identificacao
 
@@ -43,11 +44,12 @@ O banco configurado e PostgreSQL via Prisma. Fluxos persistidos incluem usuarios
 
 Estado operacional oficial previamente validado:
 
-- `/version = e965352f5c76627d706362bc18ec6c8539c9c8a6`
-- `/health = OK`
-- `/ready = ready` em 5/5 chamadas controladas
-- `database = ok`
-- `corpus = ready`
+- Web oficial live em `1f92154cdaad211bcc7c080220f5df253f54f472`, com metadata pública e smoke read-only validados;
+- API `/version = e965352f5c76627d706362bc18ec6c8539c9c8a6`
+- API `/health = OK`
+- API `/ready = ready` em 5/5 chamadas controladas
+- API `database = ok`
+- API `corpus = ready`
 
 ## CI/CD
 
@@ -153,10 +155,10 @@ Achados nao bloqueantes registrados para evolucao futura:
 - readiness: apos a ativacao SMTP, `/ready` apresentou temporariamente `database.status=timeout` com corpus `ready`; a evidencia sugere comportamento compativel com cold start/wake-up do Neon Free, sem evidencia causal com SMTP; PILOT-01 mitigou esse risco com retry curto e limitado;
 - rate limit de recuperacao/redefinicao usa memoria do processo, aceitavel para piloto em replica unica, mas inadequado como autoridade distribuida antes de escala horizontal;
 - F-001 -- P3: variable/flaky timeouts in unmodified tests, without evidence of relation to 9C.12.1. Aberto originalmente como P2, foi reavaliado na F-001A e reclassificado para P3 apos nao reproducao repetida, testes historicos Web/API verdes, suites completas Web/API verdes, CIs posteriores verdes e ausencia de evidencia de mascaramento por aumento global de timeout;
-- W-001 -- P3: W-001A identificou escopo material em metadados publicos da Web e no default versionado de `SMTP_FROM_NAME`; W-001B corrige esse escopo em source, preservando fixtures, asserts negativos e contextos locais deliberados. O encerramento depende de integracao, publicacao aplicavel da Web e validacao operacional;
+- W-001 -- RESOLVIDO: W-001A identificou escopo material em metadados publicos da Web e no default versionado de `SMTP_FROM_NAME`; W-001B corrigiu metadata publica Web, default versionado de `SMTP_FROM_NAME` e `.env.example`; o PR #59 integrou a correcao no squash `1f92154cdaad211bcc7c080220f5df253f54f472`; GitHub Pages foi publicado e validado; a Web oficial foi publicada manualmente de forma controlada no deploy Render `dep-d9v7bregekts73evo580`, live em `1f92154cdaad211bcc7c080220f5df253f54f472`; a validacao publica confirmou HTTP 200 e `title`, `og:title`, `og:site_name` e `twitter:title` como `Portal de Educação Continuada`, com a marca historica ausente nesses quatro campos; o smoke read-only passou em `/`, `/portal`, `/materiais`, `/inscricao`, `/robots.txt` e `/sitemap.xml`; a API nao foi redeployada; o default SMTP esta correto em source, a producao ja possuia override institucional correto e nenhum SMTP real foi executado nessa entrega;
 - DOC-001 -- RESOLVIDO: stale factual em documentos auxiliares corrigido, documentos historicos explicitamente marcados, contratos executaveis reconciliados e nenhum runtime alterado;
 - observabilidade SMTP inicial esta publicada em producao e teve evento real de sucesso validado para `password_recovery`; dashboard, metricas agregadas, webhooks, integracoes de provider, fluxo de convite e caminho SMTP de falha seguem fora do escopo atual.
 
 ## Proxima Entrega
 
-Proximos itens ja previstos no backlog incluem acompanhamento do W-001, evolucao de rate limit distribuido antes de escala horizontal e observabilidade SMTP futura, sem testar caminho SMTP de falha em producao automaticamente.
+Proximos itens ja previstos no backlog incluem evolucao de rate limit distribuido antes de escala horizontal e observabilidade SMTP futura, sem testar caminho SMTP de falha em producao automaticamente.
