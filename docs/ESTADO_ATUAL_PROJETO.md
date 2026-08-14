@@ -154,9 +154,9 @@ Achados nao bloqueantes registrados para evolucao futura:
 - rate limit de recuperacao/redefinicao usa memoria do processo, aceitavel para piloto em replica unica, mas inadequado como autoridade distribuida antes de escala horizontal;
 - F-001 -- P3: variable/flaky timeouts in unmodified tests, without evidence of relation to 9C.12.1. Aberto originalmente como P2, foi reavaliado na F-001A e reclassificado para P3 apos nao reproducao repetida, testes historicos Web/API verdes, suites completas Web/API verdes, CIs posteriores verdes e ausencia de evidencia de mascaramento por aumento global de timeout;
 - W-001 -- P3: marca antiga permanece somente em fixtures `SMTP_FROM_NAME`, asserts negativos e contextos locais deliberados, sem impacto no runtime/template transacional;
-- DOC-001 -- P3: cleanup documental remanescente, sem risco operacional imediato;
+- DOC-001 -- RESOLVIDO: stale factual em documentos auxiliares corrigido, documentos historicos explicitamente marcados, contratos executaveis reconciliados e nenhum runtime alterado;
 - observabilidade SMTP inicial esta publicada em producao e teve evento real de sucesso validado para `password_recovery`; dashboard, metricas agregadas, webhooks, integracoes de provider, fluxo de convite e caminho SMTP de falha seguem fora do escopo atual.
 
 ## Proxima Entrega
 
-Proximos itens ja previstos no backlog incluem cleanup documental DOC-001, acompanhamento do W-001, evolucao de rate limit distribuido antes de escala horizontal e observabilidade SMTP futura, sem testar caminho SMTP de falha em producao automaticamente.
+Proximos itens ja previstos no backlog incluem acompanhamento do W-001, evolucao de rate limit distribuido antes de escala horizontal e observabilidade SMTP futura, sem testar caminho SMTP de falha em producao automaticamente.
