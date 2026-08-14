@@ -117,7 +117,7 @@ export const PasswordChangePage = () => {
       />
 
       <AlertBox title="Troca obrigatória de senha" tone="warning">
-        Seu acesso foi criado com uma senha temporária. Para proteger sua conta local, troque essa
+        Seu acesso foi criado com uma senha temporária. Para proteger sua conta, troque essa
         senha antes de seguir.
       </AlertBox>
 

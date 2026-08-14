@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { type MouseEvent, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { appConfig } from "../config/appMode";
@@ -22,6 +22,12 @@ const formatDateTime = (value?: string | null) => {
   }).format(new Date(value));
 };
 
+const sessionStatusLabels: Record<AuthSessionView["status"], string> = {
+  active: "Ativa",
+  expired: "Expirada",
+  revoked: "Encerrada",
+};
+
 const demoSessions = (currentUserEmail?: string | null): AuthSessionView[] => [
   {
     id: "demo-current",
@@ -33,7 +39,7 @@ const demoSessions = (currentUserEmail?: string | null): AuthSessionView[] => [
     status: "active",
     device: {
       label: "Chrome em Windows",
-      userAgentSummary: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/126.0",
+      userAgentSummary: "Navegador reconhecido em ambiente demonstrativo.",
     },
   },
   {
@@ -51,6 +57,19 @@ const demoSessions = (currentUserEmail?: string | null): AuthSessionView[] => [
   },
 ];
 
+type ConfirmationDialog =
+  | {
+      type: "revoke-session";
+      session: AuthSessionView;
+      trigger: HTMLButtonElement | null;
+    }
+  | {
+      type: "logout-others" | "logout-all";
+      trigger: HTMLButtonElement | null;
+    };
+
+const CANCEL_CONFIRMATION_BUTTON_ID = "account-security-confirmation-cancel";
+
 export const AccountSecurityPage = () => {
   const navigate = useNavigate();
   const { clearNotice, isDemoMode, logoutAll, logoutOthers, notice, user } = useAuth();
@@ -60,6 +79,7 @@ export const AccountSecurityPage = () => {
   const [isRevoking, setIsRevoking] = useState<string | null>(null);
   const [isRevokingOthers, setIsRevokingOthers] = useState(false);
   const [isRevokingAll, setIsRevokingAll] = useState(false);
+  const [confirmationDialog, setConfirmationDialog] = useState<ConfirmationDialog | null>(null);
 
   const currentSession = useMemo(
     () => sessions.find((session) => session.isCurrent) ?? null,
@@ -103,13 +123,57 @@ export const AccountSecurityPage = () => {
     };
   }, [isDemoMode, user?.email]);
 
-  const handleRevokeSession = async (sessionId: string) => {
-    const confirmed = window.confirm("Encerrar esta sessão agora?");
+  const isAnyRevocationLoading = Boolean(isRevoking) || isRevokingOthers || isRevokingAll;
 
-    if (!confirmed) {
+  const closeConfirmationDialog = () => {
+    if (isAnyRevocationLoading) {
       return;
     }
 
+    const trigger = confirmationDialog?.trigger ?? null;
+    setConfirmationDialog(null);
+    window.setTimeout(() => {
+      trigger?.focus();
+    }, 0);
+  };
+
+  useEffect(() => {
+    if (!confirmationDialog) {
+      return;
+    }
+
+    const cancelButton = document.getElementById(CANCEL_CONFIRMATION_BUTTON_ID);
+
+    if (cancelButton instanceof HTMLButtonElement) {
+      cancelButton.focus();
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !isAnyRevocationLoading) {
+        closeConfirmationDialog();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [confirmationDialog, isAnyRevocationLoading]);
+
+  const requestRevokeSession = (session: AuthSessionView, trigger: HTMLButtonElement | null) => {
+    setConfirmationDialog({ type: "revoke-session", session, trigger });
+  };
+
+  const requestLogoutOthers = (trigger: HTMLButtonElement | null) => {
+    setConfirmationDialog({ type: "logout-others", trigger });
+  };
+
+  const requestLogoutAll = (trigger: HTMLButtonElement | null) => {
+    setConfirmationDialog({ type: "logout-all", trigger });
+  };
+
+  const handleRevokeSession = async (sessionId: string) => {
     setIsRevoking(sessionId);
     clearNotice();
     setErrorMessage(null);
@@ -117,12 +181,14 @@ export const AccountSecurityPage = () => {
     try {
       if (isDemoMode) {
         setSessions((currentSessions) => currentSessions.filter((session) => session.id !== sessionId));
+        setConfirmationDialog(null);
         return;
       }
 
       await revokeAuthSession(sessionId);
       const nextSessions = await loadAuthSessions();
       setSessions(nextSessions);
+      setConfirmationDialog(null);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Não foi possível encerrar a sessão.");
     } finally {
@@ -131,12 +197,6 @@ export const AccountSecurityPage = () => {
   };
 
   const handleLogoutOthers = async () => {
-    const confirmed = window.confirm("Encerrar todas as outras sessões ativas?");
-
-    if (!confirmed) {
-      return;
-    }
-
     setIsRevokingOthers(true);
     clearNotice();
     setErrorMessage(null);
@@ -144,12 +204,14 @@ export const AccountSecurityPage = () => {
     try {
       if (isDemoMode) {
         setSessions((currentSessions) => currentSessions.filter((session) => session.isCurrent));
+        setConfirmationDialog(null);
         return;
       }
 
       await logoutOthers();
       const nextSessions = await loadAuthSessions();
       setSessions(nextSessions);
+      setConfirmationDialog(null);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Não foi possível encerrar as outras sessões.");
     } finally {
@@ -158,18 +220,13 @@ export const AccountSecurityPage = () => {
   };
 
   const handleLogoutAll = async () => {
-    const confirmed = window.confirm("Encerrar absolutamente todas as sessões deste perfil?");
-
-    if (!confirmed) {
-      return;
-    }
-
     setIsRevokingAll(true);
     clearNotice();
     setErrorMessage(null);
 
     try {
       await logoutAll();
+      setConfirmationDialog(null);
       navigate("/login", { replace: true });
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Não foi possível encerrar todas as sessões.");
@@ -178,13 +235,63 @@ export const AccountSecurityPage = () => {
     }
   };
 
+  const handleConfirmSecurityAction = async () => {
+    if (!confirmationDialog || isAnyRevocationLoading) {
+      return;
+    }
+
+    if (confirmationDialog.type === "revoke-session") {
+      await handleRevokeSession(confirmationDialog.session.id);
+      return;
+    }
+
+    if (confirmationDialog.type === "logout-others") {
+      await handleLogoutOthers();
+      return;
+    }
+
+    await handleLogoutAll();
+  };
+
+  const getDialogContent = () => {
+    if (!confirmationDialog) {
+      return null;
+    }
+
+    if (confirmationDialog.type === "revoke-session") {
+      return {
+        title: "Encerrar esta sessão?",
+        description: `O acesso em ${confirmationDialog.session.device.label} será encerrado. Esta sessão não poderá continuar usando a conta sem novo login.`,
+        confirmLabel: isRevoking === confirmationDialog.session.id ? "Encerrando..." : "Encerrar sessão",
+      };
+    }
+
+    if (confirmationDialog.type === "logout-others") {
+      return {
+        title: "Encerrar outras sessões?",
+        description:
+          "A sessão atual permanecerá ativa neste navegador. Os outros acessos abertos serão encerrados e precisarão de novo login.",
+        confirmLabel: isRevokingOthers ? "Encerrando..." : "Encerrar outras sessões",
+      };
+    }
+
+    return {
+      title: "Encerrar todas as sessões?",
+      description:
+        "Todos os acessos serão encerrados, incluindo esta sessão. Você será enviado para o login e precisará autenticar-se novamente.",
+      confirmLabel: isRevokingAll ? "Encerrando..." : "Encerrar todas",
+    };
+  };
+
+  const dialogContent = getDialogContent();
+
   return (
     <div className="page-stack">
       <ProfileHeader
         badge="Minha conta"
         eyebrow="Segurança"
         title="Sessões ativas"
-        description="Veja onde seu acesso está aberto, encerre outras sessões e mantenha sua conta local mais organizada."
+        description="Veja onde seu acesso está aberto, encerre outras sessões e mantenha sua conta organizada."
         meta={
           currentSession
             ? [
@@ -195,10 +302,18 @@ export const AccountSecurityPage = () => {
         }
         actions={
           <div className="button-row">
-            <Button disabled={isRevokingOthers || isRevokingAll} onClick={() => void handleLogoutOthers()} variant="secondary">
+            <Button
+              disabled={isRevokingOthers || isRevokingAll}
+              onClick={(event: MouseEvent<HTMLButtonElement>) => requestLogoutOthers(event.currentTarget)}
+              variant="destructiveSecondary"
+            >
               Encerrar outras sessões
             </Button>
-            <Button disabled={isRevokingAll || isRevokingOthers} onClick={() => void handleLogoutAll()} variant="ghost">
+            <Button
+              disabled={isRevokingAll || isRevokingOthers}
+              onClick={(event: MouseEvent<HTMLButtonElement>) => requestLogoutAll(event.currentTarget)}
+              variant="destructive"
+            >
               Encerrar todas
             </Button>
           </div>
@@ -226,12 +341,12 @@ export const AccountSecurityPage = () => {
       {isLoading ? (
         <LoadingState
           title="Carregando sessões"
-          description="Estamos conferindo as sessões ativas deste perfil no ambiente local."
+          description="Estamos conferindo as sessões ativas deste perfil."
         />
       ) : sessions.length === 0 ? (
         <EmptyState
           title="Nenhuma sessão encontrada"
-          description="Quando houver novos acessos locais, eles aparecerão aqui para revisão rápida."
+          description="Quando houver novos acessos, eles aparecerão aqui para revisão rápida."
         />
       ) : (
         <div className="session-security-grid">
@@ -246,7 +361,9 @@ export const AccountSecurityPage = () => {
                   <p className="session-card__eyebrow">{session.isCurrent ? "Sessão atual" : "Sessão ativa"}</p>
                   <h2>{session.device.label}</h2>
                 </div>
-                <span className={`session-card__status session-card__status--${session.status}`}>{session.status}</span>
+                <span className={`session-card__status session-card__status--${session.status}`}>
+                  {sessionStatusLabels[session.status]}
+                </span>
               </div>
 
               <dl className="session-card__meta">
@@ -272,9 +389,10 @@ export const AccountSecurityPage = () => {
                 <div className="session-card__actions">
                   <Button
                     disabled={isRevoking === session.id || isRevokingOthers || isRevokingAll}
-                    onClick={() => void handleRevokeSession(session.id)}
+                    onClick={(event: MouseEvent<HTMLButtonElement>) => requestRevokeSession(session, event.currentTarget)}
+                    size="compact"
                     type="button"
-                    variant="secondary"
+                    variant="destructive"
                   >
                     {isRevoking === session.id ? "Encerrando..." : "Encerrar sessão"}
                   </Button>
@@ -289,13 +407,52 @@ export const AccountSecurityPage = () => {
 
       {!appConfig.isGithubPages && !isDemoMode ? null : (
         <Card tone="soft">
-          <h2>Uso demonstrativo e uso local</h2>
+          <h2>Experiência demonstrativa</h2>
           <p>
-            No GitHub Pages, esta tela existe para demonstrar a experiência. No ambiente local autorizado,
-            as ações passam a revogar sessões reais sem expor identificadores técnicos na interface.
+            Nesta demonstração, a lista simula sessões para revisão da experiência. Em ambiente autorizado,
+            as ações encerram acessos reais sem mostrar identificadores técnicos na interface.
           </p>
         </Card>
       )}
+
+      {confirmationDialog && dialogContent ? (
+        <div
+          aria-labelledby="account-security-confirmation-title"
+          aria-modal="true"
+          className="admin-modal-backdrop"
+          role="dialog"
+        >
+          <Card className="admin-modal" tone="soft">
+            <p className="card-eyebrow">Segurança da conta</p>
+            <h2 id="account-security-confirmation-title">{dialogContent.title}</h2>
+            <p>{dialogContent.description}</p>
+
+            {errorMessage ? (
+              <AlertBox title="Não foi possível concluir a ação" tone="warning">
+                <p>{errorMessage}</p>
+              </AlertBox>
+            ) : null}
+
+            <div className="button-row">
+              <Button
+                disabled={isAnyRevocationLoading}
+                onClick={closeConfirmationDialog}
+                id={CANCEL_CONFIRMATION_BUTTON_ID}
+                variant="secondary"
+              >
+                Cancelar
+              </Button>
+              <Button
+                disabled={isAnyRevocationLoading}
+                onClick={() => void handleConfirmSecurityAction()}
+                variant="destructive"
+              >
+                {dialogContent.confirmLabel}
+              </Button>
+            </div>
+          </Card>
+        </div>
+      ) : null}
     </div>
   );
 };

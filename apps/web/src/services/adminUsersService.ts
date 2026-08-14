@@ -34,7 +34,7 @@ interface ApiAdminActionResponse {
 }
 
 const FALLBACK_NOTICE =
-  "Modo demonstrativo: para gestão real de usuários, use backend autenticado no ambiente local.";
+  "Modo demonstrativo: a gestão real de usuários fica disponível apenas em ambiente autenticado.";
 
 const mapAdminUser = (item: ApiAdminUser): AdminManagedUser => {
   return {

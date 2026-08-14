@@ -214,7 +214,7 @@ describe("AdminUsersPage status actions", () => {
   });
 
   it.each([
-    ["AUTH_REQUIRED", "Sua sessão local expirou. Faça login novamente para alterar status."],
+    ["AUTH_REQUIRED", "Sua sessão expirou. Faça login novamente para alterar status."],
     ["FORBIDDEN", "Seu perfil não pode alterar o status administrativo deste usuário."],
     ["ADMIN_USER_STATUS_ACTOR_NOT_AUTHORIZED", "Seu perfil não pode alterar o status administrativo deste usuário."],
     ["PASSWORD_CHANGE_REQUIRED", "Troque sua senha temporária antes de alterar status administrativos."],
@@ -266,7 +266,7 @@ describe("AdminUsersPage status actions", () => {
     expect(await screen.findByText("Muitas tentativas de alteração de status. Tente novamente em cerca de 2 minutos.")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Confirmar inativação" }));
-    expect(await screen.findByText("Não foi possível conectar ao backend local agora. Verifique a API e tente novamente.")).toBeInTheDocument();
+    expect(await screen.findByText("Não foi possível conectar ao serviço do portal agora. Tente novamente.")).toBeInTheDocument();
   });
 
   it("protege autoinativação quando o usuário atual é identificável", async () => {

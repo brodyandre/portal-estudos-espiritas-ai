@@ -9,7 +9,7 @@ export const AuthenticatedRoute = () => {
   const { isAuthenticated, isDemoMode, isLoading, requiresPasswordChange } = useAuth();
 
   if (isLoading) {
-    return <LoadingState description="Estamos verificando seu acesso local." title="Conferindo login" />;
+    return <LoadingState description="Estamos verificando seu acesso." title="Conferindo login" />;
   }
 
   if (!isDemoMode && !isAuthenticated) {

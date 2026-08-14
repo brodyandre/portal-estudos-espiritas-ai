@@ -6,7 +6,7 @@ import { cn } from "../../app/cn";
 type CommonProps = {
   children: ReactNode;
   className?: string;
-  variant?: "primary" | "secondary" | "ghost";
+  variant?: "primary" | "secondary" | "ghost" | "destructive" | "destructiveSecondary";
   size?: "regular" | "compact";
   fullWidth?: boolean;
 };
@@ -36,7 +36,7 @@ const buildClassName = ({
 }: Pick<ButtonProps, "variant" | "size" | "fullWidth" | "className">) => {
   return cn(
     "button",
-    `button--${variant}`,
+    `button--${variant === "destructiveSecondary" ? "destructive-secondary" : variant}`,
     `button--${size}`,
     fullWidth && "button--full",
     className,

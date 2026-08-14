@@ -32,7 +32,7 @@ interface ApiAdminSelectableGroupsData {
 }
 
 const FALLBACK_NOTICE =
-  "Modo demonstrativo: para gestão real de grupos e links, use backend autenticado no ambiente local.";
+  "Modo demonstrativo: a gestão real de grupos e links fica disponível apenas em ambiente autenticado.";
 
 const mapAdminGroup = (item: ApiAdminGroup): AdminGroup => {
   return {
@@ -198,5 +198,5 @@ export const getAdminGroupMeetPreview = (group: AdminGroup) => {
 };
 
 export const getAdminGroupMeetVisibilityLabel = () => {
-  return appConfig.canShowRealMeetLink ? "Link real visível no ambiente local." : "Link demonstrativo nesta versão pública.";
+  return appConfig.canShowRealMeetLink ? "Link real visível para perfis autorizados." : "Link de apoio nesta versão pública.";
 };

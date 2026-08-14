@@ -364,13 +364,14 @@ img {
 
 .sidebar__link-label {
   display: block;
+  color: rgba(255, 253, 247, 0.96);
   font-weight: 700;
 }
 
 .sidebar__link-description {
   display: block;
   margin-top: var(--space-2);
-  color: var(--sidebar-muted);
+  color: rgba(255, 253, 247, 0.84);
   font-size: 0.9375rem;
   line-height: 1.5;
 }
@@ -380,6 +381,10 @@ img {
   padding: var(--space-5);
   border-radius: var(--radius-lg);
   background: var(--sidebar-panel);
+}
+
+.sidebar__footer h2 {
+  color: rgba(255, 253, 247, 0.96);
 }
 
 .page-context-bar {
@@ -934,6 +939,29 @@ img {
   background: var(--button-ghost-hover);
 }
 
+.button--destructive {
+  color: var(--color-on-brand);
+  background: var(--color-danger-700);
+  border-color: var(--button-destructive-border);
+}
+
+.button--destructive:hover,
+.button--destructive:focus-visible {
+  background: var(--button-destructive-hover);
+}
+
+.button--destructive-secondary {
+  color: var(--color-danger-800);
+  background: var(--button-destructive-soft-bg);
+  border-color: var(--button-destructive-border);
+}
+
+.button--destructive-secondary:hover,
+.button--destructive-secondary:focus-visible {
+  background: var(--button-destructive-soft-hover);
+  border-color: var(--color-danger-700);
+}
+
 .button--compact {
   min-height: 40px;
   padding: 0 14px;
@@ -971,34 +999,73 @@ img {
 }
 
 .badge--success {
-  background: var(--color-positive-100);
-  color: var(--color-positive-700);
+  background: var(--status-success-bg);
+  color: var(--status-success-text);
+}
+
+.badge--warning {
+  background: var(--status-warning-bg);
+  color: var(--status-warning-text);
+}
+
+.badge--danger {
+  background: var(--status-danger-bg);
+  color: var(--status-danger-text);
+}
+
+.badge--info {
+  background: var(--status-info-bg);
+  color: var(--status-info-text);
 }
 
 .status-tag--upcoming {
-  background: var(--status-upcoming-bg);
-  color: var(--color-brand-900);
+  background: var(--status-info-bg);
+  color: var(--status-info-text);
 }
 
 .status-tag--active {
-  background: var(--status-active-bg);
-  color: var(--color-brand-900);
+  background: var(--status-success-bg);
+  color: var(--status-success-text);
 }
 
 .status-tag--draft {
-  background: var(--status-draft-bg);
-  color: var(--color-text-900);
+  background: var(--status-neutral-bg);
+  color: var(--status-neutral-text);
 }
 
 .status-tag--published,
-.status-tag--answered {
-  background: var(--color-positive-100);
-  color: var(--color-positive-700);
+.status-tag--answered,
+.status-tag--success {
+  background: var(--status-success-bg);
+  color: var(--status-success-text);
 }
 
-.status-tag--attention {
-  background: var(--color-warning-100);
-  color: var(--color-warning-700);
+.status-tag--attention,
+.status-tag--pending,
+.status-tag--sent,
+.status-tag--notConfigured,
+.status-tag--not_configured,
+.status-tag--scheduled {
+  background: var(--status-warning-bg);
+  color: var(--status-warning-text);
+}
+
+.status-tag--canceled,
+.status-tag--closed,
+.status-tag--inactive {
+  background: var(--status-neutral-bg);
+  color: var(--status-neutral-text);
+}
+
+.status-tag--failed,
+.status-tag--error {
+  background: var(--status-danger-bg);
+  color: var(--status-danger-text);
+}
+
+.status-tag--info {
+  background: var(--status-info-bg);
+  color: var(--status-info-text);
 }
 
 .user-meetings,
@@ -1169,17 +1236,19 @@ img {
 .profile-header__meta-item {
   padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.72);
-  border: 1px solid rgba(22, 58, 95, 0.08);
+  background: var(--info-summary-bg);
+  border: 1px solid var(--info-summary-border);
 }
 
 .profile-header__meta-item dt {
   color: var(--color-text-700);
   font-size: 0.875rem;
+  font-weight: 700;
 }
 
 .profile-header__meta-item dd {
   margin: var(--space-2) 0 0;
+  color: var(--color-text-900);
   font-weight: 700;
 }
 
@@ -2423,14 +2492,14 @@ img {
 }
 
 .session-card__status--active {
-  background: rgba(47, 122, 89, 0.16);
-  color: var(--color-positive-700);
+  background: var(--status-success-bg);
+  color: var(--status-success-text);
 }
 
 .session-card__status--revoked,
 .session-card__status--expired {
-  background: rgba(135, 142, 137, 0.16);
-  color: var(--color-text-muted);
+  background: var(--status-neutral-bg);
+  color: var(--status-neutral-text);
 }
 
 .session-card__meta {
@@ -2459,6 +2528,13 @@ img {
 .session-card__current-note {
   margin: 0;
   color: var(--color-text-muted);
+}
+
+.session-card__summary {
+  max-width: 72ch;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 .session-card__actions {
@@ -2561,6 +2637,11 @@ img {
     padding-inline: var(--space-4);
   }
 
+  .profile-header h1 {
+    font-size: clamp(1.7rem, 9vw, 2.25rem);
+    line-height: 1.08;
+  }
+
   .assistant-card__composer > .button {
     width: 100%;
   }
@@ -2622,6 +2703,28 @@ img {
   }
 }
 
+@media (min-width: 1024px) {
+  .admin-user-card,
+  .admin-group-card,
+  .admin-content-card {
+    gap: var(--space-3);
+    padding-block: var(--space-5);
+  }
+
+  .admin-user-card__meta {
+    gap: var(--space-2) var(--space-4);
+  }
+
+  .admin-user-card__header p,
+  .admin-group-card__header p {
+    margin-top: var(--space-1);
+  }
+
+  .admin-user-filters {
+    gap: var(--space-3);
+  }
+}
+
 @media (max-width: 430px) {
   .mobile-header__logo {
     width: 72px;
@@ -2638,6 +2741,7 @@ img {
   .page-context-bar {
     gap: var(--space-2);
     padding: 10px 12px;
+    min-height: auto;
   }
 
   .page-context-bar__controls {
@@ -2912,5 +3016,28 @@ img {
 
   .teacher-panel--approval {
     grid-column: 1 / -1;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1180px) {
+  .page-context-bar {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    gap: var(--space-2);
+    padding-block: var(--space-2);
+  }
+
+  .page-context-bar__description {
+    display: none;
+  }
+
+  .page-context-bar__controls {
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .page-context-bar__status {
+    max-width: 100%;
   }
 }

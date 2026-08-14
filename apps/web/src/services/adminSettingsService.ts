@@ -4,7 +4,7 @@ import { loadWithFallback } from "./api";
 import type { AdminSettings } from "../types/adminSettings";
 
 const FALLBACK_NOTICE =
-  "Modo demonstrativo: as configurações ficam salvas apenas neste navegador até existir backend autenticado.";
+  "Modo demonstrativo: as configurações ficam salvas apenas neste navegador.";
 
 export const getAdminSettings = () => {
   if (!appConfig.canUseAdminFeatures) {
@@ -41,4 +41,3 @@ export const saveAdminSettings = (input: AdminSettings) => {
     friendlyMessage: FALLBACK_NOTICE,
   });
 };
-

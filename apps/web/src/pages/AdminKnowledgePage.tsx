@@ -179,7 +179,7 @@ const getErrorMessage = (error: unknown, fallback: string) => {
       return `${error.message} Tente novamente em cerca de ${formatRetryAfterLabel(error.retryAfterSeconds)}.`;
     }
     if (error.kind === "network") {
-      return "Catálogo editorial indisponível. Verifique a preparação local do banco e da API.";
+      return "Catálogo editorial indisponível. Verifique a disponibilidade do serviço do portal.";
     }
     switch (error.code) {
       case "AUTH_REQUIRED":
@@ -638,18 +638,18 @@ export const AdminKnowledgePage = () => {
     <div className="page-stack">
       <ProfileHeader
         badge="Catálogo editorial"
-        description="Administre livros e metadados de documentos Markdown persistidos pela API local, mantendo o conteúdo autoral imutável no filesystem."
+        description="Administre livros e metadados de documentos Markdown persistidos pelo serviço do portal, mantendo o conteúdo autoral imutável."
         eyebrow="Administração"
         meta={[
           { label: "Livros", value: String(booksMeta.total) },
           { label: "Documentos", value: String(documentsMeta.total) },
-          { label: "Fonte", value: "API 6A" },
+          { label: "Fonte", value: "Catálogo editorial" },
         ]}
         title="Gestão de conteúdos"
       />
 
-      <AlertBox title="Operação local" tone="info">
-        Nenhum item é catalogado por esta interface. Migration, seed e catalogação continuam sendo operações locais separadas.
+      <AlertBox title="Operação editorial" tone="info">
+        Esta interface gerencia metadados e estados editoriais. A inclusão de novos arquivos segue o processo governado do catálogo.
       </AlertBox>
 
       {successMessage ? (
@@ -768,7 +768,7 @@ export const AdminKnowledgePage = () => {
                     </Button>
                     <Button
                       onClick={(event) => handleBookStatus(book, book.status === "active" ? "archived" : "active", event.currentTarget)}
-                      variant="ghost"
+                      variant={book.status === "active" ? "destructive" : "primary"}
                     >
                       {book.status === "active" ? "Arquivar" : "Ativar"}
                     </Button>
@@ -906,7 +906,7 @@ export const AdminKnowledgePage = () => {
                         disabled={transitioningId === document.id}
                         key={`${document.id}-${transition.status}`}
                         onClick={(event) => handleTransition(document, transition.status, event.currentTarget)}
-                        variant={transition.status === "approved" ? "primary" : "ghost"}
+                        variant={transition.status === "archived" ? "destructive" : transition.status === "approved" ? "primary" : "ghost"}
                       >
                         {transition.label}
                       </Button>
@@ -1003,7 +1003,7 @@ const KnowledgeListState = <TItem,>({
         description={
           emptyFiltered
             ? "Ajuste busca e filtros para consultar outra parte do catálogo."
-            : "A preparação do catálogo é realizada por operação local e não por esta interface."
+            : "A preparação do catálogo é realizada por processo editorial governado e não por esta interface."
         }
       />
     );
@@ -1183,7 +1183,13 @@ const ConfirmDialog = ({
         <h2 id="admin-confirm-title">{confirmState.title}</h2>
         <p id="admin-confirm-description">{confirmState.description}</p>
         <div className="button-row admin-knowledge-modal__actions">
-          <Button disabled={isSaving} onClick={confirmState.onConfirm}>{isSaving ? "Executando..." : confirmState.confirmLabel}</Button>
+          <Button
+            disabled={isSaving}
+            onClick={confirmState.onConfirm}
+            variant={confirmState.confirmLabel.startsWith("Arquivar") ? "destructive" : "primary"}
+          >
+            {isSaving ? "Executando..." : confirmState.confirmLabel}
+          </Button>
           <Button disabled={isSaving} id="admin-confirm-cancel" onClick={onCancel} variant="secondary">Cancelar</Button>
         </div>
       </Card>

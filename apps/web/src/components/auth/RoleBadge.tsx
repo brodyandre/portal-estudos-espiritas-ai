@@ -24,7 +24,7 @@ export const RoleBadge = ({ user }: RoleBadgeProps) => {
     return (
       <div className="role-badge" aria-label="Sem login">
         <Badge tone="sand">Sem login</Badge>
-        <span className="role-badge__status">Modo local</span>
+        <span className="role-badge__status">Acesso restrito</span>
       </div>
     );
   }

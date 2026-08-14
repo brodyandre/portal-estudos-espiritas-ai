@@ -637,7 +637,7 @@ describe("paginas principais com fallback local", () => {
     expect(await screen.findByText("Grupos de estudo")).toBeInTheDocument();
     expect(await screen.findByText("Materiais publicados")).toBeInTheDocument();
     expect(await screen.findByText("Revisões sensíveis")).toBeInTheDocument();
-    expect((await screen.findAllByText("fallback demonstrativo")).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText("dados de apoio")).length).toBeGreaterThan(0);
     expect(await screen.findByRole("link", { name: "Abrir usuários" })).toBeInTheDocument();
   });
 
@@ -646,7 +646,7 @@ describe("paginas principais com fallback local", () => {
 
     expect(await screen.findByRole("heading", { name: "Gestão de usuários" })).toBeInTheDocument();
     expect(
-      await screen.findByText("Esta visualização usa apenas dados fictícios e não realiza chamadas para a API local."),
+      await screen.findByText("Esta visualização usa apenas dados fictícios e não realiza chamadas ao serviço do portal."),
     ).toBeInTheDocument();
     expect(await screen.findByText("Rafael Torres")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Ativar usuário/i })).not.toBeInTheDocument();
@@ -669,7 +669,7 @@ describe("paginas principais com fallback local", () => {
 
     expect(await screen.findByRole("heading", { name: "Gestão de grupos" })).toBeInTheDocument();
     expect(await screen.findByText("Modo demonstrativo de grupos")).toBeInTheDocument();
-    expect(await screen.findByText(/mostramos apenas um link demonstrativo/i)).toBeInTheDocument();
+    expect(await screen.findByText(/mostramos apenas um link de apoio/i)).toBeInTheDocument();
 
     const emmanuelNameInput = document.querySelector("#admin-group-name-emmanuel");
     const caminhoNameInput = document.querySelector("#admin-group-name-a-caminho-da-luz");
@@ -694,7 +694,7 @@ describe("paginas principais com fallback local", () => {
 
     expect(await screen.findByRole("heading", { name: "Configurações do sistema" })).toBeInTheDocument();
     expect(await screen.findByText("Modo demonstrativo de configurações")).toBeInTheDocument();
-    expect(await screen.findByText("Configurações sensíveis devem ficar no backend em produção.")).toBeInTheDocument();
+    expect(await screen.findByText("Configurações sensíveis devem permanecer fora da interface pública.")).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Nome do portal"), {
       target: { value: "Educação Continuada Portal" },
@@ -708,14 +708,14 @@ describe("paginas principais com fallback local", () => {
       expect(screen.getByDisplayValue("Educação Continuada Portal")).toBeInTheDocument();
     });
 
-    expect(await screen.findByText("Configurações demonstrativas salvas com sucesso.")).toBeInTheDocument();
-    expect(screen.getByText("Uso local autorizado")).toBeInTheDocument();
+    expect(await screen.findByText("Configurações salvas com sucesso.")).toBeInTheDocument();
+    expect(screen.getByText("Uso restrito")).toBeInTheDocument();
   });
 
   it("/admin/auditoria renderiza eventos importantes do MVP", async () => {
     renderRoute("/admin/auditoria", <AdminPage section="auditoria" />);
 
-    expect(await screen.findByRole("heading", { name: "Auditoria demonstrativa" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Auditoria" })).toBeInTheDocument();
     expect(await screen.findByText("Modo demonstrativo de auditoria")).toBeInTheDocument();
     expect(await screen.findByText("Aluno inscrito")).toBeInTheDocument();
     expect(await screen.findByText("Professor aprovou aluno")).toBeInTheDocument();

@@ -177,7 +177,7 @@ describe("AdminKnowledgePage", () => {
 
     renderPage("/admin/conteudos?booksSearch=emi&booksPage=2");
 
-    expect(await screen.findByText("Catálogo editorial indisponível. Verifique a preparação local do banco e da API.")).toBeInTheDocument();
+    expect(await screen.findByText("Catálogo editorial indisponível. Verifique a disponibilidade do serviço do portal.")).toBeInTheDocument();
     expect(screen.queryByText("Nenhum item foi encontrado no catálogo editorial")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Tentar novamente" }));
@@ -190,7 +190,7 @@ describe("AdminKnowledgePage", () => {
     resolveRetry({ items: [book], meta });
 
     expect(await screen.findByRole("heading", { name: "Emmanuel" })).toBeInTheDocument();
-    expect(screen.queryByText("Catálogo editorial indisponível. Verifique a preparação local do banco e da API.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Catálogo editorial indisponível. Verifique a disponibilidade do serviço do portal.")).not.toBeInTheDocument();
     expect(screen.getByTestId("location")).toHaveTextContent("/admin/conteudos?booksSearch=emi&booksPage=2");
   });
 
@@ -201,7 +201,7 @@ describe("AdminKnowledgePage", () => {
 
     renderPage("/admin/conteudos?tab=documents&editorialStatus=reviewed&documentsPage=2");
 
-    expect(await screen.findByText("Catálogo editorial indisponível. Verifique a preparação local do banco e da API.")).toBeInTheDocument();
+    expect(await screen.findByText("Catálogo editorial indisponível. Verifique a disponibilidade do serviço do portal.")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Tentar novamente" }));
 
     await waitFor(() => expect(listDocumentsMock).toHaveBeenCalledTimes(2));
@@ -220,7 +220,7 @@ describe("AdminKnowledgePage", () => {
     expect(await screen.findByText("Nenhum item foi encontrado no catálogo editorial")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "Documentos" }));
     expect(
-      await screen.findByText("Catálogo editorial indisponível. Verifique a preparação local do banco e da API."),
+      await screen.findByText("Catálogo editorial indisponível. Verifique a disponibilidade do serviço do portal."),
     ).toBeInTheDocument();
   });
 

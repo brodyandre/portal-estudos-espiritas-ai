@@ -86,7 +86,7 @@ const toFriendlyNotice = (fallbackMessage?: string) => {
     return DEMO_MODE_NOTICE;
   }
 
-  return "Nao foi possivel atualizar os dados pelo servidor local agora. O portal segue funcionando com fallback seguro.";
+  return "Nao foi possivel atualizar os dados pelo servidor agora. O portal segue funcionando com dados de apoio.";
 };
 
 const parseErrorMessage = (payload: unknown) => {
@@ -203,7 +203,7 @@ export const requestJson = async <T>({ path, query, init }: RequestOptions): Pro
     }
 
     throw new ServiceRequestError({
-      message: "Nao foi possivel conectar ao backend local agora.",
+      message: "Nao foi possivel conectar ao servico do portal agora.",
       kind: "network",
     });
   } finally {

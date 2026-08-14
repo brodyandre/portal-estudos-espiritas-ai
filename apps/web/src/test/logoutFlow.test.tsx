@@ -113,7 +113,7 @@ describe("logout flow", () => {
 
     expect(
       screen.getByText(
-        "A sessão local foi limpa neste navegador. Para revogação real, confirme se a API local está disponível.",
+        "A sessão foi encerrada neste navegador. Não foi possível confirmar a revogação no serviço agora.",
       ),
     ).toBeInTheDocument();
   });

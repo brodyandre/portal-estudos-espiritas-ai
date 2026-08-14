@@ -76,7 +76,7 @@ const buildAuthUrl = (path: string) => {
   const baseUrl = getAuthApiBaseUrl();
 
   if (!baseUrl) {
-    throw new Error("A autenticação local só funciona com a API disponível.");
+    throw new Error("A autenticação só funciona com o serviço disponível.");
   }
 
   return new URL(path, `${baseUrl.replace(/\/$/u, "")}/`).toString();
@@ -95,7 +95,7 @@ const buildApiErrorMessage = (payload: ApiErrorBody | null, fallbackMessage: str
 
 const parseSuccess = async <T>(
   response: Response,
-  fallbackMessage = "Não foi possível concluir a solicitação local agora.",
+  fallbackMessage = "Não foi possível concluir a solicitação agora.",
 ): Promise<ApiSuccessBody<T>> => {
   const payload = (await response.json().catch(() => null)) as ApiSuccessBody<T> | ApiErrorBody | null;
 
@@ -120,7 +120,7 @@ export const loginWithPassword = async (email: string, password: string) => {
     body: JSON.stringify({ email, password }),
   });
 
-  const payload = await parseSuccess<LoginResponse>(response, "Não foi possível concluir o login local agora.");
+  const payload = await parseSuccess<LoginResponse>(response, "Não foi possível concluir o login agora.");
   writeStoredAuthSession(payload.data);
 
   return payload.data;
@@ -224,7 +224,7 @@ const getStoredTokenOrThrow = () => {
   const token = readStoredAuthToken();
 
   if (!token) {
-    throw new Error("Faça login no ambiente local para continuar.");
+    throw new Error("Faça login para continuar.");
   }
 
   return token;
