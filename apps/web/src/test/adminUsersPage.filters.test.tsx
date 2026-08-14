@@ -62,6 +62,16 @@ describe("AdminUsersPage filters", () => {
     });
   });
 
+  it("mantém as ações de filtro agrupadas com limpar antes de aplicar", async () => {
+    renderPage();
+    await waitForInitialLoad();
+
+    const form = screen.getByLabelText("Buscar por nome ou e-mail").closest("form") as HTMLFormElement;
+    const actionButtons = Array.from(form.querySelectorAll("button")).map((button) => button.textContent?.trim());
+
+    expect(actionButtons).toEqual(["Limpar filtros", "Aplicar filtros"]);
+  });
+
   it("enter no formulário aplica filtros", async () => {
     renderPage();
     await waitForInitialLoad();
