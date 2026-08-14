@@ -409,6 +409,12 @@ img {
   box-shadow: var(--context-bar-shadow);
 }
 
+.page-context-bar__context {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
 .page-context-bar__body {
   min-width: 0;
 }
@@ -445,18 +451,49 @@ img {
   display: grid;
   gap: 2px;
   min-width: 0;
-  padding: var(--space-2) var(--space-3);
+  width: fit-content;
+  max-width: 100%;
+  padding: 8px 10px;
   border-radius: var(--radius-md);
   background: var(--context-status-bg);
   border: 1px solid var(--context-status-border);
 }
 
 .page-context-bar__controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.page-context-bar__group {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-3);
-  align-items: flex-end;
-  justify-content: start;
+  align-items: end;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.page-context-bar__group--demo,
+.page-context-bar__group--appearance {
+  display: grid;
+  align-content: start;
+}
+
+.page-context-bar__group--account {
+  align-items: center;
+}
+
+.page-context-bar__mode {
+  width: fit-content;
+  padding: 6px 10px;
+  border: 1px solid var(--context-status-border);
+  border-radius: 999px;
+  background: var(--context-status-bg);
+  color: var(--color-brand-800);
+  font-size: 0.75rem;
+  font-weight: 800;
+  line-height: 1;
 }
 
 .role-badge {
@@ -2783,9 +2820,7 @@ img {
   }
 
   .page-context-bar__controls {
-    width: 100%;
     gap: var(--space-2);
-    align-items: stretch;
   }
 
   .page-context-bar__status {
@@ -2794,12 +2829,15 @@ img {
   }
 
   .page-context-bar__description,
-  .page-context-bar__eyebrow,
   .page-context-bar__label,
-  .area-switcher__label,
-  .theme-switcher__label,
   .role-badge__status {
     display: none;
+  }
+
+  .page-context-bar__eyebrow,
+  .area-switcher__label,
+  .theme-switcher__label {
+    font-size: 0.7rem;
   }
 
   .page-context-bar__body strong,
@@ -2824,7 +2862,7 @@ img {
     font-size: 0.8125rem;
   }
 
-  .page-context-bar__controls > .button {
+  .page-context-bar__group--account > .button {
     min-height: 32px;
     padding-inline: 12px;
     font-size: 0.8125rem;
@@ -2840,12 +2878,14 @@ img {
     padding: var(--space-6);
   }
 
-  .page-context-bar {
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
+  .page-context-bar__controls {
+    grid-template-columns: repeat(2, minmax(0, auto));
+    align-items: end;
+    justify-content: space-between;
   }
 
-  .page-context-bar__controls {
+  .page-context-bar__group--account,
+  .page-context-bar__group--appearance {
     justify-content: end;
   }
 
@@ -3057,6 +3097,83 @@ img {
   }
 }
 
+@media (max-width: 767px) {
+  .page-context-bar {
+    min-height: auto;
+  }
+
+  .page-context-bar__description {
+    display: none;
+  }
+
+  .page-context-bar__controls {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .page-context-bar__group {
+    width: 100%;
+  }
+
+  .page-context-bar__group--account {
+    justify-content: start;
+  }
+
+  .page-context-bar__group--account > .button {
+    flex: 1 1 8rem;
+    min-height: 40px;
+  }
+}
+
+@media (min-width: 900px) and (max-width: 1199px) {
+  .page-context-bar {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .page-context-bar__controls {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: end;
+  }
+
+  .page-context-bar__group--demo {
+    justify-self: start;
+  }
+
+  .page-context-bar__group--account,
+  .page-context-bar__group--appearance {
+    justify-self: end;
+  }
+}
+
+@media (min-width: 1200px) {
+  .page-context-bar {
+    grid-template-columns: minmax(280px, 1fr) minmax(0, auto);
+    align-items: center;
+    gap: var(--space-5);
+    padding-inline: var(--space-5);
+  }
+
+  .page-context-bar__context {
+    gap: var(--space-2);
+  }
+
+  .page-context-bar__controls {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: end;
+    justify-content: end;
+    gap: var(--space-4);
+  }
+
+  .page-context-bar__group {
+    flex: 0 1 auto;
+  }
+
+  .page-context-bar__group--account {
+    flex-wrap: nowrap;
+  }
+}
+
 @media (min-width: 768px) and (max-width: 1180px) {
   .page-context-bar {
     grid-template-columns: minmax(0, 1fr);
@@ -3072,7 +3189,6 @@ img {
   .page-context-bar__controls {
     width: 100%;
     align-items: center;
-    justify-content: space-between;
   }
 
   .page-context-bar__status {

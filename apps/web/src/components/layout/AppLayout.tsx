@@ -167,6 +167,7 @@ export const AppLayout = ({ area = "public" }: AppLayoutProps) => {
 
   const currentSection = trackedSections.find((section) => section.targetId === activeSectionId) ?? null;
   const activeSidebarSectionTargetId = currentSection?.navTargetId ?? currentSection?.targetId ?? null;
+  const shouldShowRealSession = !isDemoMode && Boolean(user);
 
   const handleLogout = async () => {
     await logout();
@@ -213,35 +214,50 @@ export const AppLayout = ({ area = "public" }: AppLayoutProps) => {
         <main className="app-main" id="main-content">
           <div className="app-main__inner">
             <div className="page-context-bar" aria-label="Contexto da página">
-              <div className="page-context-bar__body">
-                <span className="page-context-bar__eyebrow">{areaLabels[area]}</span>
-                <strong>{currentPage.title}</strong>
+              <div className="page-context-bar__context">
+                <div className="page-context-bar__body">
+                  <span className="page-context-bar__eyebrow">{areaLabels[area]}</span>
+                  <strong>{currentPage.title}</strong>
+                </div>
                 <p className="page-context-bar__description">{currentPage.description}</p>
-              </div>
-              <div className="page-context-bar__controls">
                 {currentSection ? (
                   <div className="page-context-bar__status">
                     <span className="page-context-bar__label">Seção atual</span>
                     <span className="page-context-bar__value">{currentSection.label}</span>
                   </div>
                 ) : null}
-                <RoleBadge user={user} />
-                {isDemoMode ? <AreaSwitcher /> : null}
+              </div>
+              <div className="page-context-bar__controls" aria-label="Controles globais">
+                {isDemoMode ? (
+                  <div className="page-context-bar__group page-context-bar__group--demo">
+                    <span className="page-context-bar__mode">Modo demonstrativo</span>
+                    <AreaSwitcher />
+                  </div>
+                ) : null}
+                {shouldShowRealSession ? (
+                  <div className="page-context-bar__group page-context-bar__group--session">
+                    <RoleBadge user={user} />
+                  </div>
+                ) : null}
                 {isAuthenticated ? (
-                  <>
+                  <div className="page-context-bar__group page-context-bar__group--account" aria-label="Conta">
                     <Button to="/minha-conta/seguranca" variant="secondary">
                       Segurança
                     </Button>
                     <Button disabled={isEndingSession} onClick={() => void handleLogout()} type="button" variant="ghost">
                       {isEndingSession ? "Saindo..." : "Sair"}
                     </Button>
-                  </>
+                  </div>
                 ) : (
-                  <Button to="/login" variant="ghost">
-                    Entrar
-                  </Button>
+                  <div className="page-context-bar__group page-context-bar__group--account" aria-label="Conta">
+                    <Button to="/login" variant="ghost">
+                      Entrar
+                    </Button>
+                  </div>
                 )}
-                <ThemeSwitcher onChange={setTheme} value={theme} />
+                <div className="page-context-bar__group page-context-bar__group--appearance">
+                  <ThemeSwitcher onChange={setTheme} value={theme} />
+                </div>
               </div>
             </div>
             <Outlet />
