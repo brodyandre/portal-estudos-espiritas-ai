@@ -2,13 +2,15 @@
 
 ## Estado
 
-Producao operacional no runtime conhecido abaixo.
+Producao operacional por superficie nas revisoes conhecidas abaixo.
 
 Estado Git esperado: branch oficial `main`, `HEAD`/`main`/`origin/main` sincronizados, ahead/behind `0 0` e workspace limpo. O SHA efetivo da `main` deve ser verificado operacionalmente via Git no inicio de cada checkpoint.
 
-Producao conhecida da API: `e965352f5c76627d706362bc18ec6c8539c9c8a6`.
+Web producao: `1f92154cdaad211bcc7c080220f5df253f54f472`.
 
-A `main` contém o runtime de `e965352f5c76627d706362bc18ec6c8539c9c8a6` mais alterações documentais posteriores. Producao continua na revisao runtime conhecida, sem drift funcional conhecido que justifique deploy.
+API producao: `e965352f5c76627d706362bc18ec6c8539c9c8a6`.
+
+A Web oficial esta publicada e validada em `1f92154cdaad211bcc7c080220f5df253f54f472`. A API permanece no runtime conhecido `e965352f5c76627d706362bc18ec6c8539c9c8a6`. Essa diferenca por superficie nao representa, por si so, drift indevido nem exige alinhamento numerico entre Web e API.
 
 OBS-001 esta integrado, Git-closed, publicado em producao e validado operacionalmente. O estado operacional conhecido inclui `Auto-Deploy = Off`, conforme observacao do Render Dashboard, sem tratar isso como decisao arquitetural imutavel.
 
@@ -22,17 +24,19 @@ API:
 
 Estado operacional oficial previamente validado:
 
-- `/health = OK`
-- `/version = e965352f5c76627d706362bc18ec6c8539c9c8a6`
-- `/ready = ready` em 5/5 chamadas controladas
-- `database = ok`
-- `corpus = ready`
+- Web oficial live em `1f92154cdaad211bcc7c080220f5df253f54f472`, com metadata publica e smoke read-only validados
+- API `/health = OK`
+- API `/version = e965352f5c76627d706362bc18ec6c8539c9c8a6`
+- API `/ready = ready` em 5/5 chamadas controladas
+- API `database = ok`
+- API `corpus = ready`
 - Groq operacional como provider principal
 - fallback LLM preservado
 - Resend operacional como provider SMTP transacional inicial
 - recuperacao de senha validada em producao por smoke real controlado
 - frontend de producao sem credenciais demonstrativas ou copy local nas telas de autenticacao
 - e-mails transacionais alinhados a identidade publica Portal de Educação Continuada e timezone America/Sao_Paulo
+- metadata publica da Web oficial alinhada a identidade publica Portal de Educação Continuada
 
 ## Capacidades Concluidas
 
@@ -81,7 +85,7 @@ Concluida e integrada pelo PR #48 no commit `400038c8299ce9cd3db99f424a246774ce8
 
 Finding separado:
 
-- W-001 -- P3: W-001A identificou escopo material em metadados publicos da Web e no default versionado de `SMTP_FROM_NAME`; W-001B corrige esse escopo em source, preservando fixtures, asserts negativos e contextos locais deliberados. O encerramento depende de integracao, publicacao aplicavel da Web e validacao operacional.
+- W-001 foi aberto como P3 nesta etapa apos W-001A identificar escopo material em metadados publicos da Web e no default versionado de `SMTP_FROM_NAME`. Posteriormente foi corrigido, integrado, publicado e validado; estado atual: RESOLVIDO. Ver a secao W-001 encerrada.
 
 #### 9C.12.3 -- Documentacao e validacao final
 
@@ -130,10 +134,13 @@ O evento foi observado sanitizado, sem recipient/e-mail, token, reset URL, corpo
 
 Limites: o smoke nao validou `transactional_email_send_failed` em producao, fluxo de convite, entregabilidade universal, bounce, uso do reset URL, expiracao do token ou redefinicao de senha. O link de redefinicao nao foi utilizado, a senha nao foi redefinida e o recebimento final na caixa ficou nao verificado.
 
+### W-001 -- Alinhamento da identidade publica
+
+Encerrado. W-001A auditou e identificou escopo material em metadados publicos da Web e no default versionado de `SMTP_FROM_NAME`; W-001B corrigiu o source; o PR #59 foi integrado pelo squash `1f92154cdaad211bcc7c080220f5df253f54f472`; GitHub Pages foi publicado e validado; a Web oficial foi publicada no deploy Render `dep-d9v7bregekts73evo580`, live em `1f92154cdaad211bcc7c080220f5df253f54f472`; a metadata publica foi validada com `title`, `og:title`, `og:site_name` e `twitter:title` como `Portal de Educação Continuada`; o smoke publico read-only foi aprovado. A API nao foi redeployada nesta entrega.
+
 ## Backlog Atual
 
 - F-001 -- P3: timeouts historicos variaveis/flaky em testes nao modificados; F-001A nao reproduziu o problema, validou testes historicos Web/API repetidamente, suites completas Web/API e CIs recentes, sem evidencia de mascaramento por aumento global de timeout. Permanece como risco residual/historico.
-- W-001 -- P3: W-001A identificou escopo material em metadados publicos da Web e no default versionado de `SMTP_FROM_NAME`; W-001B corrige esse escopo em source, preservando fixtures, asserts negativos e contextos locais deliberados. O encerramento depende de integracao, publicacao aplicavel da Web e validacao operacional.
 - DOC-001 -- RESOLVIDO: stale factual em documentos auxiliares corrigido, documentos historicos explicitamente marcados, contratos executaveis reconciliados e nenhum runtime alterado.
 - Rate limit de password recovery/reset em memoria do processo: P2 conceitual antes de escala horizontal, nao bloqueante enquanto houver replica unica.
 - Observabilidade SMTP futura: dashboard, metricas agregadas, webhooks, integracoes de provider, fluxo de convite e caminho SMTP de falha em producao permanecem fora do escopo atual e dependem de necessidade operacional concreta.
