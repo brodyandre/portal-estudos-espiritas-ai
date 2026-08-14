@@ -203,7 +203,7 @@ describe("AdminGroupsPage mutations", () => {
     fillValidCreateForm();
     fireEvent.click(screen.getByRole("button", { name: "Criar encontro" }));
 
-    expect(await screen.findByText(/Não foi possível conectar ao backend local/)).toBeInTheDocument();
+    expect(await screen.findByText(/Não foi possível conectar ao serviço do portal/)).toBeInTheDocument();
     expect(screen.getByLabelText("Título")).toHaveValue("Estudo do Evangelho");
 
     fireEvent.click(screen.getByRole("button", { name: "Criar encontro" }));

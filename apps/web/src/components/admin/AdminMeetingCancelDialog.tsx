@@ -127,7 +127,7 @@ export const AdminMeetingCancelDialog = ({
           ) : null}
 
           <div className="button-row">
-            <Button disabled={isSubmitting} type="submit">
+            <Button disabled={isSubmitting} type="submit" variant="destructive">
               {isSubmitting ? "Cancelando..." : "Confirmar cancelamento"}
             </Button>
             <Button disabled={isSubmitting} onClick={onCancel} variant="secondary">

@@ -582,7 +582,7 @@ export const AdminAccountInvitationsPage = () => {
               disabled={isActionInFlight}
               onClick={() => openCancellationConfirmation(invitation)}
               size="compact"
-              variant="secondary"
+              variant="destructive"
             >
               Cancelar convite
             </Button>
@@ -800,6 +800,7 @@ export const AdminAccountInvitationsPage = () => {
               <Button
                 disabled={isActionInFlight}
                 onClick={() => void handleConfirmAction()}
+                variant={confirmationAction.type === "cancel" ? "destructive" : "primary"}
               >
                 {confirmationAction.type === "cancel"
                   ? isCanceling

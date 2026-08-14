@@ -26,7 +26,7 @@ export const ProtectedRoute = ({ routeType, redirectTo }: ProtectedRouteProps) =
   const { isAuthenticated, isDemoMode, isLoading, requiresPasswordChange, user } = useAuth();
 
   if (isLoading) {
-    return <LoadingState description="Estamos verificando seu acesso local." title="Conferindo login" />;
+    return <LoadingState description="Estamos verificando seu acesso." title="Conferindo login" />;
   }
 
   if (canAccessRoute(user, routeType)) {
@@ -59,7 +59,7 @@ export const ProtectedRoute = ({ routeType, redirectTo }: ProtectedRouteProps) =
         <p>
           {isDemoMode
             ? "O perfil atual não tem permissão para abrir esta área. No ambiente demonstrativo, você pode trocar de perfil para revisar a navegação."
-            : "Seu perfil autenticado não tem permissão para abrir esta área no ambiente local."}
+            : "Seu perfil autenticado não tem permissão para abrir esta área."}
         </p>
         <div className="access-denied-card__actions">
           <Button to="/portal">Voltar ao portal</Button>

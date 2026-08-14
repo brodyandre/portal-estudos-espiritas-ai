@@ -185,7 +185,7 @@ const getGroupListErrorMessage = (error: unknown) => {
     }
 
     if (error.kind === "network") {
-      return "Não foi possível conectar ao backend local para carregar os grupos.";
+      return "Não foi possível conectar ao serviço do portal para carregar os grupos.";
     }
   }
 
@@ -199,7 +199,7 @@ const getMeetingsErrorMessage = (error: unknown) => {
     }
 
     if (error.kind === "network") {
-      return "Não foi possível conectar ao backend local para carregar os encontros.";
+      return "Não foi possível conectar ao serviço do portal para carregar os encontros.";
     }
 
     switch (error.code) {
@@ -228,7 +228,7 @@ const getMeetingActionErrorMessage = (error: unknown) => {
     }
 
     if (error.kind === "network") {
-      return "Não foi possível conectar ao backend local. Revise os dados e tente novamente.";
+      return "Não foi possível conectar ao serviço do portal. Revise os dados e tente novamente.";
     }
 
     switch (error.code) {
@@ -711,7 +711,7 @@ export const AdminGroupsPage = ({ now }: AdminGroupsPageProps = {}) => {
         eyebrow="Agenda e operação"
         meta={[
           { label: "Grupos", value: groupsState.status === "success" ? String(groupsState.items.length) : "—" },
-          { label: "Modo", value: isDemoMode ? "demonstrativo" : "local" },
+          { label: "Modo", value: isDemoMode ? "demonstrativo" : "portal" },
         ]}
         title="Encontros dos grupos"
       />
@@ -936,7 +936,7 @@ export const AdminGroupsPage = ({ now }: AdminGroupsPageProps = {}) => {
                               openCancelDialog(meeting, event.currentTarget)
                             }
                             size="compact"
-                            variant="secondary"
+                            variant="destructive"
                           >
                             Cancelar encontro
                           </Button>

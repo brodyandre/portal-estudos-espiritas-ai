@@ -4,7 +4,7 @@ import { loadWithFallback } from "./api";
 import type { AdminAuditEvent } from "../types/adminAudit";
 
 const FALLBACK_NOTICE =
-  "Modo demonstrativo: a auditoria real deve vir do backend autenticado, mas os eventos do MVP seguem visíveis para revisão.";
+  "Modo demonstrativo: a auditoria real fica disponível apenas em ambiente autenticado; os eventos de apoio seguem visíveis para revisão.";
 
 export const listAdminAuditEvents = () => {
   if (!appConfig.canUseAdminFeatures) {
@@ -21,4 +21,3 @@ export const listAdminAuditEvents = () => {
     friendlyMessage: FALLBACK_NOTICE,
   });
 };
-

@@ -160,7 +160,7 @@ describe("AdminUsersPage group actions", () => {
 
     expect(
       await screen.findByText(
-        "Não foi possível carregar os grupos agora. Verifique a API local e tente novamente.",
+        "Não foi possível carregar os grupos agora. Tente novamente.",
       ),
     ).toBeInTheDocument();
 

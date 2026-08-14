@@ -934,6 +934,17 @@ img {
   background: var(--button-ghost-hover);
 }
 
+.button--destructive {
+  color: var(--color-on-brand);
+  background: var(--color-danger-700);
+  border-color: var(--button-destructive-border);
+}
+
+.button--destructive:hover,
+.button--destructive:focus-visible {
+  background: var(--button-destructive-hover);
+}
+
 .button--compact {
   min-height: 40px;
   padding: 0 14px;

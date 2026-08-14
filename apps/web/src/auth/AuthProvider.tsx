@@ -183,10 +183,10 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
 
         try {
           await logoutWithSession();
-          setNotice("Sessão local encerrada com sucesso.");
+          setNotice("Sessão encerrada com sucesso.");
         } catch (_error) {
           setNotice(
-            "A sessão local foi limpa neste navegador. Para revogação real, confirme se a API local está disponível.",
+            "A sessão foi encerrada neste navegador. Não foi possível confirmar a revogação no serviço agora.",
           );
         } finally {
           clearSessionState();
@@ -212,7 +212,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
           setNotice("Todas as sessões locais foram encerradas com sucesso.");
         } catch (_error) {
           setNotice(
-            "A sessão local foi limpa neste navegador. Para encerrar todas as sessões reais, confirme se a API local está disponível.",
+            "A sessão foi encerrada neste navegador. Não foi possível confirmar o encerramento de todas as sessões no serviço agora.",
           );
         } finally {
           clearSessionState();

@@ -278,7 +278,7 @@ const getInvitationDeliveryLabel = (deliveryStatus: StudentAccessInfo["deliveryS
   }
 
   if (deliveryStatus === "failed") {
-    return "O envio do convite falhou. Vale reenviar pelo ambiente local.";
+    return "O envio do convite falhou. Vale tentar reenviar pelo portal.";
   }
 
   if (deliveryStatus === "not_configured") {

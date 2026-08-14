@@ -59,7 +59,7 @@ const getErrorCopy = (error: Error | null) => {
   return {
     title: "Não foi possível carregar a agenda",
     description:
-      "Confira a conexão com a API local e tente carregar os encontros novamente.",
+      "Confira a conexão com o serviço do portal e tente carregar os encontros novamente.",
   };
 };
 

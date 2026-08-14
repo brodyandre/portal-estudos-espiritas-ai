@@ -6,7 +6,7 @@ import { cn } from "../../app/cn";
 type CommonProps = {
   children: ReactNode;
   className?: string;
-  variant?: "primary" | "secondary" | "ghost";
+  variant?: "primary" | "secondary" | "ghost" | "destructive";
   size?: "regular" | "compact";
   fullWidth?: boolean;
 };

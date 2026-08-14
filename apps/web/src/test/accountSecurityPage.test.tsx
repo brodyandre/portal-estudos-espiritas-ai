@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 
@@ -39,7 +39,6 @@ const renderPage = () => {
 describe("AccountSecurityPage", () => {
   beforeEach(() => {
     storeSession();
-    vi.stubGlobal("confirm", vi.fn(() => true));
   });
 
   afterEach(() => {
@@ -161,6 +160,13 @@ describe("AccountSecurityPage", () => {
     renderPage();
 
     fireEvent.click(await screen.findByRole("button", { name: "Encerrar sessão" }));
+    const dialog = screen.getByRole("dialog", { name: "Encerrar esta sessão?" });
+
+    expect(dialog).toHaveAttribute("aria-modal", "true");
+    expect(dialog).toHaveAttribute("aria-labelledby", "account-security-confirmation-title");
+    expect(screen.getByText(/O acesso em Navegador móvel será encerrado/i)).toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Encerrar sessão" }));
 
     await waitFor(() => {
       expect(screen.queryByText("Navegador móvel")).not.toBeInTheDocument();
@@ -170,6 +176,49 @@ describe("AccountSecurityPage", () => {
       "http://localhost:3333/api/auth/sessions/other-session",
       expect.objectContaining({ method: "DELETE" }),
     );
+  });
+
+  it("não executa operação ao cancelar uma confirmação", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        success: true,
+        message: "Sessões carregadas com sucesso.",
+        data: [
+          {
+            id: "current-session",
+            createdAt: "2026-07-12T10:00:00.000Z",
+            expiresAt: "2026-07-12T18:00:00.000Z",
+            lastSeenAt: "2026-07-12T11:00:00.000Z",
+            revokedAt: null,
+            isCurrent: true,
+            status: "active",
+            device: { label: "Chrome em Windows", userAgentSummary: "Chrome" },
+          },
+          {
+            id: "other-session",
+            createdAt: "2026-07-12T09:00:00.000Z",
+            expiresAt: "2026-07-12T17:00:00.000Z",
+            lastSeenAt: "2026-07-12T10:00:00.000Z",
+            revokedAt: null,
+            isCurrent: false,
+            status: "active",
+            device: { label: "Navegador móvel", userAgentSummary: "Mobile" },
+          },
+        ],
+      }),
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderPage();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Encerrar sessão" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+
+    expect(screen.queryByRole("dialog", { name: "Encerrar esta sessão?" })).not.toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("Navegador móvel")).toBeInTheDocument();
   });
 
   it("encerra as outras sessões", async () => {
@@ -237,6 +286,12 @@ describe("AccountSecurityPage", () => {
     renderPage();
 
     fireEvent.click(await screen.findByRole("button", { name: "Encerrar outras sessões" }));
+    const dialog = screen.getByRole("dialog", { name: "Encerrar outras sessões?" });
+
+    expect(dialog).toHaveAttribute("aria-modal", "true");
+    const confirmButton = within(dialog).getByRole("button", { name: "Encerrar outras sessões" });
+    fireEvent.click(confirmButton);
+    fireEvent.click(confirmButton);
 
     await waitFor(() => {
       expect(screen.queryByText("Navegador móvel")).not.toBeInTheDocument();
@@ -246,5 +301,62 @@ describe("AccountSecurityPage", () => {
       "http://localhost:3333/api/auth/logout-others",
       expect.objectContaining({ method: "POST" }),
     );
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("logout-all confirma e redireciona para login", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          message: "Sessões carregadas com sucesso.",
+          data: [
+            {
+              id: "current-session",
+              createdAt: "2026-07-12T10:00:00.000Z",
+              expiresAt: "2026-07-12T18:00:00.000Z",
+              lastSeenAt: "2026-07-12T11:00:00.000Z",
+              revokedAt: null,
+              isCurrent: true,
+              status: "active",
+              device: { label: "Chrome em Windows", userAgentSummary: "Chrome" },
+            },
+          ],
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          message: "Todas as sessões foram encerradas com sucesso.",
+          data: { revokedSessions: 1 },
+        }),
+      });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderPage();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Encerrar todas" }));
+    const dialog = screen.getByRole("dialog", { name: "Encerrar todas as sessões?" });
+
+    expect(dialog).toHaveAttribute("aria-modal", "true");
+    expect(screen.getByText(/Todos os acessos serão encerrados/i)).toBeInTheDocument();
+
+    const confirmButton = within(dialog).getByRole("button", { name: "Encerrar todas" });
+    fireEvent.click(confirmButton);
+    fireEvent.click(confirmButton);
+
+    await waitFor(() => {
+      expect(screen.getByText("Tela de login")).toBeInTheDocument();
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3333/api/auth/logout-all",
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

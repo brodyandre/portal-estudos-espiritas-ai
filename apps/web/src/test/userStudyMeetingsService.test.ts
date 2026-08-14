@@ -251,7 +251,7 @@ describe("userStudyMeetingsService", () => {
 
     await expect(listUserStudyMeetings()).rejects.toMatchObject({
       kind: "network",
-      message: "Nao foi possivel conectar ao backend local agora.",
+      message: "Nao foi possivel conectar ao servico do portal agora.",
     });
   });
 });

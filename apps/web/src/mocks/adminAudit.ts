@@ -37,7 +37,7 @@ const seededAuditEvents: AdminAuditEvent[] = [
     actorRole: "admin",
     action: "Admin alterou grupo",
     entity: "Grupo Emmanuel",
-    note: "Horário e mensagem de boas-vindas revisados no ambiente local.",
+    note: "Horário e mensagem de boas-vindas revisados para o portal.",
   },
   {
     id: "audit-event-005",
@@ -89,4 +89,3 @@ export const resetMockAdminAuditEvents = () => {
 
   window.sessionStorage.removeItem(AUDIT_EVENTS_STORAGE_KEY);
 };
-

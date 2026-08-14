@@ -167,7 +167,7 @@ describe("AdminUsersPage", () => {
     renderPage();
 
     expect(await screen.findByRole("alert")).toBeInTheDocument();
-    expect(screen.getByText("Não foi possível conectar ao backend local agora.")).toBeInTheDocument();
+    expect(screen.getByText("Não foi possível conectar ao serviço do portal agora.")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Tentar novamente" }));
 
@@ -182,7 +182,7 @@ describe("AdminUsersPage", () => {
 
     renderPage();
 
-    expect(await screen.findByText("Esta visualização usa apenas dados fictícios e não realiza chamadas para a API local.")).toBeInTheDocument();
+    expect(await screen.findByText("Esta visualização usa apenas dados fictícios e não realiza chamadas ao serviço do portal.")).toBeInTheDocument();
   });
 
   it("não exibe ações mutáveis no modo demonstrativo", async () => {

@@ -260,11 +260,11 @@ const hasAppliedFilters = (query: AppliedQuery) => {
 const getErrorMessage = (error: unknown) => {
   if (error instanceof ServiceRequestError) {
     if (error.code === "AUTH_REQUIRED") {
-      return "Sua sessão local expirou. Faça login novamente para continuar.";
+      return "Sua sessão expirou. Faça login novamente para continuar.";
     }
 
     if (error.code === "FORBIDDEN") {
-      return "Seu perfil não pode consultar esta lista no ambiente local.";
+      return "Seu perfil não pode consultar esta lista.";
     }
 
     if (error.retryAfterSeconds) {
@@ -272,7 +272,7 @@ const getErrorMessage = (error: unknown) => {
     }
 
     if (error.kind === "network") {
-      return "Não foi possível conectar ao backend local agora.";
+      return "Não foi possível conectar ao serviço do portal agora.";
     }
   }
 
@@ -282,7 +282,7 @@ const getErrorMessage = (error: unknown) => {
 const getStatusActionErrorMessage = (error: unknown) => {
   if (error instanceof ServiceRequestError) {
     if (error.kind === "network") {
-      return "Não foi possível conectar ao backend local agora. Verifique a API e tente novamente.";
+      return "Não foi possível conectar ao serviço do portal agora. Tente novamente.";
     }
 
     if (error.retryAfterSeconds) {
@@ -291,7 +291,7 @@ const getStatusActionErrorMessage = (error: unknown) => {
 
     switch (error.code) {
       case "AUTH_REQUIRED":
-        return "Sua sessão local expirou. Faça login novamente para alterar status.";
+        return "Sua sessão expirou. Faça login novamente para alterar status.";
       case "FORBIDDEN":
       case "ADMIN_USER_STATUS_ACTOR_NOT_AUTHORIZED":
         return "Seu perfil não pode alterar o status administrativo deste usuário.";
@@ -335,7 +335,7 @@ const getGroupListErrorMessage = (error: unknown) => {
     }
 
     if (error.kind === "network") {
-      return "Não foi possível carregar os grupos agora. Verifique a API local e tente novamente.";
+      return "Não foi possível carregar os grupos agora. Tente novamente.";
     }
   }
 
@@ -978,7 +978,7 @@ export const AdminUsersPage = () => {
           }
           onClick={() => openStatusConfirmation(user, nextStatus)}
           size="compact"
-          variant={nextStatus === "inactive" ? "secondary" : "primary"}
+          variant={nextStatus === "inactive" ? "destructive" : "primary"}
         >
           {isSubmitting ? `${actionLabel}...` : actionLabel}
         </Button>
@@ -1091,12 +1091,12 @@ export const AdminUsersPage = () => {
         <div className="section-header">
           <Badge tone="sand">Listagem protegida</Badge>
           <h2 id="admin-users-title">Usuários administrativos</h2>
-          <p>Consulta somente leitura de perfis cadastrados no ambiente local ou no modo demonstrativo.</p>
+          <p>Consulta de perfis cadastrados, com paginação, filtros e dados sensíveis mascarados.</p>
         </div>
 
         {currentSource === "demo" ? (
           <AlertBox title="Modo demonstrativo" tone="info">
-            Esta visualização usa apenas dados fictícios e não realiza chamadas para a API local.
+            Esta visualização usa apenas dados fictícios e não realiza chamadas ao serviço do portal.
           </AlertBox>
         ) : null}
 
@@ -1303,6 +1303,7 @@ export const AdminUsersPage = () => {
               <Button
                 disabled={Boolean(actionInFlight)}
                 onClick={() => void handleConfirmStatusChange()}
+                variant={confirmation.nextStatus === "inactive" ? "destructive" : "primary"}
               >
                 {actionInFlight
                   ? confirmation.nextStatus === "inactive"

@@ -29,7 +29,7 @@ export interface PageSectionContext {
 }
 
 export const appSidebarConfig: SidebarConfig = {
-  badge: "Projeto demonstrativo",
+  badge: "Portal de Educação Continuada",
   title: "Educação Continuada",
   description: "Programa acolhedor para encontros online via Google Meet.",
   footerTitle: "Apoio com revisão humana",
@@ -89,7 +89,7 @@ export const appSidebarConfig: SidebarConfig = {
       type: "route",
       to: "/admin",
       label: "Admin",
-      description: "Acesso administrativo local para revisão e acompanhamento.",
+      description: "Acesso administrativo para revisão e acompanhamento.",
     },
   ],
 };
@@ -217,10 +217,10 @@ export const teacherSidebarConfig: SidebarConfig = {
 export const adminSidebarConfig: SidebarConfig = {
   badge: "Área Administrativa",
   title: "Educação Continuada",
-  description: "Gestão demonstrativa de usuários, grupos, conteúdos, configurações e auditoria.",
-  footerTitle: "Uso local e privado",
+  description: "Gestão de usuários, grupos, conteúdos, configurações e auditoria.",
+  footerTitle: "Administração do portal",
   footerDescription:
-    "A operação administrativa real depende de backend local e futura autenticação segura por perfil.",
+    "Use esta área para acompanhar acessos, encontros e materiais com cuidado editorial.",
   navLabel: "Navegação da área administrativa",
   items: [
     {
@@ -233,7 +233,7 @@ export const adminSidebarConfig: SidebarConfig = {
       type: "route",
       to: "/admin/usuarios",
       label: "Usuários",
-      description: "Perfis demonstrativos, acessos e situação dos participantes.",
+      description: "Perfis, acessos e situação dos participantes.",
     },
     {
       type: "route",
@@ -257,13 +257,13 @@ export const adminSidebarConfig: SidebarConfig = {
       type: "route",
       to: "/admin/configuracoes",
       label: "Configurações",
-      description: "Parâmetros locais, modo demonstrativo e regras de exibição.",
+      description: "Parâmetros do portal e regras de exibição.",
     },
     {
       type: "route",
       to: "/admin/auditoria",
       label: "Auditoria",
-      description: "Registro demonstrativo de revisões, aprovações e mudanças locais.",
+      description: "Registro de revisões, aprovações e mudanças recentes.",
     },
     {
       type: "route",
@@ -277,7 +277,7 @@ export const adminSidebarConfig: SidebarConfig = {
 export const pageMeta = {
   "/": {
     title: "Início",
-    description: "Projeto demonstrativo para apoiar grupos de estudos online.",
+    description: "Portal para apoiar grupos de estudos online.",
   },
   "/portal": {
     title: "Portal",
@@ -317,11 +317,11 @@ export const pageMeta = {
   },
   "/minha-conta/seguranca": {
     title: "Segurança da Conta",
-    description: "Sessões ativas, encerramento de acessos antigos e cuidado com o ambiente local.",
+    description: "Sessões ativas, encerramento de acessos antigos e cuidado com a conta.",
   },
   "/admin": {
     title: "Área Administrativa",
-    description: "Resumo administrativo da aplicação em ambiente local ou demonstrativo.",
+    description: "Resumo administrativo do portal.",
   },
   "/admin/dashboard": {
     title: "Painel Administrativo",
@@ -329,7 +329,7 @@ export const pageMeta = {
   },
   "/admin/usuarios": {
     title: "Usuários",
-    description: "Perfis demonstrativos, papéis e situação dos acessos cadastrados.",
+    description: "Perfis, papéis e situação dos acessos cadastrados.",
   },
   "/admin/convites": {
     title: "Convites de acesso",
@@ -337,7 +337,7 @@ export const pageMeta = {
   },
   "/admin/grupos": {
     title: "Grupos",
-    description: "Acompanhamento simples dos grupos, agenda e vagas demonstrativas.",
+    description: "Acompanhamento simples dos grupos, agenda e vagas.",
   },
   "/admin/conteudos": {
     title: "Conteúdos",
@@ -345,11 +345,11 @@ export const pageMeta = {
   },
   "/admin/configuracoes": {
     title: "Configurações",
-    description: "Parâmetros de execução local, modo demo e regras da interface.",
+    description: "Parâmetros do portal e regras da interface.",
   },
   "/admin/auditoria": {
     title: "Auditoria",
-    description: "Histórico demonstrativo de aprovações, revisão e mudanças recentes.",
+    description: "Histórico de aprovações, revisão e mudanças recentes.",
   },
 } satisfies Record<string, { title: string; description: string }>;
 

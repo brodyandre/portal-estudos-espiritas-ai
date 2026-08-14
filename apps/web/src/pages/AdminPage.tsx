@@ -119,12 +119,12 @@ const sectionContent: Record<Exclude<AdminSection, "dashboard">, AdminSectionCon
     badge: "Pessoas e perfis",
     title: "Gestão de usuários",
     description:
-      "Revise os perfis simulados, acompanhe a situação de acesso e prepare a futura separação entre visitante, aluno, professor e admin.",
-    helper: "Nesta fase, os perfis são demonstrativos e servem para validar UX e organização de permissões.",
-    highlights: ["Visitantes em avaliação", "Alunos aprovados", "Professores revisores", "Administração local"],
+      "Revise perfis, acompanhe a situação de acesso e mantenha a separação entre visitante, aluno, professor e admin.",
+    helper: "Use esta visão para validar permissões, status e organização dos participantes.",
+    highlights: ["Visitantes em avaliação", "Alunos aprovados", "Professores revisores", "Administração"],
     notes: [
-      "Não publique dados reais de pessoas no frontend estático.",
-      "A autenticação real ficará para a próxima etapa do projeto.",
+      "Evite expor dados pessoais fora das telas administrativas específicas.",
+      "Revise permissões antes de liberar novos acessos.",
     ],
   },
   grupos: {
@@ -134,9 +134,9 @@ const sectionContent: Record<Exclude<AdminSection, "dashboard">, AdminSectionCon
     description:
       "Organize horários, capacidade, foco dos encontros e materiais de apoio de Emmanuel e A Caminho da Luz.",
     helper: "A ideia aqui é centralizar ajustes de operação sem misturar isso com a rotina do professor.",
-    highlights: ["Emmanuel na segunda", "A Caminho da Luz na quarta", "Meet protegido no modo público", "Materiais separados por grupo"],
+    highlights: ["Emmanuel na segunda", "A Caminho da Luz na quarta", "Meet protegido", "Materiais separados por grupo"],
     notes: [
-      "Mantenha o link da aula restrito ao ambiente local e a perfis autorizados.",
+      "Mantenha o link da aula restrito a perfis autorizados.",
       "Evite publicar detalhes operacionais sensíveis na versão pública.",
     ],
   },
@@ -145,25 +145,25 @@ const sectionContent: Record<Exclude<AdminSection, "dashboard">, AdminSectionCon
     badge: "Ambiente e regras",
     title: "Configurações do sistema",
     description:
-      "Confira os limites do modo demonstrativo, o uso do backend local e as regras de exibição segura do portal.",
-    helper: "Aqui ficam os pontos mais administrativos, como ambiente, visibilidade do Meet e dependência do backend local.",
-    highlights: ["Modo demo ativo no Pages", "Backend local restrito ao desenvolvimento", "Sem dados reais no frontend público", "Meet oculto em ambiente público"],
+      "Confira regras de exibição segura, nomes públicos e parâmetros visíveis do portal.",
+    helper: "Aqui ficam os pontos administrativos de identidade, visibilidade do Meet e mensagens públicas.",
+    highlights: ["Identidade pública", "URLs de divulgação", "Sem dados reais no frontend público", "Meet oculto em ambiente público"],
     notes: [
-      "O GitHub Pages publica somente a interface estática.",
-      "Recursos privados e administrativos completos dependem do backend local.",
+      "Não coloque segredos em campos públicos do frontend.",
+      "Recursos privados devem permanecer restritos a perfis autorizados.",
     ],
   },
   auditoria: {
     id: "admin-auditoria",
     badge: "Acompanhamento",
-    title: "Auditoria demonstrativa",
+    title: "Auditoria",
     description:
       "Visualize um histórico simples de decisões importantes para apoiar governança, revisão e evolução futura do projeto.",
-    helper: "Esta trilha ainda é demonstrativa e prepara o caminho para uma auditoria persistente em etapas futuras.",
+    helper: "Esta trilha ajuda a conferir revisões, aprovações e mudanças recentes.",
     highlights: ["Revisões de interessados", "Mudanças de status", "Publicações aprovadas", "Ajustes de conteúdo"],
     notes: [
-      "No MVP atual, não existe auditoria persistente no backend.",
-      "Uma versão futura deve registrar eventos com autenticação real e trilha segura.",
+      "Evite registrar conteúdo de mensagens privadas.",
+      "Mantenha eventos de auditoria limitados ao necessário para governança.",
     ],
   },
 };
@@ -173,7 +173,7 @@ const sectionMeta: Record<AdminSection, { description: string; helper: string; b
     badge: "Resumo geral",
     description:
       "Acompanhe os pontos principais do portal em um painel simples, com leitura rápida e sem expor dados pessoais sensíveis.",
-    helper: "Este painel resume inscrições, grupos, materiais, revisões e o status atual do backend local.",
+    helper: "Este painel resume inscrições, grupos, materiais, revisões e o estado atual do portal.",
   },
   usuarios: {
     badge: sectionContent.usuarios.badge,
@@ -209,8 +209,8 @@ const quickActions = [
   {
     eyebrow: "Ação rápida",
     title: "Gerenciar usuários",
-    description: "Consulte perfis, status de acesso e a organização demonstrativa dos papéis.",
-    meta: "Área administrativa demonstrativa.",
+    description: "Consulte perfis, status de acesso e a organização dos papéis.",
+    meta: "Área administrativa.",
     actionLabel: "Abrir usuários",
     to: "/admin/usuarios",
   },
@@ -233,7 +233,7 @@ const quickActions = [
   {
     eyebrow: "Ação rápida",
     title: "Ver configurações",
-    description: "Confira modo local, fallback demonstrativo e regras de exibição segura.",
+    description: "Confira regras de exibição segura e parâmetros públicos.",
     meta: "Controle do ambiente atual.",
     actionLabel: "Abrir configurações",
     to: "/admin/configuracoes",
@@ -262,14 +262,14 @@ const createDashboardCardData = (data: AdminDashboardData) => [
     title: statusLabelByKey.approvedStudents,
     value: data.approvedStudents,
     tone: "default" as const,
-    helper: "Total demonstrativo de alunos aprovados no fluxo atual.",
+    helper: "Total de alunos aprovados no fluxo atual.",
   },
   {
     key: "totalTeachers",
     title: statusLabelByKey.totalTeachers,
     value: data.totalTeachers,
     tone: "default" as const,
-    helper: "Perfis de professor disponíveis no ambiente demonstrativo.",
+    helper: "Perfis de professor disponíveis para acompanhamento.",
   },
   {
     key: "activeGroups",
@@ -303,7 +303,7 @@ const countBackendStatus = (results: Array<ServiceResult<unknown>>) => {
 };
 
 const renderBackendStatusLabel = (status: AdminDashboardData["backendStatus"]) => {
-  return status === "online" ? "online" : "fallback demonstrativo";
+  return status === "online" ? "online" : "dados de apoio";
 };
 
 const userRoleOptions = [
@@ -640,7 +640,7 @@ export const AdminPage = ({ section }: AdminPageProps) => {
       return [
         { label: "Pendências", value: String(dashboardData.pendingEnrollments) },
         { label: "Grupos ativos", value: String(dashboardData.activeGroups) },
-        { label: "Backend", value: renderBackendStatusLabel(dashboardData.backendStatus) },
+        { label: "Fonte", value: renderBackendStatusLabel(dashboardData.backendStatus) },
       ];
     }
 
@@ -651,7 +651,7 @@ export const AdminPage = ({ section }: AdminPageProps) => {
           label: "Ativos",
           value: String(usersState.users.filter((user) => user.status === "active").length),
         },
-        { label: "Backend", value: renderBackendStatusLabel(usersState.backendStatus) },
+        { label: "Fonte", value: renderBackendStatusLabel(usersState.backendStatus) },
       ];
     }
 
@@ -662,7 +662,7 @@ export const AdminPage = ({ section }: AdminPageProps) => {
           label: "Ativos",
           value: String(groupsState.groups.filter((group) => group.status === "active").length),
         },
-        { label: "Backend", value: renderBackendStatusLabel(groupsState.backendStatus) },
+        { label: "Fonte", value: renderBackendStatusLabel(groupsState.backendStatus) },
       ];
     }
 
@@ -673,10 +673,10 @@ export const AdminPage = ({ section }: AdminPageProps) => {
           label: "Publicação",
           value:
             settingsState.settings.publicationMode === "producao_futura"
-              ? "produção futura"
+              ? "planejado"
               : settingsState.settings.publicationMode,
         },
-        { label: "Backend", value: renderBackendStatusLabel(settingsState.backendStatus) },
+        { label: "Fonte", value: renderBackendStatusLabel(settingsState.backendStatus) },
       ];
     }
 
@@ -687,7 +687,7 @@ export const AdminPage = ({ section }: AdminPageProps) => {
           label: "Atores",
           value: String(new Set(auditState.events.map((event) => event.actorName)).size),
         },
-        { label: "Backend", value: renderBackendStatusLabel(auditState.backendStatus) },
+        { label: "Fonte", value: renderBackendStatusLabel(auditState.backendStatus) },
       ];
     }
 
@@ -958,7 +958,7 @@ export const AdminPage = ({ section }: AdminPageProps) => {
     setActionMessage(
       nextStatus === "active"
         ? `Grupo ${group.name} ativado para novos encontros.`
-        : `Grupo ${group.name} inativado nesta configuração demonstrativa.`,
+        : `Grupo ${group.name} inativado nesta configuração.`,
     );
   };
 
@@ -1011,7 +1011,7 @@ export const AdminPage = ({ section }: AdminPageProps) => {
       backendStatus: result.source === "api" ? "online" : "fallback",
     });
     setAdminSettingsDraft(result.data);
-    setActionMessage("Configurações demonstrativas salvas com sucesso.");
+    setActionMessage("Configurações salvas com sucesso.");
   };
 
   return (
@@ -1221,7 +1221,7 @@ const AdminAuditSection = ({ auditState, isLoading }: AdminAuditSectionProps) =>
     return (
       <EmptyState
         title="Auditoria indisponível"
-        description="Não foi possível carregar a trilha demonstrativa de auditoria agora."
+        description="Não foi possível carregar a trilha de auditoria agora."
       />
     );
   }
@@ -1231,7 +1231,7 @@ const AdminAuditSection = ({ auditState, isLoading }: AdminAuditSectionProps) =>
       <SectionHeader
         badge="Acompanhamento"
         helper="Acompanhe ações importantes do MVP sem expor dados desnecessários nem conteúdo de mensagens privadas."
-        title="Auditoria demonstrativa"
+        title="Auditoria"
       />
 
       {auditState.notice ? (
@@ -1239,14 +1239,14 @@ const AdminAuditSection = ({ auditState, isLoading }: AdminAuditSectionProps) =>
           {auditState.notice}
         </AlertBox>
       ) : (
-        <AlertBox title="Backend online" tone="success">
-          Os eventos foram carregados pelo backend local.
+        <AlertBox title="Eventos carregados" tone="success">
+          Os eventos foram atualizados pelo serviço do portal.
         </AlertBox>
       )}
 
       <AlertBox title="Cuidados desta trilha" tone="warning">
         Esta visão não registra conteúdo de mensagens privadas nem dados sensíveis além do necessário.
-        Em produção, a auditoria deve vir do backend.
+        A trilha completa deve vir do serviço autenticado do portal.
       </AlertBox>
 
       <div className="page-stack">
@@ -1338,13 +1338,13 @@ const AdminSettingsSection = ({
           {settingsState.notice}
         </AlertBox>
       ) : (
-        <AlertBox title="Backend online" tone="success">
-          As configurações foram carregadas pelo backend local.
+        <AlertBox title="Configurações carregadas" tone="success">
+          As configurações foram atualizadas pelo serviço do portal.
         </AlertBox>
       )}
 
       <AlertBox title="Aviso de segurança" tone="warning">
-        Configurações sensíveis devem ficar no backend em produção.
+        Configurações sensíveis devem permanecer fora da interface pública.
       </AlertBox>
 
       {actionMessage ? (
@@ -1369,7 +1369,7 @@ const AdminSettingsSection = ({
           />
           <TextInput
             id="admin-settings-public-url"
-            label="URL pública do GitHub Pages"
+            label="URL pública do portal"
             onChange={(event) => onDraftChange("publicPagesUrl", event.target.value)}
             value={draft.publicPagesUrl}
           />
@@ -1422,8 +1422,8 @@ const AdminSettingsSection = ({
             {draft.publicationMode === "producao_futura"
               ? "Produção futura planejada"
               : draft.publicationMode === "local"
-                ? "Uso local autorizado"
-                : "Fluxo demonstrativo"}
+                ? "Uso restrito"
+                : "Fluxo de apoio"}
           </Badge>
         </div>
 
@@ -1508,7 +1508,7 @@ const AdminUsersSection = ({
     <section className="page-section admin-overview" id="admin-usuarios">
       <SectionHeader
         badge="Pessoas e perfis"
-        helper="Gerencie usuários com ações simuladas, filtros rápidos e registro demonstrativo de auditoria."
+        helper="Gerencie usuários com filtros rápidos, ações de status e registro de auditoria."
         title="Gestão de usuários"
       />
 
@@ -1517,14 +1517,14 @@ const AdminUsersSection = ({
           {usersState.notice}
         </AlertBox>
       ) : (
-        <AlertBox title="Backend online" tone="success">
-          Os usuários foram atualizados pelo backend local.
+        <AlertBox title="Usuários atualizados" tone="success">
+          Os usuários foram atualizados pelo serviço do portal.
         </AlertBox>
       )}
 
       <AlertBox title="Cuidados desta tela" tone="warning">
         As ações desta fase são simuladas. Em produção, ativação de usuário, mudança de perfil,
-        vínculo de grupo e observações administrativas exigem backend autenticado.
+        vínculo de grupo e observações administrativas exigem ambiente autenticado.
       </AlertBox>
 
       {actionMessage ? (
@@ -1669,11 +1669,11 @@ const AdminUsersSection = ({
         </div>
 
         <Card className="admin-audit-card" tone="soft">
-          <p className="card-eyebrow">Auditoria demonstrativa</p>
+          <p className="card-eyebrow">Auditoria</p>
           <h3>Últimas ações administrativas</h3>
           <p>
             As ações executadas nesta tela são registradas em um log mockado local. Em produção,
-            esse histórico deve ficar no backend autenticado.
+            esse histórico deve ficar no serviço autenticado do portal.
           </p>
 
           <div className="stack-list">
@@ -1728,28 +1728,28 @@ const AdminDashboardSection = ({ data, isLoading }: AdminDashboardSectionProps) 
     <section className="page-section admin-overview" id="admin-dashboard">
       <SectionHeader
         badge="Resumo geral"
-        helper="Este painel resume inscrições, grupos, materiais, revisões e o status atual do backend local."
+        helper="Este painel resume inscrições, grupos, materiais, revisões e o estado atual do portal."
         title="Dashboard administrativo"
       />
 
       {data.notice ? (
-        <AlertBox title="Fallback demonstrativo em uso" tone="info">
+        <AlertBox title="Dados de apoio em uso" tone="info">
           {data.notice}
         </AlertBox>
       ) : (
-        <AlertBox title="Backend online" tone="success">
-          Os dados do dashboard foram atualizados pelo backend local.
+        <AlertBox title="Dashboard atualizado" tone="success">
+          Os dados do dashboard foram atualizados pelo serviço do portal.
         </AlertBox>
       )}
 
       <Card className="admin-status-card" tone="soft" padded>
         <div className="admin-status-card__top">
           <div>
-            <p className="card-eyebrow">Status do backend</p>
+            <p className="card-eyebrow">Estado dos dados</p>
             <h3>{renderBackendStatusLabel(data.backendStatus)}</h3>
           </div>
           <Badge tone={data.backendStatus === "online" ? "success" : "sand"}>
-            {data.backendStatus === "online" ? "online" : "fallback demonstrativo"}
+            {data.backendStatus === "online" ? "online" : "dados de apoio"}
           </Badge>
         </div>
         <p>
@@ -1848,15 +1848,15 @@ const AdminGroupsSection = ({
           {groupsState.notice}
         </AlertBox>
       ) : (
-        <AlertBox title="Backend online" tone="success">
-          Os grupos foram atualizados pelo backend local.
+        <AlertBox title="Grupos atualizados" tone="success">
+          Os grupos foram atualizados pelo serviço do portal.
         </AlertBox>
       )}
 
       <AlertBox title="Regra do link da aula" tone="warning">
-        O link do Google Meet nunca aparece em páginas públicas. Nesta tela administrativa, o
-        ambiente local pode mostrar o link real. No GitHub Pages, mostramos apenas um link
-        demonstrativo.
+        O link do Google Meet nunca aparece em páginas públicas. Nesta tela administrativa, os
+        perfis autorizados podem visualizar o link real. Na visualização pública, mostramos apenas
+        um link de apoio.
       </AlertBox>
 
       {actionMessage ? (
@@ -1933,7 +1933,7 @@ const AdminGroupsSection = ({
 
               <div className="admin-group-card__meta">
                 <Badge tone="sand">
-                  {appConfig.canShowRealMeetLink ? "Ambiente local com link real" : "Versão pública com link demonstrativo"}
+                  {appConfig.canShowRealMeetLink ? "Link real disponível" : "Link de apoio"}
                 </Badge>
                 <Badge tone="brand">
                   Prévia do aluno: {studentPreviewStatus === "approved" ? "aprovado" : "bloqueado"}
