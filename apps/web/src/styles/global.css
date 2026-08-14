@@ -707,6 +707,20 @@ img {
   align-items: start;
 }
 
+.admin-user-filter-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.admin-user-filter-actions > .button {
+  flex: none;
+  width: auto;
+}
+
 .admin-modal-backdrop {
   position: fixed;
   inset: 0;

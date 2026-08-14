@@ -1201,11 +1201,11 @@ export const AdminUsersPage = () => {
               />
             </div>
 
-            <div className="button-row">
-              <Button type="submit">Aplicar filtros</Button>
-              <Button onClick={handleClearFilters} type="button" variant="secondary">
+            <div className="admin-user-filter-actions">
+              <Button onClick={handleClearFilters} size="compact" type="button" variant="secondary">
                 Limpar filtros
               </Button>
+              <Button size="compact" type="submit">Aplicar filtros</Button>
             </div>
           </form>
         </Card>
