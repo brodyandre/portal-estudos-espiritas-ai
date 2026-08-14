@@ -90,7 +90,24 @@ describe("api environment config", () => {
     expect(config.corsOrigins).toEqual(["https://portal-educacao-continuada.com.br"]);
     expect(config.trustProxyHops).toBe(1);
     expect(config.smtpEnabled).toBe(false);
+    expect(config.smtpFromName).toBe("Portal de Educação Continuada");
     expect(config.llmProvider).toBe("ollama");
+  });
+
+  it("usa identidade pública como remetente SMTP padrão quando o nome não é configurado", () => {
+    const config = buildEnv({
+      NODE_ENV: "development",
+      APP_PUBLIC_URL: "http://localhost:5173",
+      SMTP_ENABLED: "true",
+      SMTP_HOST: "localhost",
+      SMTP_PORT: "1025",
+      SMTP_SECURE: "false",
+      SMTP_FROM_EMAIL: "no-reply@example.local",
+    });
+
+    expect(config.smtpEnabled).toBe(true);
+    expect(config.smtpFromName).toBe("Portal de Educação Continuada");
+    expect(config.smtpFromEmail).toBe("no-reply@example.local");
   });
 
   it("aceita configuração SMTP completa em produção sem conectar ao provedor", () => {

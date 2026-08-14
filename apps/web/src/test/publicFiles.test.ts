@@ -14,7 +14,12 @@ describe("public web metadata files", () => {
     const html = readWebFile("index.html");
 
     expect(html).toContain('<html lang="pt-BR">');
-    expect(html).toContain("Portal de Estudos Espíritas com IA | Educação Continuada");
+    expect(html).toContain("<title>Portal de Educação Continuada</title>");
+    expect(html).toContain('property="og:title" content="Portal de Educação Continuada"');
+    expect(html).toContain('property="og:site_name" content="Portal de Educação Continuada"');
+    expect(html).toContain('name="twitter:title" content="Portal de Educação Continuada"');
+    expect(html).not.toContain("Portal de Estudos Espíritas com IA | Educação Continuada");
+    expect(html).not.toContain('property="og:site_name" content="Portal de Estudos Espíritas com IA"');
     expect(html).toContain('rel="canonical" href="https://portal-educacao-continuada.com.br/"');
     expect(html).toContain('rel="icon" href="%BASE_URL%branding/logo_EC.png"');
     expect(html).toContain('property="og:type" content="website"');

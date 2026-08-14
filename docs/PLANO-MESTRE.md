@@ -81,7 +81,7 @@ Concluida e integrada pelo PR #48 no commit `400038c8299ce9cd3db99f424a246774ce8
 
 Finding separado:
 
-- W-001 -- P3: marca antiga permanece somente em fixtures `SMTP_FROM_NAME`, asserts negativos e contextos locais deliberados, sem impacto no runtime/template transacional.
+- W-001 -- P3: W-001A identificou escopo material em metadados publicos da Web e no default versionado de `SMTP_FROM_NAME`; W-001B corrige esse escopo em source, preservando fixtures, asserts negativos e contextos locais deliberados. O encerramento depende de integracao, publicacao aplicavel da Web e validacao operacional.
 
 #### 9C.12.3 -- Documentacao e validacao final
 
@@ -133,7 +133,7 @@ Limites: o smoke nao validou `transactional_email_send_failed` em producao, flux
 ## Backlog Atual
 
 - F-001 -- P3: timeouts historicos variaveis/flaky em testes nao modificados; F-001A nao reproduziu o problema, validou testes historicos Web/API repetidamente, suites completas Web/API e CIs recentes, sem evidencia de mascaramento por aumento global de timeout. Permanece como risco residual/historico.
-- W-001 -- P3: marca antiga permanece somente em fixtures `SMTP_FROM_NAME`, asserts negativos e contextos locais deliberados, sem impacto no runtime/template transacional.
+- W-001 -- P3: W-001A identificou escopo material em metadados publicos da Web e no default versionado de `SMTP_FROM_NAME`; W-001B corrige esse escopo em source, preservando fixtures, asserts negativos e contextos locais deliberados. O encerramento depende de integracao, publicacao aplicavel da Web e validacao operacional.
 - DOC-001 -- RESOLVIDO: stale factual em documentos auxiliares corrigido, documentos historicos explicitamente marcados, contratos executaveis reconciliados e nenhum runtime alterado.
 - Rate limit de password recovery/reset em memoria do processo: P2 conceitual antes de escala horizontal, nao bloqueante enquanto houver replica unica.
 - Observabilidade SMTP futura: dashboard, metricas agregadas, webhooks, integracoes de provider, fluxo de convite e caminho SMTP de falha em producao permanecem fora do escopo atual e dependem de necessidade operacional concreta.
