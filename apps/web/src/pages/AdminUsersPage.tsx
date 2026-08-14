@@ -1036,19 +1036,19 @@ export const AdminUsersPage = () => {
   const renderUser = (user: AdminUserListItem) => (
     <Card as="article" className="admin-user-card" key={user.id}>
       <div className="admin-user-card__header">
-        <div>
+        <div className="admin-user-card__identity">
           <p className="card-eyebrow">Usuário administrativo</p>
           <h3>{user.name}</h3>
           <p>{user.emailMasked}</p>
+
+          <div className="admin-pill-row" aria-label="Classificações do usuário">
+            <Badge tone="brand">{roleLabels[user.role]}</Badge>
+            <Badge tone={activationBadgeTone[user.activationStatus]}>
+              {activationLabels[user.activationStatus]}
+            </Badge>
+          </div>
         </div>
         <StatusTag label={statusLabels[user.status]} tone={statusToneByUserStatus[user.status]} />
-      </div>
-
-      <div className="admin-pill-row" aria-label="Classificações do usuário">
-        <Badge tone="brand">{roleLabels[user.role]}</Badge>
-        <Badge tone={activationBadgeTone[user.activationStatus]}>
-          {activationLabels[user.activationStatus]}
-        </Badge>
       </div>
 
       <dl className="admin-user-card__meta">
