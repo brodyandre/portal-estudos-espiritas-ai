@@ -4,7 +4,7 @@ import { cn } from "../../app/cn";
 
 interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
   children: ReactNode;
-  tone?: "neutral" | "brand" | "sand" | "success";
+  tone?: "neutral" | "brand" | "sand" | "success" | "warning" | "danger" | "info";
 }
 
 export const Badge = ({ children, tone = "neutral", className, ...rest }: BadgeProps) => {

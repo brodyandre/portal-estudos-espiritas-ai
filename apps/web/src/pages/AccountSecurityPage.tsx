@@ -22,6 +22,12 @@ const formatDateTime = (value?: string | null) => {
   }).format(new Date(value));
 };
 
+const sessionStatusLabels: Record<AuthSessionView["status"], string> = {
+  active: "Ativa",
+  expired: "Expirada",
+  revoked: "Encerrada",
+};
+
 const demoSessions = (currentUserEmail?: string | null): AuthSessionView[] => [
   {
     id: "demo-current",
@@ -33,7 +39,7 @@ const demoSessions = (currentUserEmail?: string | null): AuthSessionView[] => [
     status: "active",
     device: {
       label: "Chrome em Windows",
-      userAgentSummary: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/126.0",
+      userAgentSummary: "Navegador reconhecido em ambiente demonstrativo.",
     },
   },
   {
@@ -299,7 +305,7 @@ export const AccountSecurityPage = () => {
             <Button
               disabled={isRevokingOthers || isRevokingAll}
               onClick={(event: MouseEvent<HTMLButtonElement>) => requestLogoutOthers(event.currentTarget)}
-              variant="destructive"
+              variant="destructiveSecondary"
             >
               Encerrar outras sessões
             </Button>
@@ -355,7 +361,9 @@ export const AccountSecurityPage = () => {
                   <p className="session-card__eyebrow">{session.isCurrent ? "Sessão atual" : "Sessão ativa"}</p>
                   <h2>{session.device.label}</h2>
                 </div>
-                <span className={`session-card__status session-card__status--${session.status}`}>{session.status}</span>
+                <span className={`session-card__status session-card__status--${session.status}`}>
+                  {sessionStatusLabels[session.status]}
+                </span>
               </div>
 
               <dl className="session-card__meta">
@@ -382,6 +390,7 @@ export const AccountSecurityPage = () => {
                   <Button
                     disabled={isRevoking === session.id || isRevokingOthers || isRevokingAll}
                     onClick={(event: MouseEvent<HTMLButtonElement>) => requestRevokeSession(session, event.currentTarget)}
+                    size="compact"
                     type="button"
                     variant="destructive"
                   >
@@ -398,10 +407,10 @@ export const AccountSecurityPage = () => {
 
       {!appConfig.isGithubPages && !isDemoMode ? null : (
         <Card tone="soft">
-          <h2>Uso demonstrativo e uso local</h2>
+          <h2>Experiência demonstrativa</h2>
           <p>
-            No GitHub Pages, esta tela existe para demonstrar a experiência. No ambiente local autorizado,
-            as ações passam a revogar sessões reais sem expor identificadores técnicos na interface.
+            Nesta demonstração, a lista simula sessões para revisão da experiência. Em ambiente autorizado,
+            as ações encerram acessos reais sem mostrar identificadores técnicos na interface.
           </p>
         </Card>
       )}
@@ -427,18 +436,18 @@ export const AccountSecurityPage = () => {
             <div className="button-row">
               <Button
                 disabled={isAnyRevocationLoading}
-                onClick={() => void handleConfirmSecurityAction()}
-                variant="destructive"
-              >
-                {dialogContent.confirmLabel}
-              </Button>
-              <Button
-                disabled={isAnyRevocationLoading}
                 onClick={closeConfirmationDialog}
                 id={CANCEL_CONFIRMATION_BUTTON_ID}
                 variant="secondary"
               >
                 Cancelar
+              </Button>
+              <Button
+                disabled={isAnyRevocationLoading}
+                onClick={() => void handleConfirmSecurityAction()}
+                variant="destructive"
+              >
+                {dialogContent.confirmLabel}
               </Button>
             </div>
           </Card>

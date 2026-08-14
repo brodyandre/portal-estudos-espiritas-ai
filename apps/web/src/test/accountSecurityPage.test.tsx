@@ -92,6 +92,8 @@ describe("AccountSecurityPage", () => {
 
     expect(await screen.findByRole("heading", { name: "Sessões ativas" })).toBeInTheDocument();
     expect(screen.getAllByText("Sessão atual").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Ativa")).toHaveLength(2);
+    expect(screen.queryByText("active")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Encerrar sessão" })).toBeInTheDocument();
   });
 
@@ -344,6 +346,13 @@ describe("AccountSecurityPage", () => {
 
     expect(dialog).toHaveAttribute("aria-modal", "true");
     expect(screen.getByText(/Todos os acessos serão encerrados/i)).toBeInTheDocument();
+
+    const dialogButtons = within(dialog).getAllByRole("button");
+    expect(dialogButtons.map((button) => button.textContent)).toEqual(["Cancelar", "Encerrar todas"]);
+
+    await waitFor(() => {
+      expect(within(dialog).getByRole("button", { name: "Cancelar" })).toHaveFocus();
+    });
 
     const confirmButton = within(dialog).getByRole("button", { name: "Encerrar todas" });
     fireEvent.click(confirmButton);

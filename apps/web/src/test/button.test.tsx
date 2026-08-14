@@ -16,4 +16,12 @@ describe("Button", () => {
     expect(button).toHaveClass("button--destructive");
     expect(button).toBeDisabled();
   });
+
+  it("renderiza a variante destructive secundária para ações sensíveis de menor peso", () => {
+    render(<Button variant="destructiveSecondary">Encerrar outras sessões</Button>);
+
+    expect(screen.getByRole("button", { name: "Encerrar outras sessões" })).toHaveClass(
+      "button--destructive-secondary",
+    );
+  });
 });
