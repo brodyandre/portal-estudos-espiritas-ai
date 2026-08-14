@@ -2,7 +2,7 @@
 
 [![Continuous Integration](https://github.com/brodyandre/portal-estudos-espiritas-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/brodyandre/portal-estudos-espiritas-ai/actions/workflows/ci.yml)
 
-Aplicacao web demonstrativa para apoiar grupos de estudos espiritas online via Google Meet, com experiencia separada para aluno e professor, frontend publicavel no GitHub Pages e backend local com apoio opcional de Ollama.
+Aplicacao web para apoiar grupos de estudos espiritas online via Google Meet, com experiencia separada para aluno e professor, frontend publicavel em modo demo no GitHub Pages e producao oficial conectada a API hospedada.
 
 Por responsabilidade editorial e direitos autorais, o projeto nao versiona os PDFs das obras. A base de conhecimento utiliza arquivos Markdown autorais, curtos e revisaveis.
 
@@ -305,7 +305,7 @@ curl -X POST http://localhost:3333/api/agent/answer \
   -H "Content-Type: application/json" \
   -d '{
     "question": "Como continuar estudando mesmo desanimado?",
-    "group": "Emmanuel"
+    "groupId": "emmanuel"
   }'
 ```
 
@@ -332,24 +332,23 @@ O que fica publicado:
 - base de conhecimento autoral em formato resumido
 - mocks nao sensiveis para grupos, materiais e respostas demonstrativas
 
-O que continua local nesta fase:
+O que nao e hospedado pelo GitHub Pages nesta fase:
 
-- backend em Express
-- PostgreSQL local via Docker Compose
-- autenticação local por JWT
-- revisao administrativa real em `/admin` e `/professor`
-- endpoints da base de conhecimento
-- assistente completo
-- Ollama
+- backend, banco e servicos privados
+- PostgreSQL local via Docker Compose quando em desenvolvimento
+- autenticacao por JWT, sessoes e operacoes administrativas reais
+- endpoints da base de conhecimento e assistente completo
+- Ollama, quando usado como provider local
 - carregamento real dos arquivos Markdown pelo backend
 - acesso privado real do aluno aprovado
-- link real do Google Meet apenas para ambiente local autorizado
+- link real do Google Meet apenas para ambiente autorizado
 
 Na pratica:
 
 - o site publicado continua navegavel e util sem backend
 - a experiencia completa de respostas e busca na base roda melhor com a API local
 - a versao publica nao mostra link real do Meet nem dados reais sensiveis
+- a producao oficial usa Web em `https://portal-educacao-continuada.com.br` conectada a API hospedada em `https://api.portal-educacao-continuada.com.br`
 
 ## PostgreSQL local
 
@@ -415,19 +414,11 @@ O que nao pode ser publicado:
 
 Na pratica, o frontend publicado pode mostrar estrutura, navegacao e dados de exemplo, mas nao deve ser tratado como ambiente seguro para operacao real.
 
-## Evolução para produção real
+## Produção oficial e GitHub Pages
 
-Para sair do modo demonstrativo e chegar a uma operacao real, o projeto deve evoluir para:
+O GitHub Pages continua apenas como interface publica e demonstrativa. A producao oficial atual usa Web e API hospedadas separadamente, com autenticacao, autorizacao por papeis, PostgreSQL, sessoes e fluxos administrativos protegidos no backend.
 
-- backend autenticado para aluno, professor e admin
-- autorizacao por perfil e por recurso
-- persistencia segura de usuarios, grupos, auditoria e configuracoes
-- entrega do link real do Meet apenas pelo backend autorizado
-- armazenamento de configuracoes sensiveis fora do frontend
-- trilha de auditoria real vinda do backend
-- hospedagem separada para API e servicos privados
-
-Enquanto essa etapa nao chega, o GitHub Pages deve continuar apenas como interface publica e demonstrativa.
+Configuracoes sensiveis continuam fora do frontend. Evolucoes futuras devem focar autorizacao mais granular, hardening operacional e controles distribuidos antes de escala horizontal.
 
 ## Experiencias e rotas
 
@@ -480,8 +471,8 @@ Regras principais:
 - aluno aprovado ve link do Meet e materiais
 - professor aprova alunos e revisa conteudos
 - admin gerencia usuarios, grupos, catalogo editorial de conteudos, configuracoes e auditoria
-- no frontend publicado, essas regras ainda sao apenas demonstrativas
-- seguranca real depende de backend autenticado em evolucao futura
+- no GitHub Pages/demo, essas regras ainda sao apenas demonstrativas
+- na producao oficial, areas autenticadas dependem da API hospedada e protegida por autenticacao/autorizacao
 
 ## Modos da aplicacao
 
@@ -560,8 +551,8 @@ Regras importantes:
 - o QR Code deve apontar para `/educacao-continuada`
 - professores revisam as solicitacoes antes de liberar o encontro
 - temas sensiveis continuam exigindo revisao humana
-- o MVP usa controle simples de acesso no frontend
-- autenticacao real e melhoria futura
+- o GitHub Pages/demo usa controle simples de acesso no frontend
+- a producao oficial usa autenticacao via API hospedada
 
 Exemplo de fluxo:
 

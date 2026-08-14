@@ -1,5 +1,7 @@
 # Area Separation Review
 
+> Documento historico: esta revisao e uma fotografia de uma etapa anterior da aplicacao. Algumas limitacoes registradas aqui foram superadas e este arquivo nao deve ser usado como fonte do estado operacional atual. Para o estado vigente consulte `docs/ESTADO_ATUAL_PROJETO.md`, `docs/PLANO-MESTRE.md` e `docs/DECISOES.md`.
+
 ## Objetivo
 
 Registrar a validacao final da separacao entre as areas `Publico`, `Aluno`, `Professor` e `Admin`, considerando o modo demonstrativo no GitHub Pages e o modo local com backend.

@@ -123,27 +123,25 @@ Escopo atual entregue:
 - modo demonstrativo do GitHub Pages com dados ficticios
 - ausencia de fallback silencioso para mocks no modo local
 
-Fora do escopo desta entrega:
+Fora do escopo desta entrega especifica:
 
 - novas alteracoes no fluxo de ativacao ou inativacao; os controles ja existentes em `/admin/usuarios` permanecem disponiveis e inalterados
 - alteracao de papel
 - observacao administrativa
 - detalhes administrativos expandidos
 - auditoria na tela
-- redefinicao de senha iniciada pela pagina nova
 - outras mutacoes
 
 Limite importante:
 
 - essa tela usa autenticacao local simples, sem hardening de producao
-- a operacao segura em producao exige backend hospedado, observabilidade e controles de acesso mais fortes
+- a operacao segura em producao depende da API hospedada, observabilidade e controles de acesso fortes
 - o log demonstrativo atual nao substitui auditoria persistente de producao
 
-Evolucoes futuras planejadas - ainda nao implementadas:
+Evolucoes futuras planejadas para esta pagina:
 
 - ampliar o fluxo de ativacao e inativacao com novas regras, estados transientes adicionais e tratamento expandido de conflitos
 - simulacao de alteracao de perfil, vinculo com grupo e observacao administrativa
-- redefinicao de senha por admin em fluxo dedicado
 - registro dessas acoes em um audit log demonstrativo local
 
 Observacao de escopo backend atual:
@@ -153,16 +151,20 @@ Observacao de escopo backend atual:
 - a pagina `/admin/usuarios` ja renderiza botoes de ativacao ou inativacao com confirmacao e feedback seguro;
 - a mesma pagina permite vincular, substituir ou remover o grupo do usuario sem alterar o status da conta.
 
-Regras previstas para futura redefinicao de senha:
+Redefinicao administrativa de senha:
 
-- apenas admin pode executar a acao
-- o proprio admin nao deve usar esse endpoint para redefinir a propria senha
-- a senha temporaria aparece uma unica vez na interface
-- sessoes anteriores do usuario sao encerradas
-- o usuario deve trocar a senha no proximo acesso
-- o endpoint possui limite de uso por admin e por usuario-alvo
-- o limite por usuario-alvo e compartilhado entre administradores
-- quando o limite e excedido, a interface deve orientar o admin a aguardar antes de tentar novamente
+- o backend expoe `POST /api/admin/users/:userId/reset-password`;
+- apenas admin pode executar a acao;
+- o proprio admin nao deve usar esse endpoint para redefinir a propria senha;
+- o endpoint gera senha temporaria forte e retorna esse valor apenas uma vez;
+- `mustChangePassword` volta para `true`;
+- `temporaryPasswordGeneratedAt` e `passwordChangedAt` sao atualizados;
+- sessoes e tokens anteriores do usuario sao invalidados conforme o contrato;
+- status, papel e demais dados do usuario sao preservados;
+- ha audit log sem senha nem hash;
+- o endpoint possui limite de uso por admin e por usuario-alvo, compartilhado entre administradores para o mesmo alvo;
+- quando o limite e excedido, a interface deve orientar o admin a aguardar antes de tentar novamente;
+- a pagina administrativa ja possui acao/modal para executar a redefinicao, exibindo a senha temporaria uma unica vez.
 
 ### `/admin/convites`
 
@@ -528,6 +530,7 @@ No ambiente local:
 - usa autenticacao local simples nesta fase
 - serve apenas como MVP de operacao interna
 - a tela `/admin/usuarios` consome a listagem administrativa real no modo local, permite mutacoes administrativas locais e usa dados ficticios no GitHub Pages
+- a tela `/admin/usuarios` pode executar redefinicao administrativa de senha contra a API conectada
 - a tela `/admin/convites` consome endpoints administrativos reais da API local e preserva respostas seguras
 - a tela `/admin/grupos` pode revisar configuracoes do grupo e mostrar o Meet real apenas no ambiente local autorizado
 
@@ -539,13 +542,12 @@ Nesta fase do projeto:
 - isso nao significa que professor e admin sejam o mesmo perfil
 - a separacao conceitual de rotas ja deve existir na documentacao
 - a tela de convites ja depende de autorizacao local por papel
-- a separacao funcional completa de producao fica para a etapa com backend hospedado e controles persistentes
+- a separacao funcional completa continua evoluindo por controles persistentes e autorizacao mais granular
 
 ## Limites atuais
 
 - sem hardening de login para producao
 - sem autorizacao fina por recurso alem do papel local
-- sem trilha de auditoria persistente
 - sem segregacao forte entre professor e admin
 
 ## Evolucao futura recomendada
@@ -554,16 +556,13 @@ Nesta fase do projeto:
 - registrar acoes sensiveis no backend
 - criar dashboards especificos por perfil
 - controlar permissao por rota e recurso
-- mover a gestao de usuarios e auditoria para endpoints protegidos
 - mover a configuracao dos grupos e a entrega do link do Meet para endpoints protegidos
 
 ## Evolução para produção real
 
-Uma versao de producao da area administrativa deve incluir:
+Evolucoes futuras da area administrativa devem incluir:
 
-- backend autenticado
 - autorizacao forte por perfil administrativo
-- auditoria persistente no backend
 - configuracoes sensiveis fora do frontend
 - integracao segura com grupos, usuarios e acessos
 - entrega controlada de dados privados somente para pessoas autorizadas

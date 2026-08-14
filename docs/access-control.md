@@ -9,7 +9,7 @@ Documentar como a aplicacao se organiza em quatro experiencias:
 - Professor
 - Admin
 
-Nesta fase, o projeto passa a usar autenticacao local simples no ambiente privado. Ainda assim, o GitHub Pages continua sem backend autenticado e deve ser tratado apenas como ambiente demonstrativo.
+O projeto possui autenticacao via API para ambientes conectados. Ainda assim, o GitHub Pages continua sem backend autenticado proprio e deve ser tratado apenas como ambiente demonstrativo.
 
 ## Principio central
 
@@ -20,7 +20,7 @@ O GitHub Pages publica somente o frontend estatico. Isso significa:
 - nao devem existir dados sensiveis expostos nesse ambiente
 - o link real do Meet nao deve aparecer na versao publica
 
-A seguranca real de producao ainda depende de uma futura camada hospedada e mais robusta. O que existe agora e suficiente para uso local controlado, nao para publicacao com dados reais.
+A producao oficial usa Web publica conectada a API hospedada e autenticada. O GitHub Pages permanece apenas como demonstracao estatica, sem dados reais sensiveis.
 
 ## Experiencias da aplicacao
 
@@ -66,9 +66,9 @@ Comportamento esperado:
 - aluno aprovado pode ver materiais e link do Meet
 - aluno autenticado pode revisar suas sessoes em `/minha-conta/seguranca`
 - no GitHub Pages, a experiencia pode existir apenas como demonstracao visual
-- no modo local, a experiencia pode usar backend e aprovacao do professor
-- no modo local, a rota `/aluno` exige login ou perfil demo quando o backend nao existir
-- quando `mustChangePassword` estiver ativo no ambiente local, o aluno deve passar antes por `/primeiro-acesso`
+- em ambiente conectado, a experiencia pode usar backend e aprovacao do professor
+- em ambiente conectado, a rota `/aluno` exige login ou perfil demo quando o backend nao existir
+- quando `mustChangePassword` estiver ativo, o aluno deve passar antes por `/primeiro-acesso`
 
 ### 3. Professor
 
@@ -91,8 +91,8 @@ Comportamento esperado:
 - professor aprova ou marca para conversar
 - professor revisa conteudos antes de publicar
 - professor autenticado pode revisar suas sessoes em `/minha-conta/seguranca`
-- sem backend local, a experiencia continua apenas em modo demonstrativo
-- com backend local, a rota `/professor` passa a respeitar login de `Professor` ou `Admin`
+- sem backend disponivel, a experiencia continua apenas em modo demonstrativo
+- com backend conectado, a rota `/professor` passa a respeitar login de `Professor` ou `Admin`
 
 ### 4. Admin
 
@@ -115,9 +115,9 @@ Comportamento esperado:
 - admin cuida de configuracoes
 - admin acompanha trilha de auditoria
 - admin autenticado pode revisar suas sessoes em `/minha-conta/seguranca`
-- no MVP atual, essa area ainda e conceitual e demonstrativa
-- a operacao real dessa area depende de backend autenticado
-- no ambiente local, a rota `/admin` passa a exigir login de `Admin`
+- no GitHub Pages, essa area ainda e conceitual e demonstrativa
+- a operacao real dessa area depende da API autenticada
+- em ambiente conectado, a rota `/admin` passa a exigir login de `Admin`
 
 ## Regras de visibilidade
 
@@ -134,8 +134,8 @@ Comportamento esperado:
 - pode acessar a area do aluno
 - pode consultar materiais e progresso
 - pode ver o link do Meet apenas no ambiente local autorizado
-- no ambiente local, autentica pela rota `/login`
-- quando aprovado localmente, recebe acesso temporario por comunicacao manual
+- em ambiente conectado, autentica pela rota `/login`
+- quando aprovado, recebe acesso por convite ou fluxo administrativo conforme configuracao do backend
 
 ### Professor
 
@@ -144,18 +144,18 @@ Comportamento esperado:
 - pode aprovar alunos
 - ao aprovar, pode criar ou reativar o acesso local do aluno
 - nao deve depender apenas do frontend publicado para operacao real
-- no ambiente local, autentica pela rota `/login`
+- em ambiente conectado, autentica pela rota `/login`
 
 ### Admin
 
 - pode gerenciar usuarios, grupos e configuracoes
 - pode acompanhar auditoria
 - pode aprovar inscricoes e ativar acesso local quando necessario
-- pode redefinir a senha de outros usuarios no ambiente local
+- pode redefinir a senha de outros usuarios via endpoint administrativo protegido
 - sofre limite de redefinicoes administrativas para evitar abuso e excesso de tentativas
-- no ambiente local, autentica pela rota `/login`
-- no MVP atual, a tela `/admin/usuarios` usa acoes simuladas e log mockado local
-- no MVP atual, a tela `/admin/grupos` usa configuracao simulada e nunca expõe o Meet real no frontend publico
+- em ambiente conectado, autentica pela rota `/login`
+- no GitHub Pages, a tela `/admin/usuarios` usa dados demonstrativos
+- no GitHub Pages, a tela `/admin/grupos` usa configuracao demonstrativa e nunca expõe o Meet real no frontend publico
 
 ## GitHub Pages
 
@@ -169,7 +169,7 @@ No GitHub Pages:
 - links reais do Google Meet continuam ocultos; apenas links demonstrativos ou avisos seguros podem aparecer
 - `/login` continua apenas como apoio visual e troca segura de perfis demo
 
-## Ambiente local
+## Ambiente local e producao conectada
 
 No ambiente local/private do owner:
 
@@ -178,7 +178,7 @@ No ambiente local/private do owner:
 - login local usa JWT assinado por `JWT_SECRET`
 - cada login cria uma sessao local individual que pode ser revogada depois
 - o primeiro acesso do aluno aprovado usa um convite por e-mail para criar a própria senha
-- a recuperacao de senha real so funciona no ambiente local com API
+- a recuperacao de senha real funciona em ambiente com API e SMTP configurados
 - endpoints de credenciais usam rate limiting em memória com `429` e `Retry-After`
 - professor pode revisar interessados
 - aluno aprovado pode acessar a area do aluno
@@ -187,25 +187,29 @@ No ambiente local/private do owner:
 - dados reais devem ficar fora do GitHub Pages e fora do frontend publico
 - gestao real de usuarios e auditoria administrativa exigem backend autenticado
 
+Na producao oficial:
+
+- Web: `https://portal-educacao-continuada.com.br`;
+- API: `https://api.portal-educacao-continuada.com.br`;
+- a API usa JWT, sessoes persistidas, papeis e PostgreSQL;
+- recuperacao de senha transacional usa SMTP via Nodemailer/Resend;
+- operacoes administrativas reais sao protegidas no backend.
+
 ## Limites do MVP atual
 
-- com autenticacao local simples, mas ainda sem hardening de producao
+- GitHub Pages sem backend autenticado proprio
 - sem refresh token
-- sem backend hospedado
 - sem autorizacao fina por recurso
-- sem auditoria real persistente
 - sem troca forçada de senha para professores e admins criados manualmente, salvo quando configurado no backend
-- sem provedor real de e-mail nesta etapa; a entrega local usa prévia controlada
+- rate limits de credenciais em memoria do processo, adequados ao piloto em replica unica
 
-Esses limites sao aceitaveis nesta fase porque o foco ainda e demonstrar produto, UX e separacao basica de experiencias.
+Esses limites nao alteram a separacao entre GitHub Pages demonstrativo e producao oficial conectada.
 
 ## Evolucao futura
 
-Para uma versao de producao, o projeto deve evoluir para:
+Evolucoes futuras ainda relevantes:
 
-- autenticacao real por perfil
-- autorizacao por rota e recurso
-- backend hospedado
-- persistencia segura
-- auditoria real
-- controle de acesso ao Meet no backend
+- autorizacao fina por recurso
+- rate limit distribuido antes de escala horizontal
+- controle mais granular de acesso ao Meet no backend
+- hardening adicional de operacao e observabilidade

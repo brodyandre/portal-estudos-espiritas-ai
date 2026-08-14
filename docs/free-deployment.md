@@ -4,6 +4,8 @@
 
 Descrever a forma mais simples e coerente de publicar o projeto sem custo, respeitando a arquitetura atual: frontend estatico e backend local para demo.
 
+> Documento historico: este guia registra a estrategia gratuita de GitHub Pages com backend local usada antes da producao oficial atual. Ele nao representa a topologia operacional vigente. Para o estado atual consulte `docs/deployment.md`, `docs/ESTADO_ATUAL_PROJETO.md` e `docs/PLANO-MESTRE.md`.
+
 ## Estrategia recomendada
 
 Para esta versao, a estrategia mais segura e:
@@ -152,7 +154,7 @@ curl -X POST http://localhost:3333/api/agent/answer \
   -H "Content-Type: application/json" \
   -d '{
     "question": "O livro A Caminho da Luz e historico ou espiritual?",
-    "group": "A Caminho da Luz"
+    "groupId": "a-caminho-da-luz"
   }'
 ```
 
