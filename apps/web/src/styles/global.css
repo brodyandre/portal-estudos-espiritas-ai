@@ -77,6 +77,7 @@ img {
 .app-main__inner {
   display: grid;
   gap: var(--space-5);
+  min-width: 0;
   max-width: var(--layout-max-width);
   margin: 0 auto;
   padding-bottom: calc(var(--space-8) + env(safe-area-inset-bottom, 0px));
@@ -445,6 +446,8 @@ img {
   font-family: var(--font-title);
   font-size: 1.1rem;
   line-height: 1.15;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
 }
 
 .page-context-bar__status {
@@ -529,6 +532,8 @@ img {
   align-items: center;
   flex-wrap: wrap;
   gap: 6px;
+  min-width: 0;
+  max-width: 100%;
   padding: 6px;
   border: 1px solid var(--theme-switch-border);
   border-radius: 999px;
@@ -579,6 +584,8 @@ img {
   align-items: center;
   flex-wrap: wrap;
   gap: 6px;
+  min-width: 0;
+  max-width: 100%;
   padding: 6px;
   border: 1px solid var(--theme-switch-border);
   border-radius: 999px;
@@ -991,12 +998,15 @@ img {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  max-width: 100%;
   min-height: var(--button-height);
   padding: 0 18px;
   border-radius: var(--radius-md);
   border: 1px solid transparent;
   font-weight: 700;
   line-height: 1.2;
+  text-align: center;
+  white-space: normal;
   cursor: pointer;
   transition: transform 160ms ease, background-color 160ms ease, border-color 160ms ease, color 160ms ease;
 }
@@ -1081,6 +1091,7 @@ img {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  max-width: 100%;
   min-height: 28px;
   padding: 0 12px;
   border: 1px solid transparent;
@@ -1088,6 +1099,8 @@ img {
   font-size: 0.8125rem;
   font-weight: 700;
   line-height: 1.2;
+  text-align: center;
+  overflow-wrap: anywhere;
 }
 
 .badge--neutral {
@@ -1245,8 +1258,10 @@ img {
 .section-title h2 {
   margin: 0;
   font-family: var(--font-title);
-  font-size: 1.75rem;
+  font-size: clamp(1.45rem, 3vw, 1.75rem);
   line-height: 1.15;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
 }
 
 .section-title p {
@@ -1267,9 +1282,14 @@ img {
   box-shadow: var(--shadow-card);
 }
 
+.profile-header__body {
+  min-width: 0;
+}
+
 .profile-header__side {
   display: grid;
   gap: var(--space-4);
+  min-width: 0;
 }
 
 .profile-header__visual {
@@ -1326,8 +1346,10 @@ img {
 .profile-header h1 {
   margin: var(--space-2) 0 0;
   font-family: var(--font-title);
-  font-size: clamp(2rem, 5vw, 3rem);
+  font-size: clamp(1.85rem, 4vw, 3rem);
   line-height: 1.05;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
 }
 
 .profile-header__description {
@@ -1402,8 +1424,10 @@ img {
 .student-hero h1 {
   margin: 0;
   font-family: var(--font-title);
-  font-size: clamp(2rem, 5vw, 3rem);
+  font-size: clamp(1.85rem, 4vw, 3rem);
   line-height: 1.05;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
 }
 
 .student-hero__subtitle {
@@ -1425,6 +1449,7 @@ img {
 .student-hero__actions {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--space-3);
 }
 
@@ -1499,8 +1524,10 @@ img {
 .teacher-hero h1 {
   margin: 0;
   font-family: var(--font-title);
-  font-size: clamp(2rem, 5vw, 3rem);
+  font-size: clamp(1.85rem, 4vw, 3rem);
   line-height: 1.05;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
 }
 
 .teacher-hero__subtitle {
@@ -1522,6 +1549,7 @@ img {
 .teacher-hero__actions {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--space-3);
 }
 
@@ -1608,6 +1636,13 @@ img {
   display: grid;
   gap: var(--space-4);
   align-items: start;
+}
+
+.group-grid > *,
+.steps-grid > *,
+.three-column-grid > *,
+.two-column-grid > * {
+  min-width: 0;
 }
 
 .student-group-card {
@@ -2205,6 +2240,8 @@ img {
 
 .field__control {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   min-height: var(--input-height);
   padding: 0 14px;
   border: 1px solid var(--border-default);
@@ -2229,6 +2266,13 @@ img {
   min-height: 140px;
   padding: 14px;
   resize: vertical;
+}
+
+.field__control--checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  line-height: 1.4;
 }
 
 .field__control--error {
@@ -2537,6 +2581,7 @@ img {
 
 .session-card__header {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
@@ -2564,6 +2609,7 @@ img {
   font-size: 0.85rem;
   font-weight: 700;
   text-transform: capitalize;
+  white-space: normal;
 }
 
 .session-card__status--active {
@@ -3231,5 +3277,166 @@ img {
 
   .page-context-bar__status {
     max-width: 100%;
+  }
+}
+
+@media (max-width: 767px) {
+  .profile-header,
+  .student-hero,
+  .teacher-hero,
+  .card--padded,
+  .alert-box {
+    padding: var(--space-4);
+  }
+
+  .profile-header h1,
+  .student-hero h1,
+  .teacher-hero h1 {
+    font-size: clamp(1.55rem, 7vw, 2.05rem);
+    line-height: 1.08;
+  }
+
+  .alert-box {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .alert-box__icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .page-context-bar__group--demo,
+  .page-context-bar__group--appearance,
+  .page-context-bar__group--account {
+    justify-items: stretch;
+  }
+
+  .admin-user-filter-actions {
+    justify-content: stretch;
+  }
+
+  .admin-user-filter-actions > .button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 899px) {
+  .page-context-bar__controls,
+  .group-grid,
+  .steps-grid,
+  .three-column-grid,
+  .two-column-grid,
+  .form-grid,
+  .teacher-form-grid,
+  .student-detail-list,
+  .materials-file-list,
+  .student-resources-layout,
+  .student-page__resources-grid,
+  .admin-knowledge-grid,
+  .admin-knowledge-toolbar,
+  .admin-user-card__meta,
+  .profile-header__meta,
+  .session-card__meta,
+  .teacher-action-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .page-context-bar__group {
+    width: 100%;
+  }
+
+  .profile-header,
+  .student-hero,
+  .teacher-hero {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .section-title {
+    align-items: stretch;
+  }
+
+  .section-title__action {
+    width: 100%;
+  }
+}
+
+@media (min-width: 900px) and (max-width: 1199px) {
+  .page-context-bar__controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+
+  .page-context-bar__group--account {
+    order: -1;
+    grid-column: 1 / -1;
+    justify-content: start;
+  }
+
+  .page-context-bar__group--demo,
+  .page-context-bar__group--appearance {
+    justify-self: stretch;
+  }
+
+  .page-context-bar__group--appearance {
+    justify-items: end;
+  }
+
+  .profile-header,
+  .student-hero,
+  .teacher-hero,
+  .student-dashboard,
+  .teacher-dashboard,
+  .student-resources-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .profile-header,
+  .student-hero,
+  .teacher-hero {
+    padding: var(--space-6);
+  }
+
+  .profile-header__meta,
+  .admin-user-card__meta,
+  .session-card__meta {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .steps-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .three-column-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-filters-card .teacher-form-grid,
+  .admin-settings-card .teacher-form-grid,
+  .admin-user-filters,
+  .admin-knowledge-toolbar,
+  .admin-knowledge-toolbar--documents {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-user-filter-actions {
+    justify-content: flex-start;
+  }
+}
+
+@media (min-width: 1200px) {
+  .profile-header,
+  .student-hero,
+  .teacher-hero {
+    padding: var(--space-8);
+  }
+
+  .profile-header__meta,
+  .admin-user-card__meta,
+  .session-card__meta {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .page-context-bar__controls {
+    flex-wrap: wrap;
   }
 }
