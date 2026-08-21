@@ -3339,19 +3339,6 @@ img {
     width: 100%;
   }
 
-  .home-hero-actions,
-  .account-security-actions {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    width: 100%;
-  }
-
-  .home-hero-actions > *,
-  .account-security-actions > * {
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
-  }
 }
 
 @media (max-width: 899px) {
@@ -3483,6 +3470,23 @@ img {
   .session-card__actions > .button {
     flex: 1 1 12rem;
     max-width: 100%;
+  }
+
+  .home-hero-actions,
+  .account-security-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .home-hero-actions > *,
+  .account-security-actions > * {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    flex: 0 1 auto;
   }
 
   .section-title {
