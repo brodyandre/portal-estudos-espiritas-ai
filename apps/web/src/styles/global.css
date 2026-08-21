@@ -3489,6 +3489,10 @@ img {
     flex: 0 1 auto;
   }
 
+  .profile-header__actions .account-security-actions > * {
+    flex: 0 0 auto;
+  }
+
   .section-title {
     align-items: stretch;
   }
