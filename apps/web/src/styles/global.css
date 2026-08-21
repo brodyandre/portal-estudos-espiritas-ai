@@ -1296,6 +1296,16 @@ img {
   min-width: 0;
 }
 
+.profile-header__actions {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.profile-header__actions .button-row {
+  max-width: 100%;
+}
+
 .profile-brand-showcase {
   display: grid;
   gap: var(--space-3);
@@ -1303,7 +1313,9 @@ img {
 }
 
 .profile-brand-showcase__logo {
+  display: block;
   width: min(100%, 220px);
+  height: auto;
 }
 
 .profile-brand-showcase__caption {
@@ -2645,7 +2657,10 @@ img {
 
 .session-card__actions {
   display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
   justify-content: flex-start;
+  max-width: 100%;
 }
 
 .admin-user-card__meta > div,
@@ -3321,6 +3336,10 @@ img {
 }
 
 @media (max-width: 899px) {
+  .page-context-bar {
+    min-height: auto;
+  }
+
   .page-context-bar__controls,
   .group-grid,
   .steps-grid,
@@ -3341,14 +3360,110 @@ img {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .page-context-bar__controls {
+    display: grid;
+    width: 100%;
+    align-items: start;
+    justify-content: start;
+  }
+
   .page-context-bar__group {
     width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    align-items: start;
+    justify-content: start;
+    justify-items: start;
+  }
+
+  .page-context-bar__group--demo {
+    order: 1;
+  }
+
+  .page-context-bar__group--session {
+    order: 2;
+  }
+
+  .page-context-bar__group--appearance {
+    order: 3;
+  }
+
+  .page-context-bar__group--account {
+    order: 4;
+  }
+
+  .page-context-bar__group--demo,
+  .page-context-bar__group--appearance {
+    display: grid;
+    justify-self: stretch;
+  }
+
+  .page-context-bar__mode,
+  .area-switcher,
+  .theme-switcher,
+  .area-switcher__options,
+  .theme-switcher__options {
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .area-switcher,
+  .theme-switcher,
+  .area-switcher__options,
+  .theme-switcher__options {
+    width: 100%;
+  }
+
+  .area-switcher__options,
+  .theme-switcher__options {
+    justify-content: flex-start;
+    border-radius: var(--radius-md);
+  }
+
+  .area-switcher__button,
+  .theme-switcher__button {
+    flex: 1 1 7rem;
+    max-width: 100%;
+    white-space: normal;
+  }
+
+  .theme-switcher__button {
+    flex-basis: 6rem;
+  }
+
+  .page-context-bar__group--account > .button {
+    flex: 1 1 10rem;
+    max-width: 100%;
   }
 
   .profile-header,
   .student-hero,
   .teacher-hero {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .profile-header__side {
+    justify-items: start;
+  }
+
+  .profile-header__visual,
+  .profile-brand-showcase,
+  .profile-brand-showcase__logo {
+    max-width: 100%;
+  }
+
+  .profile-header__actions .button-row {
+    justify-content: flex-start;
+  }
+
+  .profile-header__actions .button-row > * {
+    flex: 1 1 14rem;
+    max-width: 100%;
+  }
+
+  .session-card__actions > .button {
+    flex: 1 1 12rem;
+    max-width: 100%;
   }
 
   .section-title {
