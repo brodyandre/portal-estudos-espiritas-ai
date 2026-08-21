@@ -4,7 +4,7 @@ import { cn } from "../../app/cn";
 
 export interface CardProps extends HTMLAttributes<HTMLElement> {
   as?: ElementType;
-  tone?: "default" | "soft" | "brand" | "sand";
+  tone?: "default" | "elevated" | "subtle" | "interactive" | "soft" | "brand" | "sand";
   padded?: boolean;
   children: ReactNode;
 }

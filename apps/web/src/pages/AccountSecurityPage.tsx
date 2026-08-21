@@ -301,7 +301,7 @@ export const AccountSecurityPage = () => {
             : undefined
         }
         actions={
-          <div className="button-row">
+          <div className="button-row account-security-actions">
             <Button
               disabled={isRevokingOthers || isRevokingAll}
               onClick={(event: MouseEvent<HTMLButtonElement>) => requestLogoutOthers(event.currentTarget)}

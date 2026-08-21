@@ -22,8 +22,8 @@ export const AreaSwitcher = () => {
   }
 
   return (
-    <div className="area-switcher" role="group" aria-label="Alternar perfil demonstrativo">
-      <span className="area-switcher__label">Perfil demo</span>
+    <div className="area-switcher" role="group" aria-label="Visualizar como perfil demonstrativo">
+      <span className="area-switcher__label">Visualizar como</span>
       <div className="area-switcher__options">
         {getAvailableMockUsers().map((user) => {
           const isActive = user.role === currentUser.role;

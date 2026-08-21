@@ -360,8 +360,33 @@
   --sticky-offset: 152px;
   --card-padding-mobile: 20px;
   --card-padding-desktop: 24px;
+  --card-radius: var(--radius-lg);
+  --card-gap: var(--space-4);
+  --card-gap-compact: var(--space-3);
+  --metadata-gap: var(--space-3);
   --button-height: 44px;
   --input-height: 48px;
+
+  --color-brand: var(--color-brand-900);
+  --color-text-800: var(--color-text-900);
+  --color-text-600: var(--color-text-700);
+  --color-text-muted: var(--text-muted);
+  --color-border-soft: var(--border-subtle);
+  --color-border-default: var(--border-default);
+  --color-border-strong: var(--border-strong);
+
+  --surface-page: var(--color-surface-0);
+  --surface-card: var(--color-card);
+  --surface-card-elevated: color-mix(in srgb, var(--color-card) 88%, var(--color-surface-0));
+  --surface-card-subtle: var(--card-soft);
+  --surface-interactive: var(--color-card);
+  --surface-interactive-hover: var(--button-secondary-hover);
+  --text-primary: var(--color-text-900);
+  --text-secondary: var(--color-text-700);
+  --text-muted: var(--color-text-500);
+  --border-subtle: color-mix(in srgb, var(--color-border) 58%, transparent);
+  --border-default: var(--color-border);
+  --border-strong: color-mix(in srgb, var(--color-border) 72%, var(--color-text-700));
 
   --font-title: "Fraunces", Georgia, serif;
   --font-body: "Atkinson Hyperlegible", "Segoe UI", sans-serif;
