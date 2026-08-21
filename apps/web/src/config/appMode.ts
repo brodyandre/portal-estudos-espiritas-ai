@@ -147,6 +147,7 @@ export const buildWebConfig = (
     baseUrl !== "/" || Boolean(context.hostname?.endsWith("github.io"));
   const isProductionRuntime = isProductionBuild && appMode === "local" && !isGithubPages && Boolean(apiUrl);
   const canShowDemoCredentials = appMode === "local" && !isProductionRuntime;
+  const canUseDemoFallback = !isProductionRuntime;
 
   const canShowRealMeetLink =
     appMode === "local" &&
@@ -163,6 +164,7 @@ export const buildWebConfig = (
     apiUrl,
     isGithubPages,
     isProductionRuntime,
+    canUseDemoFallback,
     canShowDemoCredentials,
     canShowRealMeetLink,
     canUseAdminFeatures,

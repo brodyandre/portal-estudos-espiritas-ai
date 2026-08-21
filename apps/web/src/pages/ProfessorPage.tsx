@@ -455,7 +455,20 @@ export const ProfessorPage = () => {
       setIsLoading(false);
     };
 
-    void loadDashboard();
+    void loadDashboard().catch(() => {
+      if (!isActive) {
+        return;
+      }
+
+      setEnrollments([]);
+      setGroups([]);
+      setQuestions([]);
+      setMaterials([]);
+      setSummaries([]);
+      setSupportFiles([]);
+      setNotice("Não foi possível carregar o painel do professor agora. Tente novamente em instantes.");
+      setIsLoading(false);
+    });
 
     return () => {
       isActive = false;
@@ -616,7 +629,9 @@ export const ProfessorPage = () => {
       return;
     }
 
-    const summarySource = activeSummary?.content ?? "Resumo demonstrativo da semana.";
+    const summarySource =
+      activeSummary?.content ??
+      (appConfig.canUseDemoFallback ? "Resumo demonstrativo da semana." : "Resumo da semana.");
     const defaultWorkspace = createDefaultWorkspace(activeGroup, summarySource, activeSupportFiles);
     const storedWorkspace = readWorkspace(activeGroup.slug);
     const nextWorkspace = mergeWorkspace(defaultWorkspace, storedWorkspace, activeSupportFiles);
@@ -831,7 +846,10 @@ export const ProfessorPage = () => {
       </section>
 
       {notice ? (
-        <AlertBox title="Modo demonstrativo ativo" tone="info">
+        <AlertBox
+          title={appConfig.canUseDemoFallback ? "Modo demonstrativo ativo" : "Painel indisponível"}
+          tone={appConfig.canUseDemoFallback ? "info" : "warning"}
+        >
           {notice}
         </AlertBox>
       ) : null}
@@ -946,8 +964,9 @@ export const ProfessorPage = () => {
       </section>
 
       <AlertBox title="Revise antes de publicar." tone="warning">
-        O conteúdo abaixo é apenas um ponto de partida demonstrativo. O professor sempre revisa,
-        ajusta e aprova antes de compartilhar com a turma.
+        {appConfig.canUseDemoFallback
+          ? "O conteúdo abaixo é apenas um ponto de partida demonstrativo. O professor sempre revisa, ajusta e aprova antes de compartilhar com a turma."
+          : "O conteúdo abaixo é um ponto de partida para revisão. O professor sempre revisa, ajusta e aprova antes de compartilhar com a turma."}
       </AlertBox>
 
       {isLoading || !activeGroup ? null : (
@@ -1129,8 +1148,9 @@ export const ProfessorPage = () => {
 
                 <div className="teacher-action-note">
                   <p>
-                    Os textos podem ser simulados localmente quando o servidor não estiver
-                    disponível.
+                    {appConfig.canUseDemoFallback
+                      ? "Os textos podem ser simulados localmente quando o servidor não estiver disponível."
+                      : "Os textos são preparados pelo serviço do portal e revisados pelo professor antes da publicação."}
                   </p>
                 </div>
               </Card>
@@ -1425,24 +1445,26 @@ export const ProfessorPage = () => {
                 )}
               </Card>
 
-              <Card className="teacher-panel" tone="soft">
-                <div className="teacher-panel__header">
-                  <div>
-                    <p className="card-eyebrow">Fluxo demonstrativo</p>
-                    <h2>Como o fallback se comporta</h2>
+              {appConfig.canUseDemoFallback ? (
+                <Card className="teacher-panel" tone="soft">
+                  <div className="teacher-panel__header">
+                    <div>
+                      <p className="card-eyebrow">Fluxo demonstrativo</p>
+                      <h2>Como o fallback se comporta</h2>
+                    </div>
+                    <Badge tone="sand">GitHub Pages</Badge>
                   </div>
-                  <Badge tone="sand">GitHub Pages</Badge>
-                </div>
 
-                <p className="teacher-panel__note">
-                  Sem backend, a inscricao publica continua funcionando em modo demonstrativo. A
-                  A revisão feita aqui atualiza o estado local e ajuda a simular o acesso do aluno.
-                </p>
-                <p className="teacher-panel__note">
-                  Não use este modo como aprovação real. Para aprovar alunos de verdade, rode o
-                  backend local.
-                </p>
-              </Card>
+                  <p className="teacher-panel__note">
+                    Sem backend, a inscricao publica continua funcionando em modo demonstrativo. A
+                    revisão feita aqui atualiza o estado local e ajuda a simular o acesso do aluno.
+                  </p>
+                  <p className="teacher-panel__note">
+                    Não use este modo como aprovação real. Para aprovar alunos de verdade, rode o
+                    backend local.
+                  </p>
+                </Card>
+              ) : null}
             </div>
           </section>
 

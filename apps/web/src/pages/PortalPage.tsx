@@ -72,7 +72,17 @@ export const PortalPage = () => {
       setIsLoading(false);
     };
 
-    void loadPortal();
+    void loadPortal().catch(() => {
+      if (!isActive) {
+        return;
+      }
+
+      setGroups([]);
+      setMaterials([]);
+      setSummaries([]);
+      setNotice("Não foi possível carregar os dados do portal agora. Tente novamente em instantes.");
+      setIsLoading(false);
+    });
 
     return () => {
       isActive = false;
@@ -164,8 +174,14 @@ export const PortalPage = () => {
       </div>
 
       <AlertBox
-        title={notice ? "Modo demonstrativo ativo" : "Portal aberto e acolhedor"}
-        tone={notice ? "info" : "success"}
+        title={
+          notice
+            ? appConfig.canUseDemoFallback
+              ? "Modo demonstrativo ativo"
+              : "Portal indisponível"
+            : "Portal aberto e acolhedor"
+        }
+        tone={notice ? (appConfig.canUseDemoFallback ? "info" : "warning") : "success"}
       >
         {notice ??
           "Esta página pode ser compartilhada com novos participantes. Os encontros, materiais e orientações aparecem de forma simples, sem exigir cadastro."}
@@ -254,7 +270,10 @@ export const PortalPage = () => {
                     </div>
                     <div>
                       <dt>Resumo da ultima aula</dt>
-                      <dd>{groupSummary?.title ?? "Resumo demonstrativo da semana"}</dd>
+                      <dd>
+                        {groupSummary?.title ??
+                          (appConfig.canUseDemoFallback ? "Resumo demonstrativo da semana" : "Resumo da semana")}
+                      </dd>
                     </div>
                   </dl>
 
@@ -310,7 +329,7 @@ export const PortalPage = () => {
 
               <Card className="portal-detail-card" tone="soft">
                 <p className="card-eyebrow">Resumo da ultima aula</p>
-                <h3>{activeSummary?.title ?? "Resumo demonstrativo"}</h3>
+                <h3>{activeSummary?.title ?? (appConfig.canUseDemoFallback ? "Resumo demonstrativo" : "Resumo")}</h3>
                 <p>{activeSummary?.content ?? "Resumo breve disponivel para acolher novos participantes."}</p>
               </Card>
             </div>

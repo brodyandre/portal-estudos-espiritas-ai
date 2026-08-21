@@ -227,7 +227,11 @@ export const loadWithFallback = async <TRaw, TData>({
       source: "api",
       notice: null,
     };
-  } catch (_error) {
+  } catch (error) {
+    if (!appConfig.canUseDemoFallback) {
+      throw error;
+    }
+
     return {
       data: await fallback(),
       source: "mock",

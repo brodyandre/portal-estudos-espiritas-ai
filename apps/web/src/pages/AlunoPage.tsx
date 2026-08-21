@@ -243,14 +243,27 @@ export const AlunoPage = () => {
       setIsLoading(false);
     };
 
-    void loadDashboard();
+    void loadDashboard().catch(() => {
+      if (!isActive) {
+        return;
+      }
+
+      setGroups([]);
+      setMaterials([]);
+      setSummaries([]);
+      setQuestions([]);
+      setSupportFiles([]);
+      setProgress(null);
+      setNotice("Não foi possível carregar o painel do aluno agora. Tente novamente em instantes.");
+      setIsLoading(false);
+    });
 
     return () => {
       isActive = false;
     };
   }, [studentAccessStatus]);
 
-  const availableGroups = groups.length > 0 ? groups : demoGroups;
+  const availableGroups = groups.length > 0 ? groups : appConfig.canUseDemoFallback ? demoGroups : [];
   const activeGroup =
     groups.find((group) => group.slug === activeGroupSlug) ??
     availableGroups.find((group) => group.slug === activeGroupSlug) ??
@@ -288,7 +301,7 @@ export const AlunoPage = () => {
   const progressHighlights = progress ? buildProgressHighlights(progress) : [];
   const recommendedReading =
     activeMaterials.find((material) => material.kind === "Leitura")?.title ??
-    "Leitura demonstrativa da semana";
+    (appConfig.canUseDemoFallback ? "Leitura demonstrativa da semana" : "Leitura da semana");
   const activeSupportFile =
     activeSupportFiles.find((file) => file.id === selectedSupportFileId) ?? activeSupportFiles[0] ?? null;
   const activeQuickQuestions = activeGroup
@@ -359,7 +372,9 @@ export const AlunoPage = () => {
     setAssistantMessage(
       result.notice ??
         (result.data.usedFallback
-          ? "A resposta foi preparada em modo demonstrativo. Se precisar aprofundar, envie a duvida ao professor."
+          ? appConfig.canUseDemoFallback
+            ? "A resposta foi preparada em modo demonstrativo. Se precisar aprofundar, envie a duvida ao professor."
+            : "A resposta foi preparada com os materiais disponíveis. Se precisar aprofundar, envie a dúvida ao professor."
           : null),
     );
     setIsAssistantLoading(false);
@@ -414,7 +429,10 @@ export const AlunoPage = () => {
       </section>
 
       {notice ? (
-        <AlertBox title="Modo demonstrativo ativo" tone="info">
+        <AlertBox
+          title={appConfig.canUseDemoFallback ? "Modo demonstrativo ativo" : "Painel indisponível"}
+          tone={appConfig.canUseDemoFallback ? "info" : "warning"}
+        >
           {notice}
         </AlertBox>
       ) : null}
@@ -610,7 +628,9 @@ export const AlunoPage = () => {
                   <strong>
                     {assistantResponse.groupLabel
                       ? `Resposta para ${assistantResponse.groupLabel}`
-                      : "Resposta demonstrativa"}
+                      : appConfig.canUseDemoFallback
+                        ? "Resposta demonstrativa"
+                        : "Resposta inicial"}
                   </strong>
                   <p>{assistantResponse.answer}</p>
                   <AlertBox className="assistant-card__alert" title="Uso responsavel" tone="warning">
@@ -782,7 +802,10 @@ export const AlunoPage = () => {
                     <Badge tone="sand">{activeSummary?.readingTimeLabel ?? "Leitura breve"}</Badge>
                   </div>
                   <p className="student-panel__note">
-                    {activeSummary?.content ?? "Resumo demonstrativo disponível para revisão."}
+                    {activeSummary?.content ??
+                      (appConfig.canUseDemoFallback
+                        ? "Resumo demonstrativo disponível para revisão."
+                        : "Resumo disponível para revisão.")}
                   </p>
                   {activeSummary?.takeaways.length ? (
                     <ul className="bullet-list">
@@ -801,7 +824,7 @@ export const AlunoPage = () => {
               <Card className="student-panel" tone="default">
                 <div className="student-panel__header">
                   <h2>Meu progresso</h2>
-                  <Badge tone="success">Demonstrativo</Badge>
+                  <Badge tone="success">{appConfig.canUseDemoFallback ? "Demonstrativo" : "Acompanhamento"}</Badge>
                 </div>
                 <div className="student-progress-list">
                   {progressHighlights.map((highlight) => (

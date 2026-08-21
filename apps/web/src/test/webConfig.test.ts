@@ -19,6 +19,7 @@ describe("buildWebConfig", () => {
     expect(config.appMode).toBe("local");
     expect(config.apiUrl).toBe("https://api.portal-educacao-continuada.com.br");
     expect(config.isProductionRuntime).toBe(true);
+    expect(config.canUseDemoFallback).toBe(false);
     expect(config.canShowDemoCredentials).toBe(false);
     expect(config.canShowRealMeetLink).toBe(true);
     expect(config.canUseAdminFeatures).toBe(true);
@@ -36,6 +37,7 @@ describe("buildWebConfig", () => {
     expect(config.appMode).toBe("demo");
     expect(config.apiUrl).toBeNull();
     expect(config.isProductionRuntime).toBe(false);
+    expect(config.canUseDemoFallback).toBe(true);
     expect(config.canShowDemoCredentials).toBe(false);
     expect(config.canShowRealMeetLink).toBe(false);
   });
@@ -51,6 +53,7 @@ describe("buildWebConfig", () => {
     expect(config.appMode).toBe("local");
     expect(config.apiUrl).toBe("http://localhost:3333");
     expect(config.isProductionRuntime).toBe(false);
+    expect(config.canUseDemoFallback).toBe(true);
     expect(config.canShowDemoCredentials).toBe(true);
   });
 
