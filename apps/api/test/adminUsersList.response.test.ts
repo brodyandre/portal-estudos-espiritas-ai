@@ -109,6 +109,7 @@ describe("admin users list response", () => {
       "name",
       "role",
       "status",
+      "teacherGroups",
     ]);
     for (const field of forbiddenFields) {
       expect(item[field]).toBeUndefined();

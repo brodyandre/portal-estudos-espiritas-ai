@@ -35,15 +35,33 @@ const createService = () => {
         name: "Emmanuel",
         status: "active",
         meetUrl: "https://meet.google.com/emmanuel-real",
+        bookTitle: "Emmanuel",
+      },
+      {
+        id: "a-caminho-da-luz",
+        name: "A Caminho da Luz",
+        status: "active",
+        meetUrl: "https://meet.google.com/caminho-real",
+        bookTitle: "A Caminho da Luz",
       },
       {
         id: "grupo-inativo",
         name: "Grupo Inativo",
         status: "inactive",
         meetUrl: "https://meet.google.com/inativo",
+        bookTitle: "Grupo Inativo",
       },
     ],
     meetings: [
+      {
+        id: "caminho-ongoing",
+        groupId: "a-caminho-da-luz",
+        title: "Caminho em andamento",
+        description: null,
+        startsAt: "2026-07-20T19:00:00.000Z",
+        endsAt: "2026-07-20T22:00:00.000Z",
+        canceledAt: null,
+      },
       {
         id: "ongoing",
         groupId: "emmanuel",
@@ -99,6 +117,11 @@ const createService = () => {
         canceledAt: null,
       },
     ],
+    teacherGroupMemberships: [
+      { userId: "teacher-1", groupId: "emmanuel" },
+      { userId: "teacher-two-groups", groupId: "emmanuel" },
+      { userId: "teacher-two-groups", groupId: "a-caminho-da-luz" },
+    ],
   });
 
   return createUserStudyMeetingsService({
@@ -131,12 +154,22 @@ describe("user study meetings service", () => {
       id: "emmanuel",
       name: "Emmanuel",
       status: "active",
+      bookTitle: "Emmanuel",
     });
+    expect(result.groups).toEqual([
+      {
+        id: "emmanuel",
+        name: "Emmanuel",
+        status: "active",
+        bookTitle: "Emmanuel",
+      },
+    ]);
     expect(result.items).toEqual([
       expect.objectContaining({
         id: "ongoing",
         status: "ongoing",
         meetUrl: "https://meet.google.com/emmanuel-real",
+        group: expect.objectContaining({ id: "emmanuel", bookTitle: "Emmanuel" }),
       }),
       expect.objectContaining({
         id: "starts-now",
@@ -184,15 +217,38 @@ describe("user study meetings service", () => {
     expect(result.items[0]?.id).toBe("ongoing");
   });
 
+  it("agrega encontros de todos os grupos vinculados ao professor com ordenação global", async () => {
+    const service = createService();
+    const result = await service.listUpcomingMeetings(
+      makeUser({ id: "teacher-two-groups", role: "teacher" }),
+      { limit: 4 },
+    );
+
+    expect(result.groups.map((group) => group.id)).toEqual([
+      "a-caminho-da-luz",
+      "emmanuel",
+    ]);
+    expect(result.items.map((item) => `${item.group.id}:${item.id}`)).toEqual([
+      "a-caminho-da-luz:caminho-ongoing",
+      "emmanuel:ongoing",
+      "emmanuel:starts-now",
+      "emmanuel:future",
+    ]);
+    expect(result.items[0]?.meetUrl).toBe("https://meet.google.com/caminho-real");
+  });
+
   it("retorna sucesso vazio para usuario sem grupo ou vinculo invalido", async () => {
     const service = createService();
 
     await expect(
       service.listUpcomingMeetings(makeUser({ id: "student-empty" }), { limit: 3 }),
-    ).resolves.toEqual({ group: null, items: [], limit: 3 });
+    ).resolves.toEqual({ group: null, groups: [], items: [], limit: 3 });
     await expect(
       service.listUpcomingMeetings(makeUser({ id: "student-invalid" }), { limit: 3 }),
-    ).resolves.toEqual({ group: null, items: [], limit: 3 });
+    ).resolves.toEqual({ group: null, groups: [], items: [], limit: 3 });
+    await expect(
+      service.listUpcomingMeetings(makeUser({ id: "teacher-empty", role: "teacher" }), { limit: 3 }),
+    ).resolves.toEqual({ group: null, groups: [], items: [], limit: 3 });
   });
 
   it("retorna grupo inativo sem itens e sem expor meetUrl", async () => {
@@ -207,7 +263,16 @@ describe("user study meetings service", () => {
         id: "grupo-inativo",
         name: "Grupo Inativo",
         status: "inactive",
+        bookTitle: "Grupo Inativo",
       },
+      groups: [
+        {
+          id: "grupo-inativo",
+          name: "Grupo Inativo",
+          status: "inactive",
+          bookTitle: "Grupo Inativo",
+        },
+      ],
       items: [],
       limit: 3,
     });

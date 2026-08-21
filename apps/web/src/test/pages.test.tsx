@@ -148,6 +148,7 @@ describe("paginas principais com fallback local", () => {
             name: "A Caminho da Luz",
             slug: "a-caminho-da-luz",
           },
+          teacherGroups: [],
           createdAt: "2026-07-01T15:05:00.000Z",
         },
         {
@@ -161,6 +162,7 @@ describe("paginas principais com fallback local", () => {
             name: "Emmanuel",
             slug: "emmanuel",
           },
+          teacherGroups: [{ name: "Emmanuel", slug: "emmanuel", status: "active" }],
           createdAt: "2026-06-28T09:45:00.000Z",
         },
       ],

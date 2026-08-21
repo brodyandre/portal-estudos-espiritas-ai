@@ -15,10 +15,12 @@ const meetingItem = {
   endsAt: "2026-07-15T21:00:00.000-03:00",
   status: "scheduled",
   meetUrl: "https://meet.google.com/abc-defg-hij",
+  group: { id: "group-001", name: "Emmanuel", status: "active", bookTitle: "Emmanuel" },
 };
 
 const responseEnvelope = (data: unknown = {
-  group: { id: "group-001", name: "Emmanuel", status: "active" },
+  group: { id: "group-001", name: "Emmanuel", status: "active", bookTitle: "Emmanuel" },
+  groups: [{ id: "group-001", name: "Emmanuel", status: "active", bookTitle: "Emmanuel" }],
   items: [meetingItem],
 }) => ({
   success: true,
@@ -110,7 +112,8 @@ describe("userStudyMeetingsService", () => {
     vi.stubGlobal("fetch", vi.fn(async () => createJsonResponse(responseEnvelope())));
 
     await expect(listUserStudyMeetings()).resolves.toEqual({
-      group: { id: "group-001", name: "Emmanuel", status: "active" },
+      group: { id: "group-001", name: "Emmanuel", status: "active", bookTitle: "Emmanuel" },
+      groups: [{ id: "group-001", name: "Emmanuel", status: "active", bookTitle: "Emmanuel" }],
       items: [meetingItem],
       limit: 3,
       source: "api",
@@ -125,12 +128,13 @@ describe("userStudyMeetingsService", () => {
       vi
         .fn()
         .mockResolvedValueOnce(
-          createJsonResponse(responseEnvelope({ group: null, items: [] })),
+          createJsonResponse(responseEnvelope({ group: null, groups: [], items: [] })),
         )
         .mockResolvedValueOnce(
           createJsonResponse(
             responseEnvelope({
               group: { id: "group-001", name: "Emmanuel", status: "inactive" },
+              groups: [{ id: "group-001", name: "Emmanuel", status: "inactive" }],
               items: [],
             }),
           ),
@@ -139,6 +143,7 @@ describe("userStudyMeetingsService", () => {
           createJsonResponse(
             responseEnvelope({
               group: { id: "group-001", name: "Emmanuel", status: "active" },
+              groups: [{ id: "group-001", name: "Emmanuel", status: "active" }],
               items: [{ ...meetingItem, meetUrl: null }],
             }),
           ),
@@ -165,6 +170,7 @@ describe("userStudyMeetingsService", () => {
   it("rejeita grupo, encontro, datas e ordem temporal inválidos", async () => {
     await expectInvalidResponse({
       group: { id: "group-001", name: "Emmanuel", status: "archived" },
+      groups: [],
       items: [],
     });
     await expectInvalidResponse({

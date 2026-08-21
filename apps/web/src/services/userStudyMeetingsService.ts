@@ -39,7 +39,8 @@ const isValidGroup = (value: unknown): value is UserStudyMeetingGroup => {
     isObject(value) &&
     typeof value.id === "string" &&
     typeof value.name === "string" &&
-    (value.status === "active" || value.status === "inactive")
+    (value.status === "active" || value.status === "inactive") &&
+    (value.bookTitle === undefined || typeof value.bookTitle === "string")
   );
 };
 
@@ -50,13 +51,16 @@ const isValidMeeting = (value: unknown): value is UserStudyMeeting =>
   (typeof value.description === "string" || value.description === null) &&
   hasValidMeetingTimestamps(value.startsAt, value.endsAt) &&
   (value.status === "ongoing" || value.status === "scheduled") &&
-  (typeof value.meetUrl === "string" || value.meetUrl === null);
+  (typeof value.meetUrl === "string" || value.meetUrl === null) &&
+  (value.group === undefined || isValidGroup(value.group));
 
 const assertValidResponse = (value: unknown): UserStudyMeetingsResponse => {
   if (
     !isObject(value) ||
     !("group" in value) ||
     !isValidGroup(value.group) ||
+    ("groups" in value && !Array.isArray(value.groups)) ||
+    ("groups" in value && Array.isArray(value.groups) && !value.groups.every(isValidGroup)) ||
     !Array.isArray(value.items) ||
     !value.items.every(isValidMeeting)
   ) {
@@ -68,6 +72,7 @@ const assertValidResponse = (value: unknown): UserStudyMeetingsResponse => {
 
   return {
     group: value.group,
+    groups: Array.isArray(value.groups) ? value.groups : value.group ? [value.group] : [],
     items: value.items,
   };
 };

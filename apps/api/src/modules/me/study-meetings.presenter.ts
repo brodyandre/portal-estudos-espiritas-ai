@@ -4,6 +4,7 @@ export const presentUpcomingUserStudyMeetings = (
   result: UserStudyMeetingListResult,
 ) => ({
   group: result.group,
+  groups: result.groups,
   items: result.items.map((meeting) => ({
     id: meeting.id,
     title: meeting.title,
@@ -12,5 +13,6 @@ export const presentUpcomingUserStudyMeetings = (
     endsAt: meeting.endsAt,
     status: meeting.status,
     meetUrl: meeting.meetUrl,
+    group: meeting.group,
   })),
 });

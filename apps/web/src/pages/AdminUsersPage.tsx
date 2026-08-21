@@ -21,6 +21,7 @@ import { appConfig } from "../config/appMode";
 import { ServiceRequestError, formatRetryAfterLabel } from "../services/api";
 import { listAdminSelectableGroups } from "../services/adminGroupsService";
 import { updateAdminUserGroup } from "../services/adminUserGroupService";
+import { updateAdminUserTeacherGroups } from "../services/adminUserTeacherGroupsService";
 import { listAdminUsersList } from "../services/adminUsersListService";
 import {
   updateAdminUserStatus,
@@ -36,6 +37,7 @@ import type {
   AdminUserListRole,
   AdminUserListSortBy,
   AdminUserListSortOrder,
+  AdminUserTeacherGroupSummary,
   AdminUsersListResult,
   AdminUsersListSource,
 } from "../types/adminUsersList";
@@ -96,7 +98,10 @@ type StatusConfirmation = {
 };
 
 type GroupDialogState = {
-  user: Pick<AdminUserListItem, "id" | "name" | "emailMasked" | "group" | "status">;
+  user: Pick<
+    AdminUserListItem,
+    "id" | "name" | "emailMasked" | "group" | "teacherGroups" | "role" | "status"
+  >;
 };
 
 type ActionFeedback = {
@@ -360,6 +365,7 @@ const getGroupActionErrorMessage = (error: unknown) => {
       case "PASSWORD_CHANGE_REQUIRED":
         return "Troque sua senha temporária antes de continuar.";
       case "ADMIN_USER_GROUP_ACTOR_NOT_AUTHORIZED":
+      case "ADMIN_USER_TEACHER_GROUPS_ACTOR_NOT_AUTHORIZED":
         return "Seu perfil não pode alterar o grupo deste usuário.";
       case "ADMIN_USER_NOT_FOUND":
         return "O usuário não foi encontrado. Atualize a listagem.";
@@ -372,12 +378,21 @@ const getGroupActionErrorMessage = (error: unknown) => {
       case "ADMIN_USER_GROUP_ALREADY_EMPTY":
         return "O usuário já está sem grupo. A listagem será atualizada.";
       case "ADMIN_USER_GROUP_CONFLICT":
+      case "ADMIN_USER_TEACHER_GROUPS_CONFLICT":
         return "O vínculo foi alterado por outra operação. Atualize os dados e tente novamente.";
       case "INVALID_ADMIN_USER_GROUP_INPUT":
+      case "INVALID_ADMIN_USER_TEACHER_GROUPS_INPUT":
         return "A seleção de grupo é inválida. Atualize os dados e tente novamente.";
+      case "ADMIN_USER_TEACHER_GROUPS_TARGET_NOT_TEACHER":
+        return "Somente professores podem receber múltiplos grupos.";
+      case "ADMIN_USER_TEACHER_GROUP_NOT_FOUND":
+        return "Um dos grupos não está mais disponível. Atualize a lista de grupos e tente novamente.";
+      case "ADMIN_USER_TEACHER_GROUP_INACTIVE":
+        return "Um dos grupos ficou inativo e não pode ser vinculado. Escolha outro conjunto.";
       case "ADMIN_USER_GROUP_RATE_LIMITED":
         return "Muitas alterações foram solicitadas. Aguarde e tente novamente.";
       case "ADMIN_USER_GROUP_UNAVAILABLE_IN_DEMO":
+      case "ADMIN_USER_TEACHER_GROUPS_UNAVAILABLE_IN_DEMO":
         return "A alteração de grupo não está disponível no modo de demonstração.";
       default:
         return "Não foi possível alterar o grupo do usuário. Tente novamente.";
@@ -435,6 +450,29 @@ const normalizeSelectedGroupValue = (
   return WITHOUT_GROUP_VALUE;
 };
 
+const normalizeSelectedTeacherGroupValues = (
+  selectedValues: string[],
+  currentGroups: AdminUserTeacherGroupSummary[],
+  groups: AdminSelectableGroup[],
+) => {
+  const selectableValues = new Set(groups.map((group) => group.slug));
+  const currentValues = new Set(currentGroups.map((group) => group.slug));
+
+  return [...new Set(selectedValues)]
+    .filter((value) => selectableValues.has(value) || currentValues.has(value))
+    .sort();
+};
+
+const haveSameValues = (left: string[], right: string[]) => {
+  const normalizedLeft = [...new Set(left)].sort();
+  const normalizedRight = [...new Set(right)].sort();
+
+  return (
+    normalizedLeft.length === normalizedRight.length &&
+    normalizedLeft.every((value, index) => value === normalizedRight[index])
+  );
+};
+
 const getStatusActionLabel = (status: AdminUserStatusMutation) =>
   status === "inactive" ? "Inativar" : "Ativar";
 
@@ -449,6 +487,7 @@ export const AdminUsersPage = () => {
     items: [],
   });
   const [selectedGroupValue, setSelectedGroupValue] = useState(WITHOUT_GROUP_VALUE);
+  const [selectedTeacherGroupValues, setSelectedTeacherGroupValues] = useState<string[]>([]);
   const [groupDialogError, setGroupDialogError] = useState<string | null>(null);
   const [groupFieldError, setGroupFieldError] = useState<string | null>(null);
   const [groupActionInFlightUserId, setGroupActionInFlightUserId] = useState<string | null>(null);
@@ -584,6 +623,13 @@ export const AdminUsersPage = () => {
     setSelectedGroupValue((current) =>
       normalizeSelectedGroupValue(current, groupDialog.user.group, groupOptionsState.items),
     );
+    setSelectedTeacherGroupValues((current) =>
+      normalizeSelectedTeacherGroupValues(
+        current,
+        groupDialog.user.teacherGroups,
+        groupOptionsState.items,
+      ),
+    );
   }, [groupDialog, groupOptionsState]);
 
   useEffect(() => {
@@ -718,12 +764,15 @@ export const AdminUsersPage = () => {
     setGroupDialogError(null);
     setGroupFieldError(null);
     setSelectedGroupValue(user.group?.slug ?? WITHOUT_GROUP_VALUE);
+    setSelectedTeacherGroupValues(user.teacherGroups.map((group) => group.slug).sort());
     setGroupDialog({
       user: {
         id: user.id,
         name: user.name,
         emailMasked: user.emailMasked,
         group: user.group,
+        teacherGroups: user.teacherGroups,
+        role: user.role,
         status: user.status,
       },
     });
@@ -784,9 +833,6 @@ export const AdminUsersPage = () => {
       return;
     }
 
-    const nextGroupSlug =
-      selectedGroupValue === WITHOUT_GROUP_VALUE ? null : selectedGroupValue;
-
     groupActionInFlightRef.current = true;
     setGroupActionInFlightUserId(groupDialog.user.id);
     setGroupDialogError(null);
@@ -795,9 +841,18 @@ export const AdminUsersPage = () => {
     setGroupActionError(null);
 
     try {
-      await updateAdminUserGroup(groupDialog.user.id, {
-        groupSlug: nextGroupSlug,
-      });
+      if (groupDialog.user.role === "teacher") {
+        await updateAdminUserTeacherGroups(groupDialog.user.id, {
+          groupIds: selectedTeacherGroupValues,
+        });
+      } else {
+        const nextGroupSlug =
+          selectedGroupValue === WITHOUT_GROUP_VALUE ? null : selectedGroupValue;
+
+        await updateAdminUserGroup(groupDialog.user.id, {
+          groupSlug: nextGroupSlug,
+        });
+      }
 
       if (!mountedRef.current) {
         return;
@@ -821,7 +876,8 @@ export const AdminUsersPage = () => {
         errorCode === "AUTH_REQUIRED" ||
         errorCode === "FORBIDDEN" ||
         errorCode === "PASSWORD_CHANGE_REQUIRED" ||
-        errorCode === "ADMIN_USER_GROUP_ACTOR_NOT_AUTHORIZED"
+        errorCode === "ADMIN_USER_GROUP_ACTOR_NOT_AUTHORIZED" ||
+        errorCode === "ADMIN_USER_TEACHER_GROUPS_ACTOR_NOT_AUTHORIZED"
       ) {
         setGroupDialog(null);
         setGroupActionError({
@@ -863,7 +919,10 @@ export const AdminUsersPage = () => {
         return;
       }
 
-      if (errorCode === "ADMIN_USER_GROUP_CONFLICT") {
+      if (
+        errorCode === "ADMIN_USER_GROUP_CONFLICT" ||
+        errorCode === "ADMIN_USER_TEACHER_GROUPS_CONFLICT"
+      ) {
         setGroupDialog(null);
         setGroupActionError({
           title: "Dados atualizados",
@@ -880,7 +939,11 @@ export const AdminUsersPage = () => {
       if (
         errorCode === "ADMIN_USER_GROUP_NOT_FOUND" ||
         errorCode === "ADMIN_USER_GROUP_INACTIVE" ||
-        errorCode === "INVALID_ADMIN_USER_GROUP_INPUT"
+        errorCode === "INVALID_ADMIN_USER_GROUP_INPUT" ||
+        errorCode === "ADMIN_USER_TEACHER_GROUP_NOT_FOUND" ||
+        errorCode === "ADMIN_USER_TEACHER_GROUP_INACTIVE" ||
+        errorCode === "INVALID_ADMIN_USER_TEACHER_GROUPS_INPUT" ||
+        errorCode === "ADMIN_USER_TEACHER_GROUPS_TARGET_NOT_TEACHER"
       ) {
         setGroupDialogError(message);
         setGroupFieldError(message);
@@ -912,17 +975,28 @@ export const AdminUsersPage = () => {
       !isLoading,
   );
   const currentGroupUnavailable = Boolean(
-    groupDialog?.user.group && groupOptionsState.status === "success"
-      ? !hasSelectableGroup(groupOptionsState.items, groupDialog.user.group.slug)
+    groupOptionsState.status === "success" && groupDialog
+      ? groupDialog.user.role === "teacher"
+        ? groupDialog.user.teacherGroups.some(
+            (group) => group.status === "active" && !hasSelectableGroup(groupOptionsState.items, group.slug),
+          )
+        : groupDialog.user.group && !hasSelectableGroup(groupOptionsState.items, groupDialog.user.group.slug)
       : false,
   );
   const currentGroupValue = groupDialog?.user.group?.slug ?? WITHOUT_GROUP_VALUE;
   const isGroupSelectionUnchanged = selectedGroupValue === currentGroupValue;
+  const currentTeacherGroupValues = groupDialog?.user.teacherGroups.map((group) => group.slug) ?? [];
+  const isTeacherGroupSelectionUnchanged = haveSameValues(
+    selectedTeacherGroupValues,
+    currentTeacherGroupValues,
+  );
   const isGroupDialogSubmitting = groupActionInFlightUserId === groupDialog?.user.id;
   const isGroupDialogSubmitDisabled =
     isGroupDialogSubmitting ||
     groupOptionsState.status !== "success" ||
-    isGroupSelectionUnchanged;
+    (groupDialog?.user.role === "teacher"
+      ? isTeacherGroupSelectionUnchanged
+      : isGroupSelectionUnchanged);
 
   const renderPaginationSummary = (meta: AdminUserListMeta) => (
     <p className="card-subtitle">{formatPaginationSummary(meta)}</p>
@@ -1004,13 +1078,13 @@ export const AdminUsersPage = () => {
 
     return (
       <Button
-        aria-label={`Alterar grupo de ${user.name}`}
+        aria-label={`${user.role === "teacher" ? "Alterar grupos" : "Alterar grupo"} de ${user.name}`}
         disabled={Boolean(confirmation) || Boolean(actionInFlight) || Boolean(groupDialog)}
         onClick={(event) => openGroupDialog(user, event.currentTarget)}
         size="compact"
         variant="secondary"
       >
-        {isSubmitting ? "Salvando..." : "Alterar grupo"}
+        {isSubmitting ? "Salvando..." : user.role === "teacher" ? "Alterar grupos" : "Alterar grupo"}
       </Button>
     );
   };
@@ -1065,8 +1139,12 @@ export const AdminUsersPage = () => {
           <dd>{activationLabels[user.activationStatus]}</dd>
         </div>
         <div>
-          <dt>Grupo</dt>
-          <dd>{user.group?.name ?? "Sem grupo vinculado"}</dd>
+          <dt>{user.role === "teacher" ? "Grupos vinculados" : "Grupo"}</dt>
+          <dd>
+            {user.role === "teacher"
+              ? user.teacherGroups.map((group) => group.name).join(", ") || "Sem grupo vinculado"
+              : user.group?.name ?? "Sem grupo vinculado"}
+          </dd>
         </div>
         <div>
           <dt>Criado em</dt>
@@ -1328,13 +1406,19 @@ export const AdminUsersPage = () => {
       {groupDialog ? (
         <AdminUserGroupDialog
           currentGroup={groupDialog.user.group}
+          currentTeacherGroups={groupDialog.user.teacherGroups}
           currentGroupUnavailable={currentGroupUnavailable}
-          description={`Selecione o grupo de estudo de ${groupDialog.user.name}. Escolha “Sem grupo” para remover somente o vínculo atual.`}
+          description={
+            groupDialog.user.role === "teacher"
+              ? `Selecione os grupos de estudo vinculados a ${groupDialog.user.name}.`
+              : `Selecione o grupo de estudo de ${groupDialog.user.name}. Escolha “Sem grupo” para remover somente o vínculo atual.`
+          }
           dialogError={groupDialogError}
           fieldError={groupFieldError}
           groupsState={groupOptionsState}
           isSubmitting={isGroupDialogSubmitting}
           isSubmitDisabled={isGroupDialogSubmitDisabled}
+          mode={groupDialog.user.role === "teacher" ? "multiple" : "single"}
           onCancel={closeGroupDialog}
           onConfirm={() => void handleConfirmGroupChange()}
           onRetryLoad={() => void loadSelectableGroups({ force: true })}
@@ -1343,7 +1427,13 @@ export const AdminUsersPage = () => {
             setGroupDialogError(null);
             setGroupFieldError(null);
           }}
+          onValuesChange={(values) => {
+            setSelectedTeacherGroupValues(values);
+            setGroupDialogError(null);
+            setGroupFieldError(null);
+          }}
           selectedValue={selectedGroupValue}
+          selectedValues={selectedTeacherGroupValues}
           userEmailMasked={groupDialog.user.emailMasked}
           userName={groupDialog.user.name}
         />

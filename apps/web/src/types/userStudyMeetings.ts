@@ -5,6 +5,7 @@ export interface UserStudyMeetingGroup {
   id: string;
   name: string;
   status: UserStudyMeetingGroupStatus;
+  bookTitle?: string;
 }
 
 export interface UserStudyMeeting {
@@ -15,10 +16,12 @@ export interface UserStudyMeeting {
   endsAt: string;
   status: UserStudyMeetingStatus;
   meetUrl: string | null;
+  group?: UserStudyMeetingGroup;
 }
 
 export interface UserStudyMeetingsResponse {
   group: UserStudyMeetingGroup | null;
+  groups: UserStudyMeetingGroup[];
   items: UserStudyMeeting[];
 }
 

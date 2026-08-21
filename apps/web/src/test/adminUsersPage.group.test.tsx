@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { listAdminSelectableGroups } from "../services/adminGroupsService";
 import { ServiceRequestError } from "../services/api";
 import { updateAdminUserGroup } from "../services/adminUserGroupService";
+import { updateAdminUserTeacherGroups } from "../services/adminUserTeacherGroupsService";
 import { listAdminUsersList } from "../services/adminUsersListService";
 import { updateAdminUserStatus } from "../services/adminUserStatusService";
 import type { AdminSelectableGroup } from "../types/adminGroups";
@@ -30,6 +31,10 @@ vi.mock("../services/adminUserGroupService", () => ({
   updateAdminUserGroup: vi.fn(),
 }));
 
+vi.mock("../services/adminUserTeacherGroupsService", () => ({
+  updateAdminUserTeacherGroups: vi.fn(),
+}));
+
 vi.mock("../services/adminUserStatusService", () => ({
   updateAdminUserStatus: vi.fn(),
 }));
@@ -37,6 +42,7 @@ vi.mock("../services/adminUserStatusService", () => ({
 const listUsersMock = vi.mocked(listAdminUsersList);
 const listGroupsMock = vi.mocked(listAdminSelectableGroups);
 const updateUserGroupMock = vi.mocked(updateAdminUserGroup);
+const updateTeacherGroupsMock = vi.mocked(updateAdminUserTeacherGroups);
 const updateStatusMock = vi.mocked(updateAdminUserStatus);
 
 const activeGroups: AdminSelectableGroup[] = [
@@ -75,6 +81,7 @@ describe("AdminUsersPage group actions", () => {
     listUsersMock.mockReset();
     listGroupsMock.mockReset();
     updateUserGroupMock.mockReset();
+    updateTeacherGroupsMock.mockReset();
     updateStatusMock.mockReset();
     listUsersMock.mockResolvedValue(usersWithAndWithoutGroup);
     listGroupsMock.mockResolvedValue({
@@ -90,6 +97,15 @@ describe("AdminUsersPage group actions", () => {
         },
       },
     });
+    updateTeacherGroupsMock.mockResolvedValue({
+      user: {
+        id: "user-professor",
+        groups: [
+          { name: "Emmanuel", slug: "emmanuel", status: "active" },
+          { name: "A Caminho da Luz", slug: "a-caminho-da-luz", status: "active" },
+        ],
+      },
+    });
   });
 
   afterEach(() => {
@@ -97,6 +113,7 @@ describe("AdminUsersPage group actions", () => {
     listUsersMock.mockReset();
     listGroupsMock.mockReset();
     updateUserGroupMock.mockReset();
+    updateTeacherGroupsMock.mockReset();
     updateStatusMock.mockReset();
     vi.clearAllMocks();
     window.localStorage.clear();
@@ -114,6 +131,42 @@ describe("AdminUsersPage group actions", () => {
       screen.getByRole("button", { name: "Alterar grupo de Ana Beatriz Moraes" }),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Alterar grupo de Bruno Lima" })).toBeInTheDocument();
+  });
+
+  it("permite selecionar e salvar múltiplos grupos para professor", async () => {
+    listUsersMock.mockResolvedValue(
+      buildResult({}, [
+        buildUser({
+          id: "user-professor",
+          name: "Professor Teste",
+          role: "teacher",
+          group: null,
+          teacherGroups: [{ name: "Emmanuel", slug: "emmanuel", status: "active" }],
+        }),
+      ]),
+    );
+
+    renderPage();
+
+    const button = await screen.findByRole("button", { name: "Alterar grupos de Professor Teste" });
+    fireEvent.click(button);
+
+    expect(
+      await screen.findByRole("dialog", { name: "Alterar grupos do professor" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Grupos atuais:/i)).toBeInTheDocument();
+    expect(await screen.findByLabelText("Emmanuel")).toBeChecked();
+    expect(screen.getByLabelText("A Caminho da Luz")).not.toBeChecked();
+
+    fireEvent.click(screen.getByLabelText("A Caminho da Luz"));
+    fireEvent.click(screen.getByRole("button", { name: "Salvar vínculos" }));
+
+    await waitFor(() => {
+      expect(updateTeacherGroupsMock).toHaveBeenCalledWith("user-professor", {
+        groupIds: ["emmanuel", "a-caminho-da-luz"],
+      });
+    });
+    expect(updateUserGroupMock).not.toHaveBeenCalled();
   });
 
   it("abre o dialog do usuário correto, carrega grupos e foca o select", async () => {

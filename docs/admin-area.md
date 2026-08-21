@@ -82,11 +82,12 @@ API implementada nesta etapa:
 
 Contrato seguro da listagem:
 
-- cada item contem somente `id`, `name`, `emailMasked`, `role`, `status`, `activationStatus`, `group` e `createdAt`;
+- cada item contem somente `id`, `name`, `emailMasked`, `role`, `status`, `activationStatus`, `group`, `teacherGroups` e `createdAt`;
 - `emailMasked` preserva os dois primeiros caracteres do local-part, ou um quando houver apenas um, e acrescenta `***`;
 - `status` e o status operacional persistido;
 - `activationStatus` e derivado de `accountActivatedAt`, sem usar `mustChangePassword`;
-- `group` usa `groupName` e `groupSlug`;
+- `group` usa `groupName` e `groupSlug` e permanece como vínculo único de aluno;
+- `teacherGroups` lista os vínculos múltiplos normalizados de professores;
 - se somente `groupName` ou somente `groupSlug` estiver persistido, a API retorna `group: null`;
 - `lastLoginAt` fica deliberadamente ausente porque a listagem nao expõe dados de sessao;
 - a resposta nao inclui e-mail completo, `passwordHash`, sessoes, convites, tokens, hashes, auditoria, inscricao completa ou observacoes administrativas.

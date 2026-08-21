@@ -17,9 +17,10 @@ import type {
 
 export interface UserStudyMeetingsRepository {
   findUserGroupByUserId(userId: string): Promise<UserStudyMeetingUserGroupRecord | null>;
+  listTeacherGroupsByUserId(userId: string): Promise<UserStudyMeetingGroupRecord[]>;
   findGroupById(groupId: string): Promise<UserStudyMeetingGroupRecord | null>;
   listCurrentAndFutureMeetings(input: {
-    groupId: string;
+    groupIds: string[];
     now: Date;
     limit: number;
   }): Promise<UserStudyMeetingRecord[]>;
@@ -36,6 +37,7 @@ export interface MemoryUserStudyMeetingGroup {
   name: string;
   status: "active" | "inactive";
   meetUrl: string;
+  bookTitle: string;
 }
 
 export interface MemoryUserStudyMeeting {
@@ -52,11 +54,12 @@ export interface MemoryUserStudyMeetingsState {
   users: MemoryUserStudyMeetingUser[];
   groups: MemoryUserStudyMeetingGroup[];
   meetings: MemoryUserStudyMeeting[];
+  teacherGroupMemberships: Array<{ userId: string; groupId: string }>;
 }
 
 type UserStudyMeetingsPersistenceClient = Pick<
   PrismaClient,
-  "user" | "studyGroup" | "studyMeeting"
+  "user" | "studyGroup" | "studyMeeting" | "teacherStudyGroup"
 >;
 
 const defaultMemoryGroups: MemoryUserStudyMeetingGroup[] = studyGroups.map((group) => ({
@@ -64,6 +67,7 @@ const defaultMemoryGroups: MemoryUserStudyMeetingGroup[] = studyGroups.map((grou
   name: group.name,
   status: "active",
   meetUrl: group.meetUrl,
+  bookTitle: group.bookTitle,
 }));
 
 const defaultMemoryUsers: MemoryUserStudyMeetingUser[] = [
@@ -102,6 +106,9 @@ export const createMemoryUserStudyMeetingsState = (
   users: (options.users ?? defaultMemoryUsers).map(cloneUser),
   groups: (options.groups ?? defaultMemoryGroups).map(cloneGroup),
   meetings: (options.meetings ?? []).map(cloneMeeting),
+  teacherGroupMemberships: (options.teacherGroupMemberships ?? [
+    { userId: "user-professor-demo", groupId: "emmanuel" },
+  ]).map((membership) => ({ ...membership })),
 });
 
 const mapPrismaGroupStatus = (
@@ -117,12 +124,13 @@ const mapPrismaUserGroup = (
 });
 
 const mapPrismaGroup = (
-  group: Pick<PrismaStudyGroup, "id" | "name" | "status" | "meetUrl">,
+  group: Pick<PrismaStudyGroup, "id" | "name" | "status" | "meetUrl" | "bookTitle">,
 ): UserStudyMeetingGroupRecord => ({
   id: group.id,
   name: group.name,
   status: mapPrismaGroupStatus(group.status),
   meetUrl: group.meetUrl,
+  bookTitle: group.bookTitle,
 });
 
 const mapPrismaMeeting = (
@@ -158,12 +166,23 @@ export const createMemoryUserStudyMeetingsRepository = (
       return group ? cloneGroup(group) : null;
     },
 
+    async listTeacherGroupsByUserId(userId) {
+      const membershipGroupIds = state.teacherGroupMemberships
+        .filter((membership) => membership.userId === userId)
+        .map((membership) => membership.groupId);
+
+      return state.groups
+        .filter((group) => membershipGroupIds.includes(group.id))
+        .sort((first, second) => first.name.localeCompare(second.name, "pt-BR", { sensitivity: "base" }))
+        .map(cloneGroup);
+    },
+
     async listCurrentAndFutureMeetings(input) {
       const nowTime = input.now.getTime();
 
       return state.meetings
         .filter((meeting) => {
-          if (meeting.groupId !== input.groupId) {
+          if (!input.groupIds.includes(meeting.groupId)) {
             return false;
           }
 
@@ -217,23 +236,57 @@ export const createPrismaUserStudyMeetingsRepository = (
     async findGroupById(groupId) {
       const group = await prisma.studyGroup.findUnique({
         where: {
-          id: groupId,
+            id: groupId,
+          },
+          select: {
+            id: true,
+            name: true,
+            status: true,
+            meetUrl: true,
+            bookTitle: true,
+          },
+        });
+
+      return group ? mapPrismaGroup(group) : null;
+    },
+
+    async listTeacherGroupsByUserId(userId) {
+      const memberships = await prisma.teacherStudyGroup.findMany({
+        where: {
+          userId,
         },
+        orderBy: [
+          {
+            group: {
+              name: "asc",
+            },
+          },
+          {
+            groupId: "asc",
+          },
+        ],
         select: {
-          id: true,
-          name: true,
-          status: true,
-          meetUrl: true,
+          group: {
+            select: {
+              id: true,
+              name: true,
+              status: true,
+              meetUrl: true,
+              bookTitle: true,
+            },
+          },
         },
       });
 
-      return group ? mapPrismaGroup(group) : null;
+      return memberships.map((membership) => mapPrismaGroup(membership.group));
     },
 
     async listCurrentAndFutureMeetings(input) {
       const meetings = await prisma.studyMeeting.findMany({
         where: {
-          groupId: input.groupId,
+          groupId: {
+            in: input.groupIds,
+          },
           canceledAt: null,
           endsAt: {
             gt: input.now,

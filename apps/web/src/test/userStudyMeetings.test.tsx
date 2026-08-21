@@ -24,7 +24,8 @@ const createMeeting = (overrides: Partial<UserStudyMeeting> = {}): UserStudyMeet
 const createResult = (
   overrides: Partial<UserStudyMeetingsResult> = {},
 ): UserStudyMeetingsResult => ({
-  group: { id: "group-001", name: "Grupo autenticado", status: "active" },
+  group: { id: "group-001", name: "Grupo autenticado", status: "active", bookTitle: "Livro" },
+  groups: [{ id: "group-001", name: "Grupo autenticado", status: "active", bookTitle: "Livro" }],
   items: [createMeeting()],
   limit: 3,
   source: "api",
@@ -127,7 +128,7 @@ describe("UserMeetingsPanel", () => {
     const { rerender } = render(
       <UserMeetingsPanel
         audience="student"
-        data={createResult({ group: null, items: [] })}
+        data={createResult({ group: null, groups: [], items: [] })}
         error={null}
         isLoading={false}
         onRetry={vi.fn()}
@@ -141,6 +142,7 @@ describe("UserMeetingsPanel", () => {
         audience="student"
         data={createResult({
           group: { id: "group-001", name: "Grupo autenticado", status: "inactive" },
+          groups: [{ id: "group-001", name: "Grupo autenticado", status: "inactive" }],
           items: [],
         })}
         error={null}

@@ -7,6 +7,7 @@ import type {
   AdminUserStatusMutation,
   ListAdminUsersInput,
   UpdateAdminUserGroupInput,
+  UpdateAdminUserTeacherGroupsInput,
   UpdateAdminUserStatusInput,
 } from "./types";
 
@@ -54,6 +55,13 @@ export const buildInvalidAdminUserGroupInputError = () =>
     statusCode: 400,
     code: "INVALID_ADMIN_USER_GROUP_INPUT",
     message: "Informe um usuário e um grupo válidos para a alteração administrativa.",
+  });
+
+export const buildInvalidAdminUserTeacherGroupsInputError = () =>
+  new AppError({
+    statusCode: 400,
+    code: "INVALID_ADMIN_USER_TEACHER_GROUPS_INPUT",
+    message: "Informe um professor e uma lista de grupos válidos para a alteração administrativa.",
   });
 
 const getOptionalQueryString = (query: Record<string, unknown>, key: string) => {
@@ -175,6 +183,17 @@ export const parseAdminUserGroupPathParam = (value: string | string[] | undefine
   return trimmedValue;
 };
 
+export const parseAdminUserTeacherGroupsPathParam = (value: string | string[] | undefined) => {
+  const normalizedValue = Array.isArray(value) ? (value[0] ?? "") : (value ?? "");
+  const trimmedValue = normalizedValue.trim();
+
+  if (!trimmedValue || trimmedValue.length > ADMIN_USER_ID_MAX_LENGTH) {
+    throw buildInvalidAdminUserTeacherGroupsInputError();
+  }
+
+  return trimmedValue;
+};
+
 export const parseAdminUserStatusBody = (body: unknown): UpdateAdminUserStatusInput => {
   const isPlainObject =
     typeof body === "object" &&
@@ -238,5 +257,53 @@ export const parseAdminUserGroupBody = (body: unknown): UpdateAdminUserGroupInpu
 
   return {
     groupSlug: normalizedGroupSlug,
+  };
+};
+
+export const parseAdminUserTeacherGroupsBody = (
+  body: unknown,
+): UpdateAdminUserTeacherGroupsInput => {
+  const isPlainObject =
+    typeof body === "object" &&
+    body !== null &&
+    !Array.isArray(body) &&
+    Object.getPrototypeOf(body) === Object.prototype;
+
+  if (!isPlainObject) {
+    throw buildInvalidAdminUserTeacherGroupsInputError();
+  }
+
+  const keys = Object.keys(body);
+
+  if (keys.length !== 1 || keys[0] !== "groupIds") {
+    throw buildInvalidAdminUserTeacherGroupsInputError();
+  }
+
+  const { groupIds } = body as Record<string, unknown>;
+
+  if (!Array.isArray(groupIds)) {
+    throw buildInvalidAdminUserTeacherGroupsInputError();
+  }
+
+  const normalizedGroupIds = groupIds.map((groupId) => {
+    if (typeof groupId !== "string") {
+      throw buildInvalidAdminUserTeacherGroupsInputError();
+    }
+
+    const normalizedGroupId = groupId.trim();
+
+    if (!normalizedGroupId || normalizedGroupId.length > ADMIN_USER_ID_MAX_LENGTH) {
+      throw buildInvalidAdminUserTeacherGroupsInputError();
+    }
+
+    return normalizedGroupId;
+  });
+
+  if (new Set(normalizedGroupIds).size !== normalizedGroupIds.length) {
+    throw buildInvalidAdminUserTeacherGroupsInputError();
+  }
+
+  return {
+    groupIds: normalizedGroupIds,
   };
 };

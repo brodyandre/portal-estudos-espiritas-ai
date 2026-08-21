@@ -54,12 +54,14 @@ const installState = (options: {
         name: "Emmanuel",
         status: options.groupStatus ?? "active",
         meetUrl: "https://meet.google.com/emmanuel-real",
+        bookTitle: "Emmanuel",
       },
       {
         id: "a-caminho-da-luz",
         name: "A Caminho da Luz",
         status: "active",
         meetUrl: "https://meet.google.com/caminho-real",
+        bookTitle: "A Caminho da Luz",
       },
     ],
     meetings: [
@@ -118,6 +120,12 @@ const installState = (options: {
         canceledAt: null,
       },
     ],
+    teacherGroupMemberships:
+      teacherGroupSlug === null
+        ? []
+        : teacherGroupSlug === "a-caminho-da-luz"
+          ? [{ userId: "user-professor-demo", groupId: "a-caminho-da-luz" }]
+          : [{ userId: "user-professor-demo", groupId: "emmanuel" }],
   });
 
   setUserStudyMeetingsServiceDependenciesForTesting({
@@ -155,7 +163,16 @@ describe("GET /api/me/study-meetings/upcoming", () => {
           id: "emmanuel",
           name: "Emmanuel",
           status: "active",
+          bookTitle: "Emmanuel",
         },
+        groups: [
+          {
+            id: "emmanuel",
+            name: "Emmanuel",
+            status: "active",
+            bookTitle: "Emmanuel",
+          },
+        ],
       },
       meta: {
         limit: 3,
@@ -169,6 +186,10 @@ describe("GET /api/me/study-meetings/upcoming", () => {
     expect(response.body.data.items[0]).toMatchObject({
       status: "ongoing",
       meetUrl: "https://meet.google.com/emmanuel-real",
+      group: expect.objectContaining({
+        id: "emmanuel",
+        bookTitle: "Emmanuel",
+      }),
     });
     expect(response.body.data.items[1]).toMatchObject({
       status: "scheduled",
@@ -188,6 +209,79 @@ describe("GET /api/me/study-meetings/upcoming", () => {
     expect(response.body.meta.limit).toBe(1);
     expect(response.body.data.items).toHaveLength(1);
     expect(response.body.data.items[0].id).toBe("meeting-ongoing");
+  });
+
+  it("permite professor vinculado a dois grupos e retorna agenda combinada", async () => {
+    const state = createMemoryUserStudyMeetingsState({
+      users: [
+        { id: "user-aluno-demo", groupName: "Emmanuel", groupSlug: "emmanuel" },
+        { id: "user-professor-demo", groupName: null, groupSlug: null },
+        { id: "user-admin-demo", groupName: null, groupSlug: null },
+      ],
+      groups: [
+        {
+          id: "emmanuel",
+          name: "Emmanuel",
+          status: "active",
+          meetUrl: "https://meet.google.com/emmanuel-real",
+          bookTitle: "Emmanuel",
+        },
+        {
+          id: "a-caminho-da-luz",
+          name: "A Caminho da Luz",
+          status: "active",
+          meetUrl: "https://meet.google.com/caminho-real",
+          bookTitle: "A Caminho da Luz",
+        },
+      ],
+      meetings: [
+        {
+          id: "meeting-emmanuel",
+          groupId: "emmanuel",
+          title: "Encontro Emmanuel",
+          description: null,
+          startsAt: "2026-07-21T20:00:00.000Z",
+          endsAt: "2026-07-21T21:00:00.000Z",
+          canceledAt: null,
+        },
+        {
+          id: "meeting-caminho",
+          groupId: "a-caminho-da-luz",
+          title: "Encontro Caminho",
+          description: null,
+          startsAt: "2026-07-20T21:00:00.000Z",
+          endsAt: "2026-07-20T22:00:00.000Z",
+          canceledAt: null,
+        },
+      ],
+      teacherGroupMemberships: [
+        { userId: "user-professor-demo", groupId: "emmanuel" },
+        { userId: "user-professor-demo", groupId: "a-caminho-da-luz" },
+      ],
+    });
+    setUserStudyMeetingsServiceDependenciesForTesting({
+      repository: createMemoryUserStudyMeetingsRepository(state),
+      nowProvider: () => new Date(NOW),
+    });
+
+    const token = await loginAs("professor.demo@example.com", "ProfessorDemo@123");
+    const response = await request(app)
+      .get("/api/me/study-meetings/upcoming?limit=3")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.groups.map((group: { id: string }) => group.id)).toEqual([
+      "a-caminho-da-luz",
+      "emmanuel",
+    ]);
+    expect(response.body.data.items.map((item: { id: string }) => item.id)).toEqual([
+      "meeting-caminho",
+      "meeting-emmanuel",
+    ]);
+    expect(response.body.data.items[0].group).toMatchObject({
+      id: "a-caminho-da-luz",
+      bookTitle: "A Caminho da Luz",
+    });
   });
 
   it("rejeita papel nao autorizado sem vazar link", async () => {
@@ -211,6 +305,7 @@ describe("GET /api/me/study-meetings/upcoming", () => {
     expect(response.status).toBe(200);
     expect(response.body.data).toEqual({
       group: null,
+      groups: [],
       items: [],
     });
     expect(JSON.stringify(response.body)).not.toContain("meet.google.com");
@@ -229,7 +324,16 @@ describe("GET /api/me/study-meetings/upcoming", () => {
         id: "emmanuel",
         name: "Emmanuel",
         status: "inactive",
+        bookTitle: "Emmanuel",
       },
+      groups: [
+        {
+          id: "emmanuel",
+          name: "Emmanuel",
+          status: "inactive",
+          bookTitle: "Emmanuel",
+        },
+      ],
       items: [],
     });
     expect(JSON.stringify(response.body)).not.toContain("meet.google.com");

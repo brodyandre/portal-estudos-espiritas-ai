@@ -14,6 +14,7 @@ const DEMO_USERS: AdminUserListItem[] = [
     status: "active",
     activationStatus: "activated",
     group: { name: "Emmanuel", slug: "emmanuel" },
+    teacherGroups: [],
     createdAt: "2026-07-03T19:20:00.000Z",
   },
   {
@@ -24,6 +25,10 @@ const DEMO_USERS: AdminUserListItem[] = [
     status: "active",
     activationStatus: "activated",
     group: { name: "A Caminho da Luz", slug: "a-caminho-da-luz" },
+    teacherGroups: [
+      { name: "Emmanuel", slug: "emmanuel", status: "active" },
+      { name: "A Caminho da Luz", slug: "a-caminho-da-luz", status: "active" },
+    ],
     createdAt: "2026-07-12T09:00:00.000Z",
   },
   {
@@ -34,6 +39,7 @@ const DEMO_USERS: AdminUserListItem[] = [
     status: "inactive",
     activationStatus: "activated",
     group: { name: "Emmanuel", slug: "emmanuel" },
+    teacherGroups: [{ name: "Emmanuel", slug: "emmanuel", status: "active" }],
     createdAt: "2026-06-28T12:30:00.000Z",
   },
   {
@@ -44,6 +50,7 @@ const DEMO_USERS: AdminUserListItem[] = [
     status: "pending",
     activationStatus: "not_activated",
     group: null,
+    teacherGroups: [],
     createdAt: "2026-07-14T08:00:00.000Z",
   },
   {
@@ -54,6 +61,7 @@ const DEMO_USERS: AdminUserListItem[] = [
     status: "active",
     activationStatus: "activated",
     group: null,
+    teacherGroups: [],
     createdAt: "2026-07-11T14:15:00.000Z",
   },
   {
@@ -64,6 +72,7 @@ const DEMO_USERS: AdminUserListItem[] = [
     status: "rejected",
     activationStatus: "not_activated",
     group: null,
+    teacherGroups: [],
     createdAt: "2026-06-19T11:00:00.000Z",
   },
   {
@@ -74,6 +83,7 @@ const DEMO_USERS: AdminUserListItem[] = [
     status: "pending",
     activationStatus: "not_activated",
     group: { name: "Emmanuel", slug: "emmanuel" },
+    teacherGroups: [],
     createdAt: "2026-07-10T10:20:00.000Z",
   },
   {
@@ -84,6 +94,7 @@ const DEMO_USERS: AdminUserListItem[] = [
     status: "inactive",
     activationStatus: "activated",
     group: { name: "A Caminho da Luz", slug: "a-caminho-da-luz" },
+    teacherGroups: [],
     createdAt: "2026-07-01T17:45:00.000Z",
   },
   {
@@ -94,6 +105,7 @@ const DEMO_USERS: AdminUserListItem[] = [
     status: "active",
     activationStatus: "not_activated",
     group: null,
+    teacherGroups: [],
     createdAt: "2026-07-05T13:10:00.000Z",
   },
   {
@@ -104,6 +116,7 @@ const DEMO_USERS: AdminUserListItem[] = [
     status: "active",
     activationStatus: "activated",
     group: { name: "Emmanuel", slug: "emmanuel" },
+    teacherGroups: [],
     createdAt: "2026-07-08T09:40:00.000Z",
   },
   {
@@ -114,6 +127,7 @@ const DEMO_USERS: AdminUserListItem[] = [
     status: "inactive",
     activationStatus: "not_activated",
     group: null,
+    teacherGroups: [],
     createdAt: "2026-06-23T15:55:00.000Z",
   },
   {
@@ -124,6 +138,7 @@ const DEMO_USERS: AdminUserListItem[] = [
     status: "active",
     activationStatus: "activated",
     group: null,
+    teacherGroups: [],
     createdAt: "2026-07-09T16:35:00.000Z",
   },
 ];
@@ -200,7 +215,11 @@ export const listMockAdminUsersList = (
       return false;
     }
 
-    if (group && user.group?.slug.toLowerCase() !== group) {
+    if (
+      group &&
+      user.group?.slug.toLowerCase() !== group &&
+      !user.teacherGroups.some((teacherGroup) => teacherGroup.slug.toLowerCase() === group)
+    ) {
       return false;
     }
 

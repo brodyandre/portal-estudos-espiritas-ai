@@ -25,6 +25,7 @@ export const UserMeetingList = ({ meetings }: UserMeetingListProps) => {
               <MeetingStatusBadge status={meeting.status} />
             </div>
             <p className="user-meetings__note">
+              {meeting.group ? `${meeting.group.name} · ` : ""}
               {formatUserMeetingStart(meeting.startsAt)} ·{" "}
               {formatUserMeetingTimeRange(meeting)}
             </p>

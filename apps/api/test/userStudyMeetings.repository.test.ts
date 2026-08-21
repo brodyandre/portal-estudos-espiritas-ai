@@ -20,6 +20,7 @@ const buildRepository = () =>
           name: "Emmanuel",
           status: "active",
           meetUrl: "https://meet.google.com/emmanuel",
+          bookTitle: "Emmanuel",
         },
       ],
       meetings: [
@@ -122,7 +123,7 @@ describe("user study meetings repository", () => {
   it("lista apenas encontros atuais e futuros do grupo, ordenados e limitados", async () => {
     const repository = buildRepository();
     const meetings = await repository.listCurrentAndFutureMeetings({
-      groupId: "emmanuel",
+      groupIds: ["emmanuel"],
       now: NOW,
       limit: 2,
     });
@@ -135,7 +136,7 @@ describe("user study meetings repository", () => {
   it("exclui encontro terminando exatamente agora", async () => {
     const repository = buildRepository();
     const meetings = await repository.listCurrentAndFutureMeetings({
-      groupId: "emmanuel",
+      groupIds: ["emmanuel"],
       now: NOW,
       limit: 10,
     });
@@ -146,7 +147,7 @@ describe("user study meetings repository", () => {
   it("usa id asc como desempate deterministico para mesmo startsAt", async () => {
     const repository = buildRepository();
     const meetings = await repository.listCurrentAndFutureMeetings({
-      groupId: "emmanuel",
+      groupIds: ["emmanuel"],
       now: NOW,
       limit: 10,
     });

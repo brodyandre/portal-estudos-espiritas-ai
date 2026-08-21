@@ -14,6 +14,7 @@ export interface UserStudyMeetingGroupRecord {
   name: string;
   status: "active" | "inactive";
   meetUrl: string;
+  bookTitle: string;
 }
 
 export interface UserStudyMeetingRecord {
@@ -33,6 +34,7 @@ export interface UserStudyMeetingGroupSummary {
   id: string;
   name: string;
   status: "active" | "inactive";
+  bookTitle: string;
 }
 
 export interface UserStudyMeetingListItem {
@@ -43,10 +45,12 @@ export interface UserStudyMeetingListItem {
   endsAt: string;
   status: UserStudyMeetingStatus;
   meetUrl: string;
+  group: UserStudyMeetingGroupSummary;
 }
 
 export interface UserStudyMeetingListResult {
   group: UserStudyMeetingGroupSummary | null;
+  groups: UserStudyMeetingGroupSummary[];
   items: UserStudyMeetingListItem[];
   limit: number;
 }

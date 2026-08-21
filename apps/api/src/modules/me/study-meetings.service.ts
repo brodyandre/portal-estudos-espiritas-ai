@@ -9,6 +9,7 @@ import type {
   UserStudyMeetingListItem,
   UserStudyMeetingListResult,
   UserStudyMeetingRecord,
+  UserStudyMeetingGroupRecord,
 } from "./study-meetings.types";
 
 const AUTH_REQUIRED_MESSAGE = "Faça login no ambiente local para continuar.";
@@ -67,6 +68,42 @@ const createDefaultUserStudyMeetingsServiceDependencies =
     nowProvider: () => new Date(Date.now()),
   });
 
+const toGroupSummary = (group: UserStudyMeetingGroupRecord) => ({
+  id: group.id,
+  name: group.name,
+  status: group.status,
+  bookTitle: group.bookTitle,
+});
+
+const mapMeetings = (
+  meetings: UserStudyMeetingRecord[],
+  groups: UserStudyMeetingGroupRecord[],
+  now: Date,
+) => {
+  const groupsById = new Map(groups.map((group) => [group.id, group]));
+
+  return meetings
+    .map((meeting) => {
+      const group = groupsById.get(meeting.groupId);
+
+      if (!group) {
+        return null;
+      }
+
+      return {
+        id: meeting.id,
+        title: meeting.title,
+        description: meeting.description,
+        startsAt: meeting.startsAt,
+        endsAt: meeting.endsAt,
+        status: deriveMeetingStatus(meeting, now),
+        meetUrl: group.meetUrl,
+        group: toGroupSummary(group),
+      };
+    })
+    .filter((meeting): meeting is NonNullable<typeof meeting> => Boolean(meeting));
+};
+
 export const createUserStudyMeetingsService = (
   dependencies: UserStudyMeetingsServiceDependencies =
     createDefaultUserStudyMeetingsServiceDependencies(),
@@ -74,11 +111,41 @@ export const createUserStudyMeetingsService = (
   return {
     async listUpcomingMeetings(authUser, input) {
       const actor = assertStudentOrTeacher(authUser);
+
+      if (actor.role === "teacher") {
+        const teacherGroups = await dependencies.repository.listTeacherGroupsByUserId(actor.id);
+        const activeTeacherGroups = teacherGroups.filter((group) => group.status === "active");
+
+        if (teacherGroups.length === 0 || activeTeacherGroups.length === 0) {
+          return {
+            group: teacherGroups[0] ? toGroupSummary(teacherGroups[0]) : null,
+            groups: teacherGroups.map(toGroupSummary),
+            items: [],
+            limit: input.limit,
+          };
+        }
+
+        const now = dependencies.nowProvider();
+        const meetings = await dependencies.repository.listCurrentAndFutureMeetings({
+          groupIds: activeTeacherGroups.map((group) => group.id),
+          now,
+          limit: input.limit,
+        });
+
+        return {
+          group: toGroupSummary(activeTeacherGroups[0]),
+          groups: teacherGroups.map(toGroupSummary),
+          items: mapMeetings(meetings, activeTeacherGroups, now),
+          limit: input.limit,
+        };
+      }
+
       const userGroup = await dependencies.repository.findUserGroupByUserId(actor.id);
 
       if (!userGroup?.groupSlug) {
         return {
           group: null,
+          groups: [],
           items: [],
           limit: input.limit,
         };
@@ -89,20 +156,18 @@ export const createUserStudyMeetingsService = (
       if (!group) {
         return {
           group: null,
+          groups: [],
           items: [],
           limit: input.limit,
         };
       }
 
-      const groupSummary = {
-        id: group.id,
-        name: group.name,
-        status: group.status,
-      };
+      const groupSummary = toGroupSummary(group);
 
       if (group.status !== "active") {
         return {
           group: groupSummary,
+          groups: [groupSummary],
           items: [],
           limit: input.limit,
         };
@@ -110,22 +175,15 @@ export const createUserStudyMeetingsService = (
 
       const now = dependencies.nowProvider();
       const meetings = await dependencies.repository.listCurrentAndFutureMeetings({
-        groupId: group.id,
+        groupIds: [group.id],
         now,
         limit: input.limit,
       });
 
       return {
         group: groupSummary,
-        items: meetings.map((meeting) => ({
-          id: meeting.id,
-          title: meeting.title,
-          description: meeting.description,
-          startsAt: meeting.startsAt,
-          endsAt: meeting.endsAt,
-          status: deriveMeetingStatus(meeting, now),
-          meetUrl: group.meetUrl,
-        })),
+        groups: [groupSummary],
+        items: mapMeetings(meetings, [group], now),
         limit: input.limit,
       };
     },

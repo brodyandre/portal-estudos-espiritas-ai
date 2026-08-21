@@ -19,6 +19,7 @@ export const baseUser: AdminUserListItem = {
     name: "Emmanuel",
     slug: "emmanuel",
   },
+  teacherGroups: [],
   createdAt: "2026-07-12T10:30:00.000Z",
 };
 

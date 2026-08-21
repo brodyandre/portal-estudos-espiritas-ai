@@ -628,7 +628,7 @@ Rate limit das mutações:
 
 ### `GET /api/me/study-meetings/upcoming`
 
-Lista os encontros atuais e futuros do grupo do usuário autenticado.
+Lista os encontros atuais e futuros dos grupos autorizados do usuário autenticado.
 
 Esta rota foi criada para a Entrega 5A como contrato compartilhado entre aluno e professor. A
 Entrega 5B consome este contrato nas telas `/aluno` e `/professor`, sempre com `limit=3`, em um
@@ -640,8 +640,8 @@ Integração visual da Entrega 5B:
 - `/professor` mostra a agenda em "Agenda do seu grupo" sem sobrescrever o workspace manual do
   professor;
 - o botão "Entrar no Google Meet" é exibido somente quando vem de `meetUrl` desta rota;
-- a seleção manual de grupo/livro permanece apenas para materiais, resumos, perguntas e conteúdo
-  legado;
+- em runtime conectado, `/professor` usa os grupos retornados por esta rota para limitar a
+  preparação pedagógica aos grupos vinculados ao professor;
 - dúvidas continuam usando o `lessonId` legado da próxima aula do grupo selecionado, sem usar
   `StudyMeeting.id`;
 - o modo demonstrativo usa agenda fictícia segura, sem link real;
@@ -660,8 +660,10 @@ Acesso:
 Resolução do grupo:
 
 - o grupo é resolvido exclusivamente pelo usuário autenticado no backend;
-- a rota consulta o vínculo canônico atual do usuário (`groupSlug`/`groupName`) e depois o
-  `StudyGroup`;
+- para `student`, a rota consulta o vínculo canônico atual do usuário (`groupSlug`/`groupName`) e
+  depois o `StudyGroup`;
+- para `teacher`, a rota consulta os vínculos normalizados em `TeacherStudyGroup`;
+- professores recebem encontros agregados de todos os grupos ativos vinculados;
 - não aceita `groupId`, `groupSlug` nem qualquer identificador de grupo enviado pelo cliente;
 - query inesperada é rejeitada com `INVALID_USER_STUDY_MEETINGS_QUERY`.
 
@@ -679,10 +681,10 @@ Seleção dos encontros:
 - considera elegível encontro futuro: `startsAt > now`;
 - exclui encontros cancelados (`canceledAt` preenchido);
 - exclui encontros encerrados;
-- exclui encontros de outro grupo;
+- exclui encontros de grupos não vinculados ao usuário autenticado;
 - exclui encontros de grupo inativo;
 - ordena por `startsAt` crescente e depois por `id`;
-- aplica `limit` após filtro e ordenação;
+- aplica `limit` após filtro e ordenação global;
 - status é derivado em tempo de resposta como `ongoing` ou `scheduled`.
 
 Regra de `meetUrl`:
@@ -1038,6 +1040,59 @@ Resposta de sucesso sem grupo:
   }
 }
 ```
+
+### `GET /api/admin/users/:userId/groups`
+
+Consulta os grupos normalizados vinculados a um Professor.
+
+Acesso:
+
+- exige `Authorization: Bearer <token>`;
+- exige usuário com papel `admin`;
+- o alvo deve existir e ter papel `teacher`;
+- alvos `student`, `visitor` ou `admin` retornam `409` e `ADMIN_USER_TEACHER_GROUPS_TARGET_NOT_TEACHER`.
+
+Resposta:
+
+```json
+{
+  "success": true,
+  "message": "Grupos do professor consultados com sucesso.",
+  "data": {
+    "user": {
+      "id": "user-professor-demo",
+      "groups": [
+        {
+          "name": "Emmanuel",
+          "slug": "emmanuel",
+          "status": "active"
+        }
+      ]
+    }
+  }
+}
+```
+
+### `PUT /api/admin/users/:userId/groups`
+
+Substitui atomicamente o conjunto completo de grupos vinculados a um Professor.
+
+Body:
+
+```json
+{
+  "groupIds": ["emmanuel", "a-caminho-da-luz"]
+}
+```
+
+Regras:
+
+- aceita somente objeto JSON simples com `groupIds`;
+- `groupIds` deve ser array de strings não vazias, sem duplicidade;
+- todos os grupos devem existir e estar ativos;
+- o alvo deve ter papel `teacher`;
+- a alteração não muda `role`, `status`, senha, sessões, convites ou vínculo único legado de aluno;
+- alterações reais gravam `AuditLog` com grupos adicionados/removidos, sem secrets.
 
 Sessão local:
 

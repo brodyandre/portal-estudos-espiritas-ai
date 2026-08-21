@@ -12,6 +12,10 @@ export interface AdminUserGroupSummary {
   slug: string;
 }
 
+export interface AdminUserTeacherGroupSummary extends AdminUserGroupSummary {
+  status: "active" | "inactive";
+}
+
 export interface AdminUserListItem {
   id: string;
   name: string;
@@ -20,6 +24,7 @@ export interface AdminUserListItem {
   status: AdminUserListStatus;
   activationStatus: AdminUserActivationStatus;
   group: AdminUserGroupSummary | null;
+  teacherGroups: AdminUserTeacherGroupSummary[];
   createdAt: string;
 }
 
@@ -52,5 +57,12 @@ export interface AdminUserGroupMutationResult {
   user: {
     id: string;
     group: AdminUserGroupSummary | null;
+  };
+}
+
+export interface AdminUserTeacherGroupsMutationResult {
+  user: {
+    id: string;
+    groups: AdminUserTeacherGroupSummary[];
   };
 }
