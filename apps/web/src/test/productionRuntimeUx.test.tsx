@@ -20,7 +20,7 @@ const stubProductionEnv = () => {
 
 const renderPage = async (
   path: string,
-  page: "portal" | "educacao-continuada" | "aluno" | "professor" | "admin",
+  page: "home" | "portal" | "educacao-continuada" | "aluno" | "professor" | "admin",
 ) => {
   vi.resetModules();
   stubProductionEnv();
@@ -37,6 +37,7 @@ const renderPage = async (
 
   const [
     { AuthProvider },
+    { HomePage },
     { PortalPage },
     { EducationContinuedPage },
     { AlunoPage },
@@ -44,6 +45,7 @@ const renderPage = async (
     { AdminPage },
   ] = await Promise.all([
     import("../auth/AuthProvider"),
+    import("../pages/HomePage"),
     import("../pages/PortalPage"),
     import("../pages/EducationContinuedPage"),
     import("../pages/AlunoPage"),
@@ -52,7 +54,9 @@ const renderPage = async (
   ]);
 
   const element =
-    page === "portal" ? (
+    page === "home" ? (
+      <HomePage />
+    ) : page === "portal" ? (
       <PortalPage />
     ) : page === "educacao-continuada" ? (
       <EducationContinuedPage />
@@ -89,6 +93,15 @@ describe("production runtime UX", () => {
     vi.resetModules();
     window.localStorage.clear();
     window.sessionStorage.clear();
+  });
+
+  it("usa microcopy institucional na home production-like", async () => {
+    await renderPage("/", "home");
+
+    expect(screen.getByText("Educação Continuada")).toBeInTheDocument();
+    expect(screen.getByText("Acesso simples em computador, tablet e celular")).toBeInTheDocument();
+    expect(screen.queryByText("Mobile-first real desde 360px")).not.toBeInTheDocument();
+    expect(screen.queryByText("Projeto")).not.toBeInTheDocument();
   });
 
   it("nao renderiza linguagem demo na area publica quando a API de producao falha", async () => {

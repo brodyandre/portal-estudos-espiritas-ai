@@ -26,9 +26,9 @@ export const HomePage = () => {
         }
         badge="Gratuito e responsivo"
         description="Uma aplicacao web acolhedora para apoiar grupos de estudos espiritas online com organizacao, materiais simples e acompanhamento claro."
-        eyebrow="Projeto"
+        eyebrow="Educação Continuada"
         meta={[
-          { label: "Experiencia", value: "Mobile-first real desde 360px" },
+          { label: "Experiencia", value: "Acesso simples em computador, tablet e celular" },
           { label: "Uso", value: "Portal, Aluno e Professor" },
           { label: "Encontros", value: "Google Meet com apoio revisavel" },
         ]}
