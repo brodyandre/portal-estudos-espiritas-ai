@@ -16,27 +16,38 @@ interface UserMeetingsPanelProps {
   audience: "student" | "teacher";
 }
 
-const getEmptyCopy = (data: UserStudyMeetingsResult | null) => {
-  if (!data?.group) {
+const getEmptyCopy = (
+  data: UserStudyMeetingsResult | null,
+  audience: "student" | "teacher",
+) => {
+  const groups = data?.groups ?? [];
+
+  if (!data?.group && groups.length === 0) {
     return {
-      title: "Nenhum grupo vinculado",
+      title: audience === "teacher" ? "Nenhum grupo vinculado ao seu perfil" : "Nenhum grupo vinculado",
       description:
-        "A agenda real aparece quando seu perfil está vinculado a um grupo ativo.",
+        audience === "teacher"
+          ? "A agenda real aparece quando seu perfil de professor está vinculado a pelo menos um grupo ativo."
+          : "A agenda real aparece quando seu perfil está vinculado a um grupo ativo.",
     };
   }
 
-  if (data.group.status === "inactive") {
+  if (groups.length > 0 && groups.every((group) => group.status === "inactive")) {
     return {
-      title: "Grupo inativo",
+      title: audience === "teacher" ? "Grupos inativos" : "Grupo inativo",
       description:
-        "O grupo vinculado está inativo no momento. Por segurança, os encontros e o link não são exibidos.",
+        audience === "teacher"
+          ? "Os grupos vinculados estão inativos no momento. Por segurança, os encontros e links não são exibidos."
+          : "O grupo vinculado está inativo no momento. Por segurança, os encontros e o link não são exibidos.",
     };
   }
 
   return {
-    title: "Sem encontros próximos",
+    title: audience === "teacher" ? "Nenhum encontro futuro encontrado" : "Sem encontros próximos",
     description:
-      "Não há encontros atuais ou futuros disponíveis para o seu grupo agora.",
+      audience === "teacher"
+        ? "Não há encontros atuais ou futuros disponíveis para os grupos vinculados agora."
+        : "Não há encontros atuais ou futuros disponíveis para o seu grupo agora.",
   };
 };
 
@@ -94,8 +105,8 @@ export const UserMeetingsPanel = ({
     );
   }
 
-  if (!data || !data.group || data.group.status !== "active" || data.items.length === 0) {
-    const copy = getEmptyCopy(data);
+  if (!data || !data.group || data.items.length === 0) {
+    const copy = getEmptyCopy(data, audience);
 
     return (
       <EmptyState
@@ -121,9 +132,9 @@ export const UserMeetingsPanel = ({
       ) : null}
 
       <UserMeetingCard
-        group={data.group}
+        group={primaryMeeting.group ?? data.group}
         meeting={primaryMeeting}
-        title={audience === "teacher" ? "Agenda real do seu grupo" : "Próximo encontro do seu grupo"}
+        title={audience === "teacher" ? "Agenda real dos seus grupos" : "Próximo encontro do seu grupo"}
       />
 
       {nextMeetings.length > 0 ? (

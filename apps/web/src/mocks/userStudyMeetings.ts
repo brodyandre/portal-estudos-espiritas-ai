@@ -5,7 +5,16 @@ export const mockUserStudyMeetings: UserStudyMeetingsResult = {
     id: "emmanuel",
     name: "Emmanuel",
     status: "active",
+    bookTitle: "Emmanuel",
   },
+  groups: [
+    {
+      id: "emmanuel",
+      name: "Emmanuel",
+      status: "active",
+      bookTitle: "Emmanuel",
+    },
+  ],
   items: [
     {
       id: "demo-meeting-current",
@@ -15,6 +24,12 @@ export const mockUserStudyMeetings: UserStudyMeetingsResult = {
       endsAt: "2026-07-15T21:00:00.000-03:00",
       status: "ongoing",
       meetUrl: null,
+      group: {
+        id: "emmanuel",
+        name: "Emmanuel",
+        status: "active",
+        bookTitle: "Emmanuel",
+      },
     },
     {
       id: "demo-meeting-next",
@@ -24,6 +39,12 @@ export const mockUserStudyMeetings: UserStudyMeetingsResult = {
       endsAt: "2026-07-22T21:00:00.000-03:00",
       status: "scheduled",
       meetUrl: null,
+      group: {
+        id: "emmanuel",
+        name: "Emmanuel",
+        status: "active",
+        bookTitle: "Emmanuel",
+      },
     },
   ],
   limit: 3,

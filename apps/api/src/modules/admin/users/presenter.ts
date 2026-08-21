@@ -1,5 +1,10 @@
 import type { UserRole, UserStatus } from "../../../auth/types";
-import type { AdminUserActivationStatus, AdminUserGroupSummary, AdminUserListItem } from "./types";
+import type {
+  AdminUserActivationStatus,
+  AdminUserGroupSummary,
+  AdminUserListItem,
+  AdminUserTeacherGroupSummary,
+} from "./types";
 
 const normalizeGroupValue = (value?: string | null) => {
   const trimmedValue = value?.trim();
@@ -34,6 +39,16 @@ export const buildAdminUserGroupSummary = (
   };
 };
 
+export const buildAdminUserTeacherGroupSummary = (input: {
+  name: string;
+  slug: string;
+  status: "active" | "inactive";
+}): AdminUserTeacherGroupSummary => ({
+  name: input.name,
+  slug: input.slug,
+  status: input.status,
+});
+
 export const buildAdminUserListItem = (input: {
   id: string;
   fullName: string;
@@ -42,6 +57,7 @@ export const buildAdminUserListItem = (input: {
   status: UserStatus;
   groupName?: string | null;
   groupSlug?: string | null;
+  teacherGroups?: AdminUserTeacherGroupSummary[];
   accountActivatedAt?: string | Date | null;
   createdAt: string | Date;
 }): AdminUserListItem => {
@@ -57,6 +73,7 @@ export const buildAdminUserListItem = (input: {
     status: input.status,
     activationStatus,
     group: buildAdminUserGroupSummary(input.groupName, input.groupSlug),
+    teacherGroups: input.teacherGroups ?? [],
     createdAt: new Date(input.createdAt),
   };
 };

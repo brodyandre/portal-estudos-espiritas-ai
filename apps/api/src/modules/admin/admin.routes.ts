@@ -78,11 +78,17 @@ import {
 import {
   parseAdminUserGroupBody,
   parseAdminUserGroupPathParam,
+  parseAdminUserTeacherGroupsBody,
+  parseAdminUserTeacherGroupsPathParam,
   parseAdminUserStatusBody,
   parseAdminUserStatusPathParam,
   parseAdminUsersListQuery,
 } from "./users/query";
 import { listAdminUsers, updateAdminUserGroup, updateAdminUserStatus } from "./users/service";
+import {
+  listAdminUserTeacherGroups,
+  updateAdminUserTeacherGroups,
+} from "./users/teacher-groups.service";
 import type {
   AccountInvitationDeliveryStatus,
   AccountInvitationLifecycleStatus,
@@ -848,6 +854,39 @@ adminRouter.patch(
 
     return sendSuccess(response, {
       message: "Grupo do usuário atualizado com sucesso.",
+      data: result,
+    });
+  }),
+);
+
+adminRouter.get(
+  "/users/:userId/groups",
+  ...requireRole(["admin"]),
+  asyncHandler(async (request, response) => {
+    const result = await listAdminUserTeacherGroups(
+      request.authUser,
+      parseAdminUserTeacherGroupsPathParam(request.params.userId),
+    );
+
+    return sendSuccess(response, {
+      message: "Grupos do professor consultados com sucesso.",
+      data: result,
+    });
+  }),
+);
+
+adminRouter.put(
+  "/users/:userId/groups",
+  ...requireRole(["admin"]),
+  asyncHandler(async (request, response) => {
+    const result = await updateAdminUserTeacherGroups(
+      request.authUser,
+      parseAdminUserTeacherGroupsPathParam(request.params.userId),
+      parseAdminUserTeacherGroupsBody(request.body),
+    );
+
+    return sendSuccess(response, {
+      message: "Grupos do professor atualizados com sucesso.",
       data: result,
     });
   }),

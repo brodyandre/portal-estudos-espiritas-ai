@@ -19,6 +19,7 @@ const listItem = {
     name: "Emmanuel",
     slug: "emmanuel",
   },
+  teacherGroups: [],
   createdAt: "2026-07-12T10:00:00.000Z",
 };
 
@@ -151,6 +152,39 @@ describe("admin users list service", () => {
         totalPages: 1,
       },
       source: "api",
+    });
+  });
+
+  it("faz o parsing de múltiplos grupos de professor", async () => {
+    const { listAdminUsersList } = await loadServiceModule();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        createJsonResponse(
+          listEnvelope([
+            {
+              ...listItem,
+              role: "teacher",
+              group: null,
+              teacherGroups: [
+                { name: "Emmanuel", slug: "emmanuel", status: "active" },
+                { name: "A Caminho da Luz", slug: "a-caminho-da-luz", status: "active" },
+              ],
+            },
+          ]),
+        ),
+      ),
+    );
+
+    const result = await listAdminUsersList();
+
+    expect(result.items[0]).toMatchObject({
+      role: "teacher",
+      group: null,
+      teacherGroups: [
+        { name: "Emmanuel", slug: "emmanuel", status: "active" },
+        { name: "A Caminho da Luz", slug: "a-caminho-da-luz", status: "active" },
+      ],
     });
   });
 

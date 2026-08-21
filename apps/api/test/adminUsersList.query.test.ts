@@ -152,6 +152,7 @@ type AdminUsersListItem = {
   activationStatus: string;
   createdAt: string;
   group: { slug: string } | null;
+  teacherGroups: Array<{ slug: string }>;
   email?: string;
 };
 
@@ -392,8 +393,17 @@ describe("admin users list query", () => {
     const response = await getAdminUsers(token, { group: " EMMANUEL " });
 
     expect(response.status).toBe(200);
-    expect(response.body.data.items).toHaveLength(1);
-    expect(response.body.data.items[0].group.slug).toBe("emmanuel");
+    expect(getItems(response).map((item) => item.name).sort()).toEqual([
+      "Marina Singular",
+      "Professor Demonstrativo",
+    ]);
+    expect(
+      getItems(response).every(
+        (item) =>
+          item.group?.slug === "emmanuel" ||
+          item.teacherGroups.some((group) => group.slug === "emmanuel"),
+      ),
+    ).toBe(true);
   });
 
   it("combina filtros", async () => {

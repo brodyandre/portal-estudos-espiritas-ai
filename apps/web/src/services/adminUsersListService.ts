@@ -3,6 +3,7 @@ import { listMockAdminUsersList } from "../mocks/adminUsersList";
 import type {
   AdminUserActivationStatus,
   AdminUserGroupSummary,
+  AdminUserTeacherGroupSummary,
   AdminUserListItem,
   AdminUserListMeta,
   AdminUserListParams,
@@ -73,12 +74,29 @@ const mapGroup = (value: unknown): AdminUserGroupSummary | null => {
   };
 };
 
+const mapTeacherGroup = (value: unknown): AdminUserTeacherGroupSummary => {
+  if (
+    !isRecord(value) ||
+    !isNonEmptyString(value.name) ||
+    !isNonEmptyString(value.slug) ||
+    (value.status !== "active" && value.status !== "inactive")
+  ) {
+    throw invalidEnvelopeError();
+  }
+
+  return {
+    name: value.name,
+    slug: value.slug,
+    status: value.status,
+  };
+};
+
 const mapItem = (value: unknown): AdminUserListItem => {
   if (!isRecord(value)) {
     throw invalidEnvelopeError();
   }
 
-  const { id, name, emailMasked, role, status, activationStatus, group, createdAt } = value;
+  const { id, name, emailMasked, role, status, activationStatus, group, teacherGroups, createdAt } = value;
 
   if (
     !isNonEmptyString(id) ||
@@ -100,6 +118,7 @@ const mapItem = (value: unknown): AdminUserListItem => {
     status,
     activationStatus,
     group: mapGroup(group),
+    teacherGroups: Array.isArray(teacherGroups) ? teacherGroups.map(mapTeacherGroup) : [],
     createdAt,
   };
 };

@@ -398,6 +398,18 @@ export const ProfessorPage = () => {
     Record<string, StudentAccessInfo>
   >({});
   const userMeetings = useUserStudyMeetings({ limit: 3 });
+  const teacherVisibleGroups = useMemo(() => {
+    if (appConfig.canUseDemoFallback) {
+      return groups;
+    }
+
+    if (!userMeetings.data) {
+      return userMeetings.isLoading ? groups : [];
+    }
+
+    const authorizedGroupIds = new Set(userMeetings.data.groups.map((group) => group.id));
+    return groups.filter((group) => authorizedGroupIds.has(group.slug));
+  }, [groups, userMeetings.data, userMeetings.isLoading]);
 
   useEffect(() => {
     let isActive = true;
@@ -475,7 +487,7 @@ export const ProfessorPage = () => {
     };
   }, []);
 
-  const activeGroup = groups.find((group) => group.slug === groupSlug) ?? groups[0] ?? null;
+  const activeGroup = teacherVisibleGroups.find((group) => group.slug === groupSlug) ?? teacherVisibleGroups[0] ?? null;
   const activeQuestions = useMemo(() => {
     if (!activeGroup) {
       return [];
@@ -623,6 +635,18 @@ export const ProfessorPage = () => {
       setGroupSlug(normalizedRequestedGroup as DemoGroup["slug"]);
     }
   }, [requestedGroupSlug]);
+
+  useEffect(() => {
+    if (teacherVisibleGroups.length === 0) {
+      return;
+    }
+
+    setGroupSlug((currentSlug) =>
+      teacherVisibleGroups.some((group) => group.slug === currentSlug)
+        ? currentSlug
+        : teacherVisibleGroups[0].slug,
+    );
+  }, [teacherVisibleGroups]);
 
   useEffect(() => {
     if (!activeGroup) {
@@ -881,7 +905,7 @@ export const ProfessorPage = () => {
               id="teacher-group-select"
               label="Grupo ou livro"
               onChange={(event) => setGroupSlug(event.target.value as DemoGroup["slug"])}
-              options={groups.map((group) => ({
+              options={teacherVisibleGroups.map((group) => ({
                 label: group.name,
                 value: group.slug,
               }))}
@@ -897,14 +921,14 @@ export const ProfessorPage = () => {
             description="Estamos reunindo grupos, dúvidas e materiais para montar o painel."
             title="Carregando painel do professor"
           />
-        ) : groups.length === 0 ? (
+        ) : teacherVisibleGroups.length === 0 ? (
           <EmptyState
-            description="Nenhum grupo foi encontrado para exibir agora."
-            title="Sem grupos disponíveis"
+            description="Nenhum grupo vinculado ao seu perfil."
+            title="Sem grupos vinculados"
           />
         ) : (
           <div className="group-grid">
-            {groups.map((group) => {
+            {teacherVisibleGroups.map((group) => {
               const isActive = group.slug === activeGroup?.slug;
 
               return (
@@ -1001,12 +1025,12 @@ export const ProfessorPage = () => {
                   onChange={(event) => {
                     const nextSlug = event.target.value as DemoGroup["slug"];
                     setGroupSlug(nextSlug);
-                    const nextGroup = groups.find((group) => group.slug === nextSlug);
+                    const nextGroup = teacherVisibleGroups.find((group) => group.slug === nextSlug);
                     if (nextGroup) {
                       setSelectedBook(nextGroup.name);
                     }
                   }}
-                  options={groups.map((group) => ({
+                  options={teacherVisibleGroups.map((group) => ({
                     label: group.name,
                     value: group.slug,
                   }))}

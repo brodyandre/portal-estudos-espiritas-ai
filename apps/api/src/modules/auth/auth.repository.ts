@@ -94,6 +94,11 @@ export interface AdminUserListRecord {
   status: UserStatus;
   groupName: string | null;
   groupSlug: string | null;
+  teacherGroups: Array<{
+    name: string;
+    slug: string;
+    status: "active" | "inactive";
+  }>;
   accountActivatedAt: Date | null;
   createdAt: Date;
 }
@@ -1236,6 +1241,9 @@ const defaultMemoryStudyGroups: MemoryStudyGroup[] = studyGroups.map((group) => 
   status: "active",
 }));
 let memoryStudyGroups: MemoryStudyGroup[] = defaultMemoryStudyGroups.map((group) => ({ ...group }));
+let memoryTeacherStudyGroups: Array<{ userId: string; groupId: string }> = [
+  { userId: "user-professor-demo", groupId: "emmanuel" },
+];
 const demoUserCreatedAtById: Record<string, string> = {
   "user-admin-demo": "2026-07-10T09:00:00.000Z",
   "user-professor-demo": "2026-07-10T09:05:00.000Z",
@@ -1333,6 +1341,25 @@ const buildAdminSelectableGroupRecord = (input: {
   slug: input.id,
   status: input.status,
 });
+
+const listMemoryTeacherGroupsForUser = (userId: string) =>
+  memoryTeacherStudyGroups
+    .filter((membership) => membership.userId === userId)
+    .map((membership) => {
+      const group = memoryStudyGroups.find((item) => item.id === membership.groupId);
+
+      return group
+        ? {
+            name: group.name,
+            slug: group.id,
+            status: group.status,
+          }
+        : null;
+    })
+    .filter((group): group is { name: string; slug: string; status: "active" | "inactive" } =>
+      Boolean(group),
+    )
+    .sort((first, second) => first.name.localeCompare(second.name, "pt-BR", { sensitivity: "base" }));
 
 export const listAdminGroupsWithPrisma = async (
   runner: AdminGroupsListQueryRunner,
@@ -2039,7 +2066,11 @@ export const createMemoryAuthRepository = (
           return false;
         }
 
-        if (input.group && user.groupSlug !== input.group) {
+        if (
+          input.group &&
+          user.groupSlug !== input.group &&
+          !listMemoryTeacherGroupsForUser(user.id).some((group) => group.slug === input.group)
+        ) {
           return false;
         }
 
@@ -2097,6 +2128,7 @@ export const createMemoryAuthRepository = (
             status: user.status,
             groupName: user.groupName ?? null,
             groupSlug: user.groupSlug ?? null,
+            teacherGroups: user.role === "teacher" ? listMemoryTeacherGroupsForUser(user.id) : [],
             accountActivatedAt: user.accountActivatedAt ? new Date(user.accountActivatedAt) : null,
             createdAt: new Date(getMemoryUserCreatedAt(user.id)),
           })),
@@ -2987,22 +3019,39 @@ export const createPrismaAuthRepository = (): AuthRepository => {
         ...(input.status ? { status: statusToPrismaStatus[input.status] } : {}),
         ...(input.activationStatus === "activated" ? { accountActivatedAt: { not: null } } : {}),
         ...(input.activationStatus === "not_activated" ? { accountActivatedAt: null } : {}),
-        ...(input.group ? { groupSlug: input.group } : {}),
-        ...(search
+        ...(input.group
           ? {
               OR: [
+                { groupSlug: input.group },
                 {
-                  fullName: {
-                    contains: search,
-                    mode: "insensitive",
+                  teacherStudyGroups: {
+                    some: {
+                      groupId: input.group,
+                    },
                   },
                 },
+              ],
+            }
+          : {}),
+        ...(search
+          ? {
+              AND: [
                 {
-                  email: {
-                    contains: search,
-                    mode: "insensitive",
-                  },
-                },
+                  OR: [
+                    {
+                      fullName: {
+                        contains: search,
+                        mode: "insensitive",
+                      },
+                    },
+                    {
+                      email: {
+                        contains: search,
+                        mode: "insensitive",
+                      },
+                    },
+                  ],
+                }
               ],
             }
           : {}),
@@ -3033,6 +3082,22 @@ export const createPrismaAuthRepository = (): AuthRepository => {
             status: true,
             groupName: true,
             groupSlug: true,
+            teacherStudyGroups: {
+              orderBy: {
+                group: {
+                  name: "asc",
+                },
+              },
+              select: {
+                group: {
+                  select: {
+                    id: true,
+                    name: true,
+                    status: true,
+                  },
+                },
+              },
+            },
             accountActivatedAt: true,
             createdAt: true,
           },
@@ -3048,6 +3113,14 @@ export const createPrismaAuthRepository = (): AuthRepository => {
             status: prismaStatusToStatus[user.status],
             groupName: user.groupName ?? null,
             groupSlug: user.groupSlug ?? null,
+            teacherGroups:
+              user.role === PrismaUserRole.TEACHER
+                ? user.teacherStudyGroups.map((membership) => ({
+                    name: membership.group.name,
+                    slug: membership.group.id,
+                    status: prismaGroupStatusToGroupStatus[membership.group.status],
+                  }))
+                : [],
             accountActivatedAt: user.accountActivatedAt,
             createdAt: user.createdAt,
           })),
@@ -3469,6 +3542,12 @@ export const resetMemoryAuthRepositoryStore = () => {
 
 export const setMemoryStudyGroupsForTesting = (groups: MemoryStudyGroup[]) => {
   memoryStudyGroups = groups.map(cloneMemoryStudyGroup);
+};
+
+export const setMemoryTeacherStudyGroupsForTesting = (
+  memberships: Array<{ userId: string; groupId: string }>,
+) => {
+  memoryTeacherStudyGroups = memberships.map((membership) => ({ ...membership }));
 };
 
 export const getMemoryAuthAuditLogs = () => {

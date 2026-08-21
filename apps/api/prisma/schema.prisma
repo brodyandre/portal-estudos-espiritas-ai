@@ -95,6 +95,7 @@ model User {
   sentAccountInvitations       AccountInvitation[] @relation("AccountInvitationInviter")
   reviewedKnowledgeDocuments   KnowledgeDocument[] @relation("KnowledgeDocumentReviewer")
   approvedKnowledgeDocuments   KnowledgeDocument[] @relation("KnowledgeDocumentApprover")
+  teacherStudyGroups           TeacherStudyGroup[]
 }
 
 model AuthSession {
@@ -190,6 +191,18 @@ model StudyGroup {
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
   meetings         StudyMeeting[]
+  teachers         TeacherStudyGroup[]
+}
+
+model TeacherStudyGroup {
+  userId    String
+  groupId   String
+  createdAt DateTime   @default(now())
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group     StudyGroup @relation(fields: [groupId], references: [id], onDelete: Restrict)
+
+  @@id([userId, groupId])
+  @@index([groupId])
 }
 
 model StudyMeeting {

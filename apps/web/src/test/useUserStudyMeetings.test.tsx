@@ -26,7 +26,8 @@ vi.mock("../services/userStudyMeetingsService", () => {
 const listUserStudyMeetingsMock = vi.mocked(listUserStudyMeetings);
 
 const createResult = (title = "Encontro autenticado"): UserStudyMeetingsResult => ({
-  group: { id: "group-001", name: "Emmanuel", status: "active" },
+  group: { id: "group-001", name: "Emmanuel", status: "active", bookTitle: "Emmanuel" },
+  groups: [{ id: "group-001", name: "Emmanuel", status: "active", bookTitle: "Emmanuel" }],
   items: [
     {
       id: `meeting-${title}`,
@@ -36,6 +37,7 @@ const createResult = (title = "Encontro autenticado"): UserStudyMeetingsResult =
       endsAt: "2026-07-15T21:00:00.000-03:00",
       status: "scheduled",
       meetUrl: null,
+      group: { id: "group-001", name: "Emmanuel", status: "active", bookTitle: "Emmanuel" },
     },
   ],
   limit: 3,
