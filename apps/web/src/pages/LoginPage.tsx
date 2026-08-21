@@ -99,6 +99,12 @@ export const LoginPage = () => {
     : isProductionRuntime
       ? "Informe suas credenciais cadastradas para acessar sua área no portal."
       : "As credenciais abaixo foram preparadas para a máquina local com backend e PostgreSQL.";
+  const environmentMeta = isProductionRuntime
+    ? undefined
+    : [
+        { label: "Modo atual", value: currentModeLabel },
+        { label: "Backend", value: isDemoMode ? "Não conectado" : "Obrigatório" },
+      ];
 
   return (
     <div className="page-stack">
@@ -106,10 +112,7 @@ export const LoginPage = () => {
         badge={accessBadge}
         description={accessDescription}
         eyebrow="Login"
-        meta={[
-          { label: "Modo atual", value: currentModeLabel },
-          { label: "Backend", value: isDemoMode ? "Não conectado" : "Obrigatório" },
-        ]}
+        meta={environmentMeta}
         title="Entrar no portal"
       />
 

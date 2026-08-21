@@ -9,6 +9,7 @@ import { Card } from "../components/ui/Card";
 import { EmptyState } from "../components/ui/EmptyState";
 import { LoadingState } from "../components/ui/LoadingState";
 import { SectionTitle } from "../components/ui/SectionTitle";
+import { appConfig } from "../config/appMode";
 import type { DemoGroup } from "../mocks";
 import { collectServiceNotice } from "../services/api";
 import { listStudies } from "../services/studiesService";
@@ -43,7 +44,15 @@ export const EducationContinuedPage = () => {
       setIsLoading(false);
     };
 
-    void loadPage();
+    void loadPage().catch(() => {
+      if (!isActive) {
+        return;
+      }
+
+      setGroups([]);
+      setNotice("Não foi possível carregar os grupos agora. Tente novamente em instantes.");
+      setIsLoading(false);
+    });
 
     return () => {
       isActive = false;
@@ -93,8 +102,14 @@ export const EducationContinuedPage = () => {
       </div>
 
       <AlertBox
-        title={notice ? "Modo demonstrativo ativo" : "Acolhimento antes do encontro"}
-        tone={notice ? "info" : "success"}
+        title={
+          notice
+            ? appConfig.canUseDemoFallback
+              ? "Modo demonstrativo ativo"
+              : "Grupos indisponíveis"
+            : "Acolhimento antes do encontro"
+        }
+        tone={notice ? (appConfig.canUseDemoFallback ? "info" : "warning") : "success"}
       >
         {notice ??
           "Após o cadastro, os professores revisarão sua solicitação e enviarão a confirmação de acesso."}

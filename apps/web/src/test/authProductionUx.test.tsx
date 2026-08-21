@@ -72,7 +72,10 @@ describe("production auth UX", () => {
     expect(screen.getByRole("link", { name: "Esqueci minha senha" })).toBeInTheDocument();
 
     expect(screen.getByText("Acesso ao portal")).toBeInTheDocument();
-    expect(screen.getByText("Produção")).toBeInTheDocument();
+    expect(screen.queryByText("Modo atual")).not.toBeInTheDocument();
+    expect(screen.queryByText("Produção")).not.toBeInTheDocument();
+    expect(screen.queryByText("Backend")).not.toBeInTheDocument();
+    expect(screen.queryByText("Obrigatório")).not.toBeInTheDocument();
     expect(screen.queryByText("Login local")).not.toBeInTheDocument();
     expect(screen.queryByText("Acesso local")).not.toBeInTheDocument();
     expect(screen.queryByText("Credenciais demonstrativas")).not.toBeInTheDocument();

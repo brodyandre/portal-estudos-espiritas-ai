@@ -468,7 +468,14 @@ export const AdminPage = ({ section }: AdminPageProps) => {
       setIsLoadingDashboard(false);
     };
 
-    void loadDashboard();
+    void loadDashboard().catch(() => {
+      if (!isMounted) {
+        return;
+      }
+
+      setDashboardData(null);
+      setIsLoadingDashboard(false);
+    });
 
     return () => {
       isMounted = false;
@@ -517,7 +524,14 @@ export const AdminPage = ({ section }: AdminPageProps) => {
       setIsLoadingUsers(false);
     };
 
-    void loadUsers();
+    void loadUsers().catch(() => {
+      if (!isMounted) {
+        return;
+      }
+
+      setUsersState(null);
+      setIsLoadingUsers(false);
+    });
 
     return () => {
       isMounted = false;
@@ -548,7 +562,14 @@ export const AdminPage = ({ section }: AdminPageProps) => {
       setIsLoadingAudit(false);
     };
 
-    void loadAudit();
+    void loadAudit().catch(() => {
+      if (!isMounted) {
+        return;
+      }
+
+      setAuditState(null);
+      setIsLoadingAudit(false);
+    });
 
     return () => {
       isMounted = false;
@@ -580,7 +601,15 @@ export const AdminPage = ({ section }: AdminPageProps) => {
       setIsLoadingSettings(false);
     };
 
-    void loadSettings();
+    void loadSettings().catch(() => {
+      if (!isMounted) {
+        return;
+      }
+
+      setSettingsState(null);
+      setAdminSettingsDraft(null);
+      setIsLoadingSettings(false);
+    });
 
     return () => {
       isMounted = false;
@@ -626,7 +655,15 @@ export const AdminPage = ({ section }: AdminPageProps) => {
       setIsLoadingGroups(false);
     };
 
-    void loadGroups();
+    void loadGroups().catch(() => {
+      if (!isMounted) {
+        return;
+      }
+
+      setGroupsState(null);
+      setAdminGroupDrafts({});
+      setIsLoadingGroups(false);
+    });
 
     return () => {
       isMounted = false;
@@ -1523,8 +1560,9 @@ const AdminUsersSection = ({
       )}
 
       <AlertBox title="Cuidados desta tela" tone="warning">
-        As ações desta fase são simuladas. Em produção, ativação de usuário, mudança de perfil,
-        vínculo de grupo e observações administrativas exigem ambiente autenticado.
+        {appConfig.canUseDemoFallback
+          ? "As ações desta fase são simuladas. Em produção, ativação de usuário, mudança de perfil, vínculo de grupo e observações administrativas exigem ambiente autenticado."
+          : "Ativação de usuário, mudança de perfil, vínculo de grupo e observações administrativas exigem ambiente autenticado."}
       </AlertBox>
 
       {actionMessage ? (
