@@ -14,7 +14,7 @@ export const HomePage = () => {
     <div className="page-stack">
       <ProfileHeader
         actions={
-          <div className="button-row">
+          <div className="button-row home-hero-actions">
             <Button to="/portal">Abrir Portal</Button>
             <Button to="/aluno" variant="secondary">
               Area do aluno

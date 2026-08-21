@@ -924,6 +924,11 @@ img {
   min-width: 0;
 }
 
+.home-hero-actions,
+.account-security-actions {
+  max-width: 100%;
+}
+
 .button-row--end {
   justify-content: flex-start;
   margin-top: var(--space-4);
@@ -3332,6 +3337,20 @@ img {
 
   .admin-user-filter-actions > .button {
     width: 100%;
+  }
+
+  .home-hero-actions,
+  .account-security-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    width: 100%;
+  }
+
+  .home-hero-actions > *,
+  .account-security-actions > * {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
   }
 }
 
