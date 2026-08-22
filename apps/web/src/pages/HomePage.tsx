@@ -1,4 +1,5 @@
-import { groups, homeSteps } from "../data/demo";
+import { useEffect, useState } from "react";
+
 import { FlowStepCard } from "../components/display/FlowStepCard";
 import { GroupCard } from "../components/display/GroupCard";
 import { ProfileHeader } from "../components/display/ProfileHeader";
@@ -6,10 +7,50 @@ import { BrandLogo } from "../components/layout/BrandLogo";
 import { AlertBox } from "../components/ui/AlertBox";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
+import { EmptyState } from "../components/ui/EmptyState";
+import { LoadingState } from "../components/ui/LoadingState";
 import { SectionTitle } from "../components/ui/SectionTitle";
 import { DEMO_MODE_NOTICE, PUBLIC_MEET_NOTICE, appConfig } from "../config/appMode";
+import { homeSteps } from "../data/homeSteps";
+import { listStudies, type StudyGroup } from "../services/studiesService";
+
+type HomeGroupsState =
+  | { status: "loading" }
+  | { status: "success"; groups: StudyGroup[]; notice: string | null }
+  | { status: "empty"; notice: string | null }
+  | { status: "error" };
 
 export const HomePage = () => {
+  const [groupsState, setGroupsState] = useState<HomeGroupsState>({ status: "loading" });
+
+  useEffect(() => {
+    let isActive = true;
+
+    void listStudies()
+      .then((result) => {
+        if (!isActive) {
+          return;
+        }
+
+        setGroupsState(
+          result.data.length > 0
+            ? { status: "success", groups: result.data, notice: result.notice }
+            : { status: "empty", notice: result.notice },
+        );
+      })
+      .catch(() => {
+        if (!isActive) {
+          return;
+        }
+
+        setGroupsState({ status: "error" });
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
   return (
     <div className="page-stack">
       <ProfileHeader
@@ -59,16 +100,39 @@ export const HomePage = () => {
           description="Os dois grupos aparecem em destaque logo no inicio para facilitar o acesso rapido ao encontro e ao planejamento."
           title="Grupos em destaque"
         />
-        <div className="group-grid">
-          {groups.map((group) => (
-            <GroupCard
-              actionLabel="Entrar no encontro"
-              actionHref={group.meetUrl ?? undefined}
-              group={group}
-              key={group.slug}
-            />
-          ))}
-        </div>
+        {groupsState.status === "loading" ? (
+          <LoadingState
+            description="Estamos consultando os grupos disponiveis no portal."
+            title="Carregando grupos"
+          />
+        ) : groupsState.status === "error" ? (
+          <AlertBox title="Grupos temporariamente indisponiveis" tone="warning">
+            Nao foi possivel carregar os grupos agora. Tente novamente em instantes.
+          </AlertBox>
+        ) : groupsState.status === "empty" ? (
+          <EmptyState
+            description="Nenhum grupo esta disponivel para exibicao publica neste momento."
+            title="Nenhum grupo disponivel"
+          />
+        ) : (
+          <>
+            {groupsState.notice ? (
+              <AlertBox title="Modo demonstrativo ativo" tone="info">
+                {groupsState.notice}
+              </AlertBox>
+            ) : null}
+            <div className="group-grid">
+              {groupsState.groups.map((group) => (
+                <GroupCard
+                  actionLabel="Entrar no encontro"
+                  actionHref={group.meetUrl ?? undefined}
+                  group={group}
+                  key={group.slug}
+                />
+              ))}
+            </div>
+          </>
+        )}
       </section>
 
       <section className="page-section">

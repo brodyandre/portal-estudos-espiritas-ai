@@ -1,9 +1,9 @@
-import type { DemoFlowStep } from "../../data/demo";
+import type { HomeStep } from "../../data/homeSteps";
 import { Card } from "../ui/Card";
 import { StatusTag } from "../ui/StatusTag";
 
 interface FlowStepCardProps {
-  step: DemoFlowStep;
+  step: HomeStep;
 }
 
 const stepStateMap = {
