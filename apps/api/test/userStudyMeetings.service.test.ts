@@ -4,6 +4,8 @@ import type { AuthUser } from "../src/modules/auth/auth.types";
 import {
   createMemoryUserStudyMeetingsRepository,
   createMemoryUserStudyMeetingsState,
+  UserStudyMeetingCatalogUnavailableError,
+  type UserStudyMeetingsRepository,
 } from "../src/modules/me/study-meetings.repository";
 import { createUserStudyMeetingsService } from "../src/modules/me/study-meetings.service";
 
@@ -277,5 +279,34 @@ describe("user study meetings service", () => {
       limit: 3,
     });
     expect(JSON.stringify(result)).not.toContain("meet.google.com/inativo");
+  });
+
+  it("converte inconsistencia de catalogo governado em erro 503 controlado", async () => {
+    const repository: UserStudyMeetingsRepository = {
+      async findUserGroupByUserId() {
+        return { groupName: "Emmanuel", groupSlug: "emmanuel" };
+      },
+      async findGroupById() {
+        throw new UserStudyMeetingCatalogUnavailableError(
+          "STUDY_GROUP_WITHOUT_KNOWLEDGE_BOOK",
+        );
+      },
+      async listTeacherGroupsByUserId() {
+        return [];
+      },
+      async listCurrentAndFutureMeetings() {
+        return [];
+      },
+    };
+    const service = createUserStudyMeetingsService({
+      repository,
+      nowProvider: () => new Date(NOW),
+    });
+
+    await expect(service.listUpcomingMeetings(makeUser(), { limit: 3 })).rejects.toMatchObject({
+      code: "STUDY_GROUP_CATALOG_UNAVAILABLE",
+      statusCode: 503,
+      details: { reason: "STUDY_GROUP_WITHOUT_KNOWLEDGE_BOOK" },
+    });
   });
 });

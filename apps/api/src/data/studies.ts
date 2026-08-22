@@ -8,7 +8,7 @@ export interface NextLesson {
   title: string;
   theme: string;
   scheduledAt: string;
-  meetUrl: string;
+  meetUrl: string | null;
   status: "scheduled" | "published";
   teacherNote: string;
 }
@@ -16,13 +16,13 @@ export interface NextLesson {
 export interface StudyGroup {
   id: StudyGroupId;
   name: string;
-  meetingDay: string;
-  meetingTime: string;
-  participantCount: number;
+  meetingDay: string | null;
+  meetingTime: string | null;
+  participantCount: number | null;
   bookTitle: string;
-  meetUrl: string;
-  description: string;
-  nextLesson: NextLesson;
+  meetUrl: string | null;
+  description: string | null;
+  nextLesson: NextLesson | null;
 }
 
 export const studyGroups: StudyGroup[] = [
@@ -72,4 +72,6 @@ export const studyGroups: StudyGroup[] = [
   },
 ];
 
-export const nextLessons: NextLesson[] = studyGroups.map((group) => group.nextLesson);
+export const nextLessons: NextLesson[] = studyGroups
+  .map((group) => group.nextLesson)
+  .filter((lesson): lesson is NextLesson => lesson !== null);

@@ -189,7 +189,7 @@ export const MaterialsPage = () => {
 
                     <div className="group-card__content">
                       <h3>{group.name}</h3>
-                      <p>{group.description}</p>
+                      {group.description ? <p>{group.description}</p> : null}
                     </div>
 
                     <p className="portal-card-note">{groupShortGoals[group.slug]}</p>

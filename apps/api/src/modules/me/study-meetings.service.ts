@@ -2,6 +2,7 @@ import { AppError } from "../../lib/app-error";
 import type { AuthUser } from "../auth/auth.types";
 import {
   createUserStudyMeetingsRepository,
+  UserStudyMeetingCatalogUnavailableError,
   type UserStudyMeetingsRepository,
 } from "./study-meetings.repository";
 import type {
@@ -75,6 +76,19 @@ const toGroupSummary = (group: UserStudyMeetingGroupRecord) => ({
   bookTitle: group.bookTitle,
 });
 
+const toCatalogUnavailableError = (error: unknown): never => {
+  if (error instanceof UserStudyMeetingCatalogUnavailableError) {
+    throw new AppError({
+      statusCode: 503,
+      code: "STUDY_GROUP_CATALOG_UNAVAILABLE",
+      message: "Catalogo de grupos de estudo indisponivel.",
+      details: { reason: error.reason },
+    });
+  }
+
+  throw error;
+};
+
 const mapMeetings = (
   meetings: UserStudyMeetingRecord[],
   groups: UserStudyMeetingGroupRecord[],
@@ -112,14 +126,63 @@ export const createUserStudyMeetingsService = (
     async listUpcomingMeetings(authUser, input) {
       const actor = assertStudentOrTeacher(authUser);
 
-      if (actor.role === "teacher") {
-        const teacherGroups = await dependencies.repository.listTeacherGroupsByUserId(actor.id);
-        const activeTeacherGroups = teacherGroups.filter((group) => group.status === "active");
+      try {
+        if (actor.role === "teacher") {
+          const teacherGroups = await dependencies.repository.listTeacherGroupsByUserId(actor.id);
+          const activeTeacherGroups = teacherGroups.filter((group) => group.status === "active");
 
-        if (teacherGroups.length === 0 || activeTeacherGroups.length === 0) {
+          if (teacherGroups.length === 0 || activeTeacherGroups.length === 0) {
+            return {
+              group: teacherGroups[0] ? toGroupSummary(teacherGroups[0]) : null,
+              groups: teacherGroups.map(toGroupSummary),
+              items: [],
+              limit: input.limit,
+            };
+          }
+
+          const now = dependencies.nowProvider();
+          const meetings = await dependencies.repository.listCurrentAndFutureMeetings({
+            groupIds: activeTeacherGroups.map((group) => group.id),
+            now,
+            limit: input.limit,
+          });
+
           return {
-            group: teacherGroups[0] ? toGroupSummary(teacherGroups[0]) : null,
+            group: toGroupSummary(activeTeacherGroups[0]),
             groups: teacherGroups.map(toGroupSummary),
+            items: mapMeetings(meetings, activeTeacherGroups, now),
+            limit: input.limit,
+          };
+        }
+
+        const userGroup = await dependencies.repository.findUserGroupByUserId(actor.id);
+
+        if (!userGroup?.groupSlug) {
+          return {
+            group: null,
+            groups: [],
+            items: [],
+            limit: input.limit,
+          };
+        }
+
+        const group = await dependencies.repository.findGroupById(userGroup.groupSlug);
+
+        if (!group) {
+          return {
+            group: null,
+            groups: [],
+            items: [],
+            limit: input.limit,
+          };
+        }
+
+        const groupSummary = toGroupSummary(group);
+
+        if (group.status !== "active") {
+          return {
+            group: groupSummary,
+            groups: [groupSummary],
             items: [],
             limit: input.limit,
           };
@@ -127,65 +190,20 @@ export const createUserStudyMeetingsService = (
 
         const now = dependencies.nowProvider();
         const meetings = await dependencies.repository.listCurrentAndFutureMeetings({
-          groupIds: activeTeacherGroups.map((group) => group.id),
+          groupIds: [group.id],
           now,
           limit: input.limit,
         });
 
         return {
-          group: toGroupSummary(activeTeacherGroups[0]),
-          groups: teacherGroups.map(toGroupSummary),
-          items: mapMeetings(meetings, activeTeacherGroups, now),
-          limit: input.limit,
-        };
-      }
-
-      const userGroup = await dependencies.repository.findUserGroupByUserId(actor.id);
-
-      if (!userGroup?.groupSlug) {
-        return {
-          group: null,
-          groups: [],
-          items: [],
-          limit: input.limit,
-        };
-      }
-
-      const group = await dependencies.repository.findGroupById(userGroup.groupSlug);
-
-      if (!group) {
-        return {
-          group: null,
-          groups: [],
-          items: [],
-          limit: input.limit,
-        };
-      }
-
-      const groupSummary = toGroupSummary(group);
-
-      if (group.status !== "active") {
-        return {
           group: groupSummary,
           groups: [groupSummary],
-          items: [],
+          items: mapMeetings(meetings, [group], now),
           limit: input.limit,
         };
+      } catch (error) {
+        return toCatalogUnavailableError(error);
       }
-
-      const now = dependencies.nowProvider();
-      const meetings = await dependencies.repository.listCurrentAndFutureMeetings({
-        groupIds: [group.id],
-        now,
-        limit: input.limit,
-      });
-
-      return {
-        group: groupSummary,
-        groups: [groupSummary],
-        items: mapMeetings(meetings, [group], now),
-        limit: input.limit,
-      };
     },
   };
 };

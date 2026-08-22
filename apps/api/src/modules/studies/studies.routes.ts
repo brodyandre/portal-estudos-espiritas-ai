@@ -9,8 +9,8 @@ export const studiesRouter = Router();
 
 studiesRouter.get(
   "/",
-  asyncHandler((_request, response) => {
-    const studies = listStudies();
+  asyncHandler(async (_request, response) => {
+    const studies = await listStudies();
 
     return sendSuccess(response, {
       message: "Grupos de estudo carregados com sucesso.",
@@ -22,11 +22,11 @@ studiesRouter.get(
 
 studiesRouter.get(
   "/:slug",
-  asyncHandler((request, response) => {
+  asyncHandler(async (request, response) => {
     const slug = Array.isArray(request.params.slug)
       ? request.params.slug[0]
       : request.params.slug;
-    const study = slug ? getStudyBySlug(slug) : undefined;
+    const study = slug ? await getStudyBySlug(slug) : undefined;
 
     if (!study) {
       throw new AppError({

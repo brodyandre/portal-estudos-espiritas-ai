@@ -354,6 +354,11 @@ export const AlunoPage = () => {
       return;
     }
 
+    if (!activeGroup.nextLesson) {
+      setAssistantMessage("Este grupo ainda nao tem encontro configurado para consulta da aula.");
+      return;
+    }
+
     setAssistantInput(content);
     setIsAssistantLoading(true);
     setAssistantFeedback(null);
@@ -382,6 +387,11 @@ export const AlunoPage = () => {
 
   const handleSendQuestionToTeacher = async () => {
     if (!activeGroup || !progress || !lastSubmittedQuestion.trim() || isSendingTeacherQuestion) {
+      return;
+    }
+
+    if (!activeGroup.nextLesson) {
+      setAssistantMessage("Este grupo ainda nao tem encontro configurado para envio ao professor.");
       return;
     }
 
@@ -483,6 +493,7 @@ export const AlunoPage = () => {
           <div className="group-grid">
             {groups.map((group) => {
               const isActive = activeGroup?.slug === group.slug;
+              const hasSchedule = Boolean(group.meetingDay && group.meetingTime);
               const readingTitle =
                 materials.find(
                   (material) => material.groupSlug === group.slug && material.kind === "Leitura",
@@ -498,29 +509,37 @@ export const AlunoPage = () => {
                   tone={isActive ? "brand" : "default"}
                 >
                   <div className="student-group-card__top">
-                    <Badge tone="brand">{group.participantCount} participantes</Badge>
-                    <StatusTag
-                      label={isActive ? "Em destaque" : undefined}
-                      tone={group.nextLesson.status === "hoje" ? "active" : "upcoming"}
-                    />
+                    {group.participantCount !== null ? (
+                      <Badge tone="brand">{group.participantCount} participantes</Badge>
+                    ) : null}
+                    {group.nextLesson ? (
+                      <StatusTag
+                        label={isActive ? "Em destaque" : undefined}
+                        tone={group.nextLesson.status === "hoje" ? "active" : "upcoming"}
+                      />
+                    ) : null}
                   </div>
 
                   <div className="student-group-card__body">
                     <h2>{group.name}</h2>
-                    <p>{group.description}</p>
+                    {group.description ? <p>{group.description}</p> : null}
                   </div>
 
                   <dl className="group-card__meta">
-                    <div>
-                      <dt>Encontro</dt>
-                      <dd>
-                        {group.meetingDay}, {group.meetingTime}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt>Tema</dt>
-                      <dd>{group.nextLesson.title}</dd>
-                    </div>
+                    {hasSchedule ? (
+                      <div>
+                        <dt>Encontro</dt>
+                        <dd>
+                          {group.meetingDay}, {group.meetingTime}
+                        </dd>
+                      </div>
+                    ) : null}
+                    {group.nextLesson ? (
+                      <div>
+                        <dt>Tema</dt>
+                        <dd>{group.nextLesson.title}</dd>
+                      </div>
+                    ) : null}
                     <div>
                       <dt>Leitura</dt>
                       <dd>{readingTitle}</dd>
@@ -563,25 +582,34 @@ export const AlunoPage = () => {
           <section className="student-page__dashboard-section page-section">
             <div className="two-column-grid">
               <Card className="student-panel student-panel--upcoming" id="aluno-proxima-aula" tone="brand">
-                <div className="student-panel__header">
-                  <div>
-                    <p className="card-eyebrow">Próxima aula</p>
-                    <h2>{activeGroup.nextLesson.title}</h2>
-                  </div>
-                  <StatusTag tone="upcoming" />
-                </div>
-                <p className="student-panel__note">
-                  {activeGroup.name} • {activeGroup.nextLesson.scheduledLabel}
-                </p>
-                <p className="student-panel__note">Leitura recomendada: {recommendedReading}</p>
-                <div className="button-row">
-                  <p className="student-panel__note">
-                    Use o bloco Encontros do seu grupo para acessar o Meet real.
-                  </p>
-                  <Button to={`/materiais/${activeGroup.slug}`} variant="secondary">
-                    Ver materiais do livro
-                  </Button>
-                </div>
+                {activeGroup.nextLesson ? (
+                  <>
+                    <div className="student-panel__header">
+                      <div>
+                        <p className="card-eyebrow">Próxima aula</p>
+                        <h2>{activeGroup.nextLesson.title}</h2>
+                      </div>
+                      <StatusTag tone="upcoming" />
+                    </div>
+                    <p className="student-panel__note">
+                      {activeGroup.name} • {activeGroup.nextLesson.scheduledLabel}
+                    </p>
+                    <p className="student-panel__note">Leitura recomendada: {recommendedReading}</p>
+                    <div className="button-row">
+                      <p className="student-panel__note">
+                        Use o bloco Encontros do seu grupo para acessar o Meet real.
+                      </p>
+                      <Button to={`/materiais/${activeGroup.slug}`} variant="secondary">
+                        Ver materiais do livro
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <EmptyState
+                    description="Este grupo ainda nao tem proximo encontro publicado."
+                    title="Encontro em preparacao"
+                  />
+                )}
               </Card>
 
               <Card

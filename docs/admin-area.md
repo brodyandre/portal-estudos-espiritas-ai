@@ -427,6 +427,14 @@ Cuidados:
 - a interface nao executa `knowledge:catalog`;
 - a base segue usando textos autorais e revisaveis, sem publicacao de PDFs.
 
+### Grupos de estudo e catalogo
+
+Os grupos de estudo produtivos passam a ser servidos pelo banco quando ha `DATABASE_URL`. A relacao governada com `KnowledgeBook` e preparada por migration estrutural e inicializada somente pelo script explicito `groups:bootstrap`, apos `knowledge:catalog`.
+
+O painel administrativo pode listar grupos a partir de `StudyGroup`, mas esta etapa nao entrega CRUD administrativo de grupos. Campos operacionais como dia, horario, link Meet, descricao e contagem de participantes podem estar nulos ate configuracao posterior; a interface deve ocultar esses valores quando ausentes, sem exibir placeholders artificiais.
+
+`StudyGroup.bookTitle` permanece apenas como snapshot legado/compatibilidade. A fonte governada para o livro do grupo em `/api/studies` e `StudyGroup.knowledgeBook.title`.
+
 ### `/admin/configuracoes`
 
 Configuracoes globais da aplicacao.

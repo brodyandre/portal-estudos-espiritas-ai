@@ -398,7 +398,13 @@ Códigos de erro especificos:
 
 ### `GET /api/studies`
 
-Lista os grupos mockados com dados da proxima aula.
+Lista os grupos de estudo ativos.
+
+Em ambientes com `DATABASE_URL`, a fonte de verdade e `StudyGroup` no PostgreSQL. Cada grupo produtivo deve estar vinculado a `KnowledgeBook`; `bookTitle` da resposta e derivado de `StudyGroup.knowledgeBook.title`, nao do snapshot legado `StudyGroup.bookTitle`. Se um grupo ativo estiver sem `KnowledgeBook`, a API falha fechado com `STUDY_GROUP_CATALOG_UNAVAILABLE`, sem fallback estatico silencioso.
+
+Campos operacionais ainda nao configurados podem retornar `null`: `meetingDay`, `meetingTime`, `participantCount`, `meetUrl`, `description` e `nextLesson`. Quando nao houver `StudyMeeting` futuro, `nextLesson` retorna `null`.
+
+Sem `DATABASE_URL`, em `test` ou desenvolvimento local demonstrativo, a rota pode usar `apps/api/src/data/studies.ts` como fallback estatico seguro.
 
 ### `GET /api/studies/:slug`
 

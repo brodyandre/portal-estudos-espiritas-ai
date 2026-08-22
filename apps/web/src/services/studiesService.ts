@@ -15,49 +15,51 @@ import { getMeetLinkForMode } from "../config/appMode";
 interface ApiStudyGroup {
   id: GroupSlug;
   name: string;
-  meetingDay: string;
-  meetingTime: string;
-  participantCount: number;
+  meetingDay: string | null;
+  meetingTime: string | null;
+  participantCount: number | null;
   bookTitle: string;
-  meetUrl: string;
-  description: string;
+  meetUrl: string | null;
+  description: string | null;
   nextLesson: {
     id: string;
     title: string;
     theme: string;
     scheduledAt: string;
-    meetUrl: string;
+    meetUrl: string | null;
     status: "scheduled" | "published";
     teacherNote: string;
-  };
+  } | null;
 }
 
 const mapStudyGroup = (study: ApiStudyGroup): DemoGroup => {
   return {
     slug: study.id,
     name: study.name,
-    meetingDay: formatMeetingDay(study.meetingDay),
+    meetingDay: study.meetingDay ? formatMeetingDay(study.meetingDay) : null,
     meetingTime: study.meetingTime,
     participantCount: study.participantCount,
-    meetUrl: getMeetLinkForMode(study.meetUrl) ?? "",
+    meetUrl: getMeetLinkForMode(study.meetUrl) ?? null,
     bookTitle: study.bookTitle,
     description: study.description,
-    nextLesson: {
-      id: study.nextLesson.id,
-      title: study.nextLesson.title,
-      theme: study.nextLesson.theme,
-      scheduledAt: study.nextLesson.scheduledAt,
-      scheduledLabel: formatScheduledLabel(study.nextLesson.scheduledAt),
-      status: getLessonStatus(study.nextLesson.scheduledAt),
-      teacherNote: study.nextLesson.teacherNote,
-    },
+    nextLesson: study.nextLesson
+      ? {
+          id: study.nextLesson.id,
+          title: study.nextLesson.title,
+          theme: study.nextLesson.theme,
+          scheduledAt: study.nextLesson.scheduledAt,
+          scheduledLabel: formatScheduledLabel(study.nextLesson.scheduledAt),
+          status: getLessonStatus(study.nextLesson.scheduledAt),
+          teacherNote: study.nextLesson.teacherNote,
+        }
+      : null,
   };
 };
 
 const sanitizeDemoGroup = (group: DemoGroup): DemoGroup => {
   return {
     ...group,
-    meetUrl: getMeetLinkForMode(group.meetUrl) ?? "",
+    meetUrl: getMeetLinkForMode(group.meetUrl) ?? null,
   };
 };
 

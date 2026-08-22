@@ -26,6 +26,13 @@ export interface UserStudyMeetingsRepository {
   }): Promise<UserStudyMeetingRecord[]>;
 }
 
+export class UserStudyMeetingCatalogUnavailableError extends Error {
+  constructor(public readonly reason: string) {
+    super(reason);
+    this.name = "UserStudyMeetingCatalogUnavailableError";
+  }
+}
+
 export interface MemoryUserStudyMeetingUser {
   id: string;
   groupName: string | null;
@@ -36,7 +43,7 @@ export interface MemoryUserStudyMeetingGroup {
   id: string;
   name: string;
   status: "active" | "inactive";
-  meetUrl: string;
+  meetUrl: string | null;
   bookTitle: string;
 }
 
@@ -67,7 +74,7 @@ const defaultMemoryGroups: MemoryUserStudyMeetingGroup[] = studyGroups.map((grou
   name: group.name,
   status: "active",
   meetUrl: group.meetUrl,
-  bookTitle: group.bookTitle,
+  bookTitle: group.bookTitle ?? group.name,
 }));
 
 const defaultMemoryUsers: MemoryUserStudyMeetingUser[] = [
@@ -124,14 +131,24 @@ const mapPrismaUserGroup = (
 });
 
 const mapPrismaGroup = (
-  group: Pick<PrismaStudyGroup, "id" | "name" | "status" | "meetUrl" | "bookTitle">,
+  group: Pick<PrismaStudyGroup, "id" | "name" | "status" | "meetUrl"> & {
+    knowledgeBook: { title: string } | null;
+  },
 ): UserStudyMeetingGroupRecord => ({
   id: group.id,
   name: group.name,
   status: mapPrismaGroupStatus(group.status),
   meetUrl: group.meetUrl,
-  bookTitle: group.bookTitle,
+  bookTitle: assertKnowledgeBookTitle(group.knowledgeBook),
 });
+
+const assertKnowledgeBookTitle = (knowledgeBook: { title: string } | null) => {
+  if (!knowledgeBook) {
+    throw new UserStudyMeetingCatalogUnavailableError("STUDY_GROUP_WITHOUT_KNOWLEDGE_BOOK");
+  }
+
+  return knowledgeBook.title;
+};
 
 const mapPrismaMeeting = (
   meeting: Pick<
@@ -236,16 +253,20 @@ export const createPrismaUserStudyMeetingsRepository = (
     async findGroupById(groupId) {
       const group = await prisma.studyGroup.findUnique({
         where: {
-            id: groupId,
+          id: groupId,
+        },
+        select: {
+          id: true,
+          name: true,
+          status: true,
+          meetUrl: true,
+          knowledgeBook: {
+            select: {
+              title: true,
+            },
           },
-          select: {
-            id: true,
-            name: true,
-            status: true,
-            meetUrl: true,
-            bookTitle: true,
-          },
-        });
+        },
+      });
 
       return group ? mapPrismaGroup(group) : null;
     },
@@ -272,7 +293,11 @@ export const createPrismaUserStudyMeetingsRepository = (
               name: true,
               status: true,
               meetUrl: true,
-              bookTitle: true,
+              knowledgeBook: {
+                select: {
+                  title: true,
+                },
+              },
             },
           },
         },

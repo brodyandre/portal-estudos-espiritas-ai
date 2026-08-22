@@ -85,6 +85,13 @@ export interface TeacherAssistInput {
 const SUPPORT_NOTICE = "Resposta baseada nos materiais cadastrados.";
 const LOCAL_AGENT_FALLBACK_MESSAGE =
   "Esta é uma resposta demonstrativa baseada nos materiais locais. Para resposta completa, use o backend do agente.";
+const getGroupLessonTheme = (group: DemoGroup) => group.nextLesson?.theme ?? group.bookTitle;
+const getGroupTeacherNote = (group: DemoGroup) =>
+  group.nextLesson?.teacherNote ?? "Encontro em preparacao.";
+const getGroupLessonTitle = (group: DemoGroup) =>
+  group.nextLesson?.title ?? "Encontro em preparacao";
+const getGroupScheduledLabel = (group: DemoGroup) =>
+  group.nextLesson?.scheduledLabel ?? "agenda em configuracao";
 const KNOWLEDGE_STOPWORDS = new Set([
   "a",
   "ao",
@@ -254,9 +261,9 @@ const buildCommonTeacherContext = ({
     `Grupo: ${group.name}.`,
     `Tema: ${theme}.`,
     `Livro ou estudo base: ${bookTitle}.`,
-    `Meet da aula: ${meetLink}.`,
-    `Proxima aula: ${group.nextLesson.title}.`,
-    `Observacao do professor: ${group.nextLesson.teacherNote}.`,
+    meetLink ? `Meet da aula: ${meetLink}.` : "",
+    `Proxima aula: ${getGroupLessonTitle(group)}.`,
+    `Observacao do professor: ${getGroupTeacherNote(group)}.`,
     materialLines ? `Materiais da semana:\n${materialLines}` : "",
     supportLines ? `Base de apoio da aula:\n${supportLines}` : "",
     summaryLines.length > 0 ? `Resumo e pontos de apoio:\n${summaryLines.join("\n")}` : "",
@@ -282,9 +289,9 @@ const buildSummarySourceText = (input: TeacherAssistInput) => {
     `Grupo ${input.group.name}.`,
     `Tema da semana: ${input.theme}.`,
     `Livro ou estudo base: ${input.bookTitle}.`,
-    `Link da aula: ${input.meetLink}.`,
-    input.group.nextLesson.theme,
-    input.group.nextLesson.teacherNote,
+    input.meetLink ? `Link da aula: ${input.meetLink}.` : "",
+    getGroupLessonTheme(input.group),
+    getGroupTeacherNote(input.group),
     materialsText,
     supportText,
     summaryText,
@@ -362,8 +369,8 @@ const buildStudentFallbackReply = ({
 
   if (normalized.includes("meet") || normalized.includes("entr") || normalized.includes("aula")) {
     return {
-      answer: `${LOCAL_AGENT_FALLBACK_MESSAGE} A proxima aula do grupo ${group.name} acontece em ${group.nextLesson.scheduledLabel}.`,
-      sources: dedupeStrings([group.nextLesson.title, ...sourceLabels]),
+      answer: `${LOCAL_AGENT_FALLBACK_MESSAGE} A proxima aula do grupo ${group.name} acontece em ${getGroupScheduledLabel(group)}.`,
+      sources: dedupeStrings([getGroupLessonTitle(group), ...sourceLabels]),
       supportNotice: SUPPORT_NOTICE,
       needsTeacherReview: true,
       usedFallback: true,
@@ -469,7 +476,7 @@ const buildReflectionQuestionsFallbackReply = (
 };
 
 const buildSummaryFallbackReply = (input: TeacherAssistInput): TeacherDraftReply => {
-  const summarySource = input.summary?.content ?? input.group.nextLesson.theme;
+  const summarySource = input.summary?.content ?? getGroupLessonTheme(input.group);
   const supportLine =
     input.supportFiles && input.supportFiles.length > 0
       ? `- Apoiar a mensagem final com ${input.supportFiles[0]?.title}.`
@@ -522,9 +529,9 @@ export const askStudyAssistant = async ({
     group,
     materials,
     summary,
-    theme: group.nextLesson.theme,
+    theme: getGroupLessonTheme(group),
     bookTitle: group.name,
-    meetLink: group.meetUrl,
+    meetLink: group.meetUrl ?? "",
   }).concat(supportContext ? `\n\nMateriais de apoio do livro:\n${supportContext}` : "");
 
   return loadWithFallback<ApiAssistantAnswer, AssistantReply>({
@@ -533,7 +540,7 @@ export const askStudyAssistant = async ({
       method: "POST",
       body: JSON.stringify({
         groupId: group.slug,
-        theme: group.nextLesson.theme,
+        theme: getGroupLessonTheme(group),
         bookTitle: group.name,
         context: requestContext,
         question,
@@ -555,7 +562,10 @@ export const generateLessonPlanDraft = async (input: TeacherAssistInput) => {
         groupId: input.group.slug,
         theme: input.theme,
         bookTitle: input.bookTitle,
-        teacherNote: `Link do Google Meet: ${input.meetLink}. ${input.group.nextLesson.teacherNote}`,
+        teacherNote: [
+          input.meetLink ? `Link do Google Meet: ${input.meetLink}.` : "",
+          getGroupTeacherNote(input.group),
+        ].filter(Boolean).join(" "),
         context: buildCommonTeacherContext(input),
         durationMinutes: 60,
       }),
@@ -617,7 +627,9 @@ export const generateGroupMessageDraft = async (
     supportTitle
       ? `Se puderem, vale revisar o material "${supportTitle}" com calma antes do encontro.`
       : `Se puderem, vale separar alguns minutos para uma leitura breve antes do encontro.`,
-    `Nos encontraremos em ${input.group.nextLesson.scheduledLabel} pelo link ${input.meetLink}.`,
+    input.meetLink
+      ? `Nos encontraremos em ${getGroupScheduledLabel(input.group)} pelo link ${input.meetLink}.`
+      : `O proximo encontro esta em preparacao para o grupo ${input.group.name}.`,
     "Quem desejar pode levar uma pergunta simples para enriquecer a conversa.",
     "",
     "Mensagem inicial demonstrativa. Revise antes de publicar.",

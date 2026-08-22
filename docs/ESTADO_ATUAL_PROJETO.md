@@ -148,6 +148,8 @@ O smoke nao validou o caminho `transactional_email_send_failed` em producao, flu
 
 A 9C.12, PILOT-01, PILOT-02, OBS-001, PROD-OBS-001 e SMTP-SMOKE-001 estao encerrados quanto ao escopo correspondente. Os achados remanescentes abaixo seguem como backlog separado.
 
+GROUP-BOOTSTRAP-001B esta em implementacao: prepara `StudyGroup` para campos operacionais opcionais, adiciona relacao governada com `KnowledgeBook`, cria `groups:bootstrap` explicito para os grupos canonicos e torna `/api/studies` DB-backed quando ha `DATABASE_URL`, com falha fechada se faltar livro vinculado.
+
 ## Limites Pos-Validacao
 
 Achados nao bloqueantes registrados para evolucao futura:

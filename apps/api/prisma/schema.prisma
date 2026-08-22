@@ -181,17 +181,21 @@ model Enrollment {
 model StudyGroup {
   id               String      @id
   name             String
-  meetingDay       String
-  meetingTime      String
-  participantCount Int
-  bookTitle        String
-  meetUrl          String
-  description      String
+  meetingDay       String?
+  meetingTime      String?
+  participantCount Int?
+  bookTitle        String?
+  meetUrl          String?
+  description      String?
   status           GroupStatus @default(ACTIVE)
+  knowledgeBookId  String?
+  knowledgeBook    KnowledgeBook? @relation(fields: [knowledgeBookId], references: [id], onDelete: Restrict)
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
   meetings         StudyMeeting[]
   teachers         TeacherStudyGroup[]
+
+  @@index([knowledgeBookId])
 }
 
 model TeacherStudyGroup {
@@ -242,6 +246,7 @@ model KnowledgeBook {
   createdAt   DateTime            @default(now())
   updatedAt   DateTime            @updatedAt
   documents   KnowledgeDocument[]
+  studyGroups StudyGroup[]
 
   @@index([status])
   @@index([sortOrder, title])

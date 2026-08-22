@@ -28,7 +28,7 @@ import {
 } from "../../agent/types";
 import { extractListItems, formatList, sanitizeGeneratedText } from "../../agent/safety";
 
-const resolveGroup = (groupId: string) => {
+const resolveGroup = async (groupId: string) => {
   if (!isStudyGroupId(groupId)) {
     throw new AppError({
       statusCode: 400,
@@ -37,7 +37,7 @@ const resolveGroup = (groupId: string) => {
     });
   }
 
-  const group = getStudyBySlug(groupId);
+  const group = await getStudyBySlug(groupId);
 
   if (!group) {
     throw new AppError({
@@ -73,7 +73,7 @@ const buildAgentDraft = (options: {
 export const createLessonPlanDraft = async (
   input: LessonPlanRequest,
 ): Promise<AgentDraft> => {
-  const group = resolveGroup(input.groupId);
+  const group = await resolveGroup(input.groupId);
   const prompt = buildLessonPlanPrompt();
   const messages = await prompt.formatMessages({
     groupName: group.name,
@@ -115,7 +115,7 @@ export const createLessonPlanDraft = async (
 export const createReflectionQuestionsDraft = async (
   input: ReflectionQuestionsRequest,
 ): Promise<AgentDraft> => {
-  const group = resolveGroup(input.groupId);
+  const group = await resolveGroup(input.groupId);
   const questionCount = Math.min(Math.max(input.questionCount ?? 5, 3), 7);
   const prompt = buildReflectionQuestionsPrompt();
   const messages = await prompt.formatMessages({
@@ -168,7 +168,7 @@ export const createReflectionQuestionsDraft = async (
 export const createSummaryDraft = async (
   input: SummarizeRequest,
 ): Promise<AgentDraft> => {
-  const group = resolveGroup(input.groupId);
+  const group = await resolveGroup(input.groupId);
   const prompt = buildSummarizePrompt();
   const messages = await prompt.formatMessages({
     groupName: group.name,
@@ -208,7 +208,7 @@ export const createSummaryDraft = async (
 export const createAnswerResponse = async (
   input: AnswerRequest,
 ): Promise<AgentAnswerResult> => {
-  const group = resolveGroup(input.groupId);
+  const group = await resolveGroup(input.groupId);
   try {
     return await answerQuestionWithGraph(input, group);
   } catch (error) {
