@@ -12,6 +12,8 @@ import {
 import { loadWithFallback } from "./api";
 import { getMeetLinkForMode } from "../config/appMode";
 
+export type StudyGroup = DemoGroup;
+
 interface ApiStudyGroup {
   id: GroupSlug;
   name: string;
@@ -32,7 +34,7 @@ interface ApiStudyGroup {
   } | null;
 }
 
-const mapStudyGroup = (study: ApiStudyGroup): DemoGroup => {
+const mapStudyGroup = (study: ApiStudyGroup): StudyGroup => {
   return {
     slug: study.id,
     name: study.name,
@@ -56,7 +58,7 @@ const mapStudyGroup = (study: ApiStudyGroup): DemoGroup => {
   };
 };
 
-const sanitizeDemoGroup = (group: DemoGroup): DemoGroup => {
+const sanitizeDemoGroup = (group: DemoGroup): StudyGroup => {
   return {
     ...group,
     meetUrl: getMeetLinkForMode(group.meetUrl) ?? null,

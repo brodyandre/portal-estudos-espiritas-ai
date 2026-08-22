@@ -100,6 +100,7 @@ describe("production runtime UX", () => {
 
     expect(screen.getByText("Educação Continuada")).toBeInTheDocument();
     expect(screen.getByText("Acesso simples em computador, tablet e celular")).toBeInTheDocument();
+    expect(await screen.findByText("Grupos temporariamente indisponiveis")).toBeInTheDocument();
     expect(screen.queryByText("Mobile-first real desde 360px")).not.toBeInTheDocument();
     expect(screen.queryByText("Projeto")).not.toBeInTheDocument();
   });
