@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   createMemoryUserStudyMeetingsRepository,
   createMemoryUserStudyMeetingsState,
+  createPrismaUserStudyMeetingsRepository,
+  UserStudyMeetingCatalogUnavailableError,
 } from "../src/modules/me/study-meetings.repository";
 
 const NOW = new Date("2026-07-20T20:30:00.000Z");
@@ -158,6 +160,126 @@ describe("user study meetings repository", () => {
       "future-2",
       "same-start-a",
       "same-start-b",
+    ]);
+  });
+
+  it("no caminho Prisma usa KnowledgeBook.title como autoridade do livro do grupo", async () => {
+    const repository = createPrismaUserStudyMeetingsRepository({
+      studyGroup: {
+        async findUnique() {
+          return {
+            id: "emmanuel",
+            name: "Emmanuel",
+            status: "ACTIVE",
+            meetUrl: null,
+            bookTitle: "Snapshot legado incorreto",
+            knowledgeBook: {
+              title: "Titulo governado do KnowledgeBook",
+            },
+          };
+        },
+      },
+      user: {
+        async findUnique() {
+          return null;
+        },
+      },
+      studyMeeting: {
+        async findMany() {
+          return [];
+        },
+      },
+      teacherStudyGroup: {
+        async findMany() {
+          return [];
+        },
+      },
+    } as never);
+
+    await expect(repository.findGroupById("emmanuel")).resolves.toMatchObject({
+      id: "emmanuel",
+      bookTitle: "Titulo governado do KnowledgeBook",
+    });
+  });
+
+  it("no caminho Prisma falha fechado se StudyGroup nao tiver KnowledgeBook", async () => {
+    const repository = createPrismaUserStudyMeetingsRepository({
+      studyGroup: {
+        async findUnique() {
+          return {
+            id: "emmanuel",
+            name: "Emmanuel",
+            status: "ACTIVE",
+            meetUrl: null,
+            bookTitle: "Snapshot legado",
+            knowledgeBook: null,
+          };
+        },
+      },
+      user: {
+        async findUnique() {
+          return null;
+        },
+      },
+      studyMeeting: {
+        async findMany() {
+          return [];
+        },
+      },
+      teacherStudyGroup: {
+        async findMany() {
+          return [];
+        },
+      },
+    } as never);
+
+    await expect(repository.findGroupById("emmanuel")).rejects.toBeInstanceOf(
+      UserStudyMeetingCatalogUnavailableError,
+    );
+  });
+
+  it("no caminho Prisma lista grupos de professor com bookTitle vindo de KnowledgeBook", async () => {
+    const repository = createPrismaUserStudyMeetingsRepository({
+      studyGroup: {
+        async findUnique() {
+          return null;
+        },
+      },
+      user: {
+        async findUnique() {
+          return null;
+        },
+      },
+      studyMeeting: {
+        async findMany() {
+          return [];
+        },
+      },
+      teacherStudyGroup: {
+        async findMany() {
+          return [
+            {
+              group: {
+                id: "a-caminho-da-luz",
+                name: "A Caminho da Luz",
+                status: "ACTIVE",
+                meetUrl: null,
+                bookTitle: "Snapshot legado incorreto",
+                knowledgeBook: {
+                  title: "Livro governado do professor",
+                },
+              },
+            },
+          ];
+        },
+      },
+    } as never);
+
+    await expect(repository.listTeacherGroupsByUserId("teacher-1")).resolves.toEqual([
+      expect.objectContaining({
+        id: "a-caminho-da-luz",
+        bookTitle: "Livro governado do professor",
+      }),
     ]);
   });
 });

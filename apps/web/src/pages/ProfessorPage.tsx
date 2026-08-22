@@ -207,7 +207,7 @@ const createDefaultWorkspace = (
   supportFiles: KnowledgeSupportFile[],
 ): TeacherWorkspace => {
   return {
-    selectedBook: group.name,
+    selectedBook: group.bookTitle,
     themeChapter: defaultThemes[group.slug],
     meetLink: "",
     selectedSupportFileIds: supportFiles.slice(0, 2).map((file) => file.id),
@@ -695,7 +695,7 @@ export const ProfessorPage = () => {
       summary: activeSummary,
       supportFiles: selectedSupportFiles,
       theme: themeChapter.trim() || activeGroup.nextLesson?.title || activeGroup.bookTitle,
-      bookTitle: selectedBook.trim() || activeGroup.name,
+      bookTitle: selectedBook.trim() || activeGroup.bookTitle,
       meetLink: meetLink.trim(),
     };
   };
@@ -966,7 +966,7 @@ export const ProfessorPage = () => {
                     ) : null}
                     <div>
                       <dt>Livro</dt>
-                      <dd>{group.name}</dd>
+                      <dd>{group.bookTitle}</dd>
                     </div>
                   </dl>
 

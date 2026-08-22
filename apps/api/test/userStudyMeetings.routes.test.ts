@@ -6,6 +6,7 @@ import { resetAuthStore } from "../src/modules/auth/auth.service";
 import {
   createMemoryUserStudyMeetingsRepository,
   createMemoryUserStudyMeetingsState,
+  UserStudyMeetingCatalogUnavailableError,
 } from "../src/modules/me/study-meetings.repository";
 import {
   resetUserStudyMeetingsServiceDependenciesForTesting,
@@ -337,6 +338,38 @@ describe("GET /api/me/study-meetings/upcoming", () => {
       items: [],
     });
     expect(JSON.stringify(response.body)).not.toContain("meet.google.com");
+  });
+
+  it("retorna 503 controlado quando o grupo autenticado nao tem KnowledgeBook governado", async () => {
+    setUserStudyMeetingsServiceDependenciesForTesting({
+      repository: {
+        async findUserGroupByUserId() {
+          return { groupName: "Emmanuel", groupSlug: "emmanuel" };
+        },
+        async findGroupById() {
+          throw new UserStudyMeetingCatalogUnavailableError(
+            "STUDY_GROUP_WITHOUT_KNOWLEDGE_BOOK",
+          );
+        },
+        async listTeacherGroupsByUserId() {
+          return [];
+        },
+        async listCurrentAndFutureMeetings() {
+          return [];
+        },
+      },
+      nowProvider: () => new Date(NOW),
+    });
+    const token = await loginAs("aluno.demo@example.com", "AlunoDemo@123");
+    const response = await request(app)
+      .get("/api/me/study-meetings/upcoming")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(response.status).toBe(503);
+    expect(response.body.error.code).toBe("STUDY_GROUP_CATALOG_UNAVAILABLE");
+    expect(response.body.error.details).toEqual({
+      reason: "STUDY_GROUP_WITHOUT_KNOWLEDGE_BOOK",
+    });
   });
 
   it("rejeita tentativa de escolher grupo por query inesperada", async () => {
