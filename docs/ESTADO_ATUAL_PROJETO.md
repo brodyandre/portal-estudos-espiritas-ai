@@ -11,12 +11,12 @@ O SHA efetivo da `main` deve ser verificado operacionalmente via Git no inicio d
 
 Produção conhecida:
 
-- Web oficial: `https://portal-educacao-continuada.com.br`, revisão live `1f92154cdaad211bcc7c080220f5df253f54f472`, serviço Render `portal-estudos-web`, tipo `static_site`;
-- API: `https://api.portal-educacao-continuada.com.br`, revisão live previamente validada `e965352f5c76627d706362bc18ec6c8539c9c8a6`;
+- Web oficial: `https://portal-educacao-continuada.com.br`, revisão live conhecida/validada `7818eabc81bf0152ec109468a79422e85783893a`, deploy Render `dep-da4poe3l550s738kmti0`, serviço Render `portal-estudos-web` (`srv-d9qa5pbm8hqs73eak6i0`), tipo `static_site`;
+- API: `https://api.portal-educacao-continuada.com.br`, revisão live conhecida/validada `47917158545338cf442f97ebe8b3a4aee2feed86`, deploy Render `dep-da4ooms9v7es738rb7n0`, serviço Render `portal-estudos-api` (`srv-d9pp5it3erlc739asjt0`);
 - `Auto-Deploy = Off/no` observado na Web como estado operacional, não como decisão arquitetural imutável;
-- OBS-001 está integrado, Git-closed, publicado na API de produção e validado operacionalmente.
+- MULTIGROUP-001D está aprovado e o rollout controlado de produção foi concluído.
 
-A Web oficial foi publicada manualmente e validada na revisão `1f92154cdaad211bcc7c080220f5df253f54f472`. A API permanece na revisão runtime conhecida `e965352f5c76627d706362bc18ec6c8539c9c8a6`. Essa diferença por superfície é esperada e não representa, por si só, drift indevido; W-001 não exigiu deploy da API nem alinhamento numérico entre Web e API.
+A Web oficial foi publicada manualmente e validada na revisão `7818eabc81bf0152ec109468a79422e85783893a`, que inclui a correção da Home para consumir `/api/studies` via `listStudies()`. A API permanece na revisão runtime conhecida `47917158545338cf442f97ebe8b3a4aee2feed86`. Essa diferença por superfície é esperada e não representa, por si só, drift indevido; o rollout corretivo da Web não exigiu deploy da API nem alinhamento numérico entre Web e API.
 
 ## Identificacao
 
@@ -44,12 +44,14 @@ O banco configurado e PostgreSQL via Prisma. Fluxos persistidos incluem usuarios
 
 Estado operacional oficial previamente validado:
 
-- Web oficial live em `1f92154cdaad211bcc7c080220f5df253f54f472`, com metadata pública e smoke read-only validados;
-- API `/version = e965352f5c76627d706362bc18ec6c8539c9c8a6`
+- Web oficial live em `7818eabc81bf0152ec109468a79422e85783893a`, com smoke read-only em `/`, `/portal`, `/materiais` e `/login`;
+- API `/version = 47917158545338cf442f97ebe8b3a4aee2feed86`
 - API `/health = OK`
-- API `/ready = ready` em 5/5 chamadas controladas
+- API `/ready = ready`
 - API `database = ok`
 - API `corpus = ready`
+- API `/api/studies` retorna `emmanuel` e `a-caminho-da-luz` com campos operacionais ainda não configurados como `null`;
+- `GET /api/knowledge/groups` expõe atualmente `fileCount=1` para Emmanuel e `fileCount=0` para A Caminho da Luz.
 
 ## CI/CD
 
@@ -66,11 +68,11 @@ A API possui autenticacao local com JWT, sessoes persistidas, papeis `VISITOR`, 
 
 ## Grupos e Encontros
 
-O projeto possui grupos de estudo, atribuicao administrativa de grupos e gerenciamento de encontros. A area autenticada do aluno consome encontros associados ao usuario.
+O projeto possui grupos de estudo, atribuicao administrativa de grupos e gerenciamento de encontros. Professores possuem vinculo persistente multi-grupo normalizado por `TeacherStudyGroup`, com chave composta `userId/groupId`; alunos mantem o vinculo canonico atual no usuario. A area autenticada do aluno consome encontros associados ao usuario, e professores podem consumir encontros agregados dos grupos ativos vinculados.
 
 ## Catalogo Editorial
 
-O catalogo editorial de conhecimento usa livros e documentos persistidos. Livros ativos e documentos aprovados sao a autoridade editorial para inclusao no manifesto seguro do RAG. Arquivos fisicos precisam estar dentro de `data/knowledge`.
+O catalogo editorial de conhecimento usa livros e documentos persistidos. Livros ativos e documentos aprovados sao a autoridade editorial para inclusao no manifesto seguro do RAG. Arquivos fisicos precisam estar dentro de `data/knowledge`. Em producao, os livros canonicos ativos incluem `Emmanuel` e `A Caminho da Luz`; tambem existe conteudo compartilhado conforme catalogo persistido.
 
 ## RAG e Corpus Governado
 
@@ -85,6 +87,8 @@ Bootstrap automatico do corpus ja foi validado com:
 - `documentCount = 1`
 - `chunkCount = 5`
 - `stale = false`
+
+Observacao operacional separada: apos MULTIGROUP-001D, o catalogo PostgreSQL e o corpus publico/RAG exposto pela interface ainda nao estao numericamente alinhados. O estado conhecido auditado do catalogo persistido era Emmanuel com 19 documentos, A Caminho da Luz com 13 documentos e `shared` com 2 documentos; o endpoint publico `/api/knowledge/groups` foi revalidado com Emmanuel expondo 1 arquivo e A Caminho da Luz expondo 0 arquivos. Isso permanece fora do escopo de GOV-003 e de MULTIGROUP-001D.
 
 ## Agent Answer, Group Matching e LLM
 
@@ -148,7 +152,21 @@ O smoke nao validou o caminho `transactional_email_send_failed` em producao, flu
 
 A 9C.12, PILOT-01, PILOT-02, OBS-001, PROD-OBS-001 e SMTP-SMOKE-001 estao encerrados quanto ao escopo correspondente. Os achados remanescentes abaixo seguem como backlog separado.
 
-GROUP-BOOTSTRAP-001B esta em implementacao: prepara `StudyGroup` para campos operacionais opcionais, adiciona relacao governada com `KnowledgeBook`, cria `groups:bootstrap` explicito para os grupos canonicos e torna `/api/studies` DB-backed quando ha `DATABASE_URL`, com falha fechada se faltar livro vinculado.
+GROUP-BOOTSTRAP-001 foi concluido e integrado no rollout MULTIGROUP-001D. A entrega preparou `StudyGroup` para campos operacionais opcionais, adicionou relacao governada opcional com `KnowledgeBook`, criou `groups:bootstrap` explicito para os grupos canonicos e tornou `/api/studies` DB-backed em producao, com falha fechada se faltar livro vinculado. Os grupos canonicos materializados em producao sao `emmanuel` e `a-caminho-da-luz`.
+
+MULTIGROUP-001 tambem foi concluido: existe vinculo persistente multi-grupo para usuarios `TEACHER` por `TeacherStudyGroup`, com PK composta `userId/groupId`. Essa fundacao estrutural nao conclui BOOK-ACCESS-001.
+
+MULTIGROUP-001D foi aprovado como rollout controlado de producao concluido:
+
+- 001D.1 aplicou e validou migrations de producao;
+- 001D.2 materializou e validou os `KnowledgeBook` canonicos;
+- 001D.3 materializou os `StudyGroup` canonicos;
+- 001D.4 publicou a API em `47917158545338cf442f97ebe8b3a4aee2feed86`;
+- 001D.5 publicou inicialmente a Web no mesmo SHA, mas o aceite manual encontrou stale demo leakage na Home;
+- 001D.5A integrou o PR #67, `fix(web): use production studies on home`, corrigindo a Home para usar `listStudies()`/`/api/studies` como autoridade operacional;
+- 001D.5B redeployou a Web em `7818eabc81bf0152ec109468a79422e85783893a`, com aceite manual final aprovado.
+
+A Home de producao nao usa mais `groups` demo como autoridade operacional e o aceite manual final confirmou ausencia de `88 participantes`, `62 participantes`, agenda demonstrativa, datas demonstrativas e Meet demonstrativo. `/portal` foi validado com os dois grupos reais e sem dados operacionais ficticios. `/materiais` esta funcional e terminal. `/professor` permanece rota protegida e, sem autenticacao, redireciona para `/login`. `/estudos` nao existe no contrato atual e permanece `NOT_APPLICABLE`.
 
 ## Limites Pos-Validacao
 
@@ -159,8 +177,10 @@ Achados nao bloqueantes registrados para evolucao futura:
 - F-001 -- P3: variable/flaky timeouts in unmodified tests, without evidence of relation to 9C.12.1. Aberto originalmente como P2, foi reavaliado na F-001A e reclassificado para P3 apos nao reproducao repetida, testes historicos Web/API verdes, suites completas Web/API verdes, CIs posteriores verdes e ausencia de evidencia de mascaramento por aumento global de timeout;
 - W-001 -- RESOLVIDO: W-001A identificou escopo material em metadados publicos da Web e no default versionado de `SMTP_FROM_NAME`; W-001B corrigiu metadata publica Web, default versionado de `SMTP_FROM_NAME` e `.env.example`; o PR #59 integrou a correcao no squash `1f92154cdaad211bcc7c080220f5df253f54f472`; GitHub Pages foi publicado e validado; a Web oficial foi publicada manualmente de forma controlada no deploy Render `dep-d9v7bregekts73evo580`, live em `1f92154cdaad211bcc7c080220f5df253f54f472`; a validacao publica confirmou HTTP 200 e `title`, `og:title`, `og:site_name` e `twitter:title` como `Portal de Educação Continuada`, com a marca historica ausente nesses quatro campos; o smoke read-only passou em `/`, `/portal`, `/materiais`, `/inscricao`, `/robots.txt` e `/sitemap.xml`; a API nao foi redeployada; o default SMTP esta correto em source, a producao ja possuia override institucional correto e nenhum SMTP real foi executado nessa entrega;
 - DOC-001 -- RESOLVIDO: stale factual em documentos auxiliares corrigido, documentos historicos explicitamente marcados, contratos executaveis reconciliados e nenhum runtime alterado;
+- BOOK-ACCESS-001 -- PENDENTE: a fundacao estrutural `StudyGroup -> KnowledgeBook` esta integrada, mas backend/RAG multi-livro por professor ainda nao foi implementado nem concluido. Professor permanece HOLD; a existencia de `TeacherStudyGroup` nao libera provisioning de professor nem autorizacao RAG multi-livro;
+- Catalogo PostgreSQL vs corpus publico/RAG -- OBSERVACAO SEPARADA: catalogo persistido e corpus publico exposto nao estao numericamente alinhados no estado conhecido; isso nao foi corrigido em GOV-003;
 - observabilidade SMTP inicial esta publicada em producao e teve evento real de sucesso validado para `password_recovery`; dashboard, metricas agregadas, webhooks, integracoes de provider, fluxo de convite e caminho SMTP de falha seguem fora do escopo atual.
 
 ## Proxima Entrega
 
-Proximos itens ja previstos no backlog incluem evolucao de rate limit distribuido antes de escala horizontal e observabilidade SMTP futura, sem testar caminho SMTP de falha em producao automaticamente.
+Proximos itens ja previstos no backlog incluem BOOK-ACCESS-001, evolucao de rate limit distribuido antes de escala horizontal e observabilidade SMTP futura, sem testar caminho SMTP de falha em producao automaticamente. Professor permanece HOLD ate planejamento/autorizacao especificos.

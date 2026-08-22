@@ -6,13 +6,13 @@ Producao operacional por superficie nas revisoes conhecidas abaixo.
 
 Estado Git esperado: branch oficial `main`, `HEAD`/`main`/`origin/main` sincronizados, ahead/behind `0 0` e workspace limpo. O SHA efetivo da `main` deve ser verificado operacionalmente via Git no inicio de cada checkpoint.
 
-Web producao: `1f92154cdaad211bcc7c080220f5df253f54f472`.
+Web producao: `7818eabc81bf0152ec109468a79422e85783893a`.
 
-API producao: `e965352f5c76627d706362bc18ec6c8539c9c8a6`.
+API producao: `47917158545338cf442f97ebe8b3a4aee2feed86`.
 
-A Web oficial esta publicada e validada em `1f92154cdaad211bcc7c080220f5df253f54f472`. A API permanece no runtime conhecido `e965352f5c76627d706362bc18ec6c8539c9c8a6`. Essa diferenca por superficie nao representa, por si so, drift indevido nem exige alinhamento numerico entre Web e API.
+A Web oficial esta publicada e validada em `7818eabc81bf0152ec109468a79422e85783893a`, deploy Render `dep-da4poe3l550s738kmti0`. A API permanece no runtime conhecido `47917158545338cf442f97ebe8b3a4aee2feed86`, deploy Render `dep-da4ooms9v7es738rb7n0`. Essa diferenca por superficie nao representa, por si so, drift indevido nem exige alinhamento numerico entre Web e API.
 
-OBS-001 esta integrado, Git-closed, publicado em producao e validado operacionalmente. O estado operacional conhecido inclui `Auto-Deploy = Off`, conforme observacao do Render Dashboard, sem tratar isso como decisao arquitetural imutavel.
+MULTIGROUP-001D esta aprovado e o rollout controlado de producao foi concluido. O estado operacional conhecido inclui `Auto-Deploy = Off/no` para Web e API, conforme observacao do Render Dashboard, sem tratar isso como decisao arquitetural imutavel.
 
 Web:
 
@@ -24,17 +24,19 @@ API:
 
 Estado operacional oficial previamente validado:
 
-- Web oficial live em `1f92154cdaad211bcc7c080220f5df253f54f472`, com metadata publica e smoke read-only validados
+- Web oficial live em `7818eabc81bf0152ec109468a79422e85783893a`, com smoke read-only em `/`, `/portal`, `/materiais` e `/login`
 - API `/health = OK`
-- API `/version = e965352f5c76627d706362bc18ec6c8539c9c8a6`
-- API `/ready = ready` em 5/5 chamadas controladas
+- API `/version = 47917158545338cf442f97ebe8b3a4aee2feed86`
+- API `/ready = ready`
 - API `database = ok`
 - API `corpus = ready`
+- API `/api/studies` DB-backed com `emmanuel` e `a-caminho-da-luz`; campos operacionais `meetingDay`, `meetingTime`, `participantCount`, `meetUrl`, `description` e `nextLesson` atualmente `null`
 - Groq operacional como provider principal
 - fallback LLM preservado
 - Resend operacional como provider SMTP transacional inicial
 - recuperacao de senha validada em producao por smoke real controlado
 - frontend de producao sem credenciais demonstrativas ou copy local nas telas de autenticacao
+- Home de producao consumindo `/api/studies` via `listStudies()`, sem 88/62, agenda demo, datas demo ou Meet demo apos PR #67 e redeploy corretivo
 - e-mails transacionais alinhados a identidade publica Portal de Educação Continuada e timezone America/Sao_Paulo
 - metadata publica da Web oficial alinhada a identidade publica Portal de Educação Continuada
 
@@ -46,8 +48,10 @@ Estado operacional oficial previamente validado:
 - Artefatos de container para API e Web.
 - Autenticacao local com JWT, sessoes persistidas e papeis.
 - Administracao de usuarios, status, grupos, convites e encontros.
-- Grupos de estudo e encontros autenticados.
+- Grupos de estudo, grupos canonicos produtivos e encontros autenticados.
+- Vinculo persistente multi-grupo para professores via `TeacherStudyGroup`, com PK composta `userId/groupId`.
 - Catalogo editorial persistido para livros e documentos.
+- Relacao governada opcional `StudyGroup -> KnowledgeBook`.
 - RAG governado por manifesto seguro.
 - Corpus governado com identidade editorial/fisica, estado operacional e rebuild administrativo.
 - Bootstrap automatico assincrono do corpus no startup da API.
@@ -75,9 +79,9 @@ Encerrada quanto ao escopo consolidado de experiencia, identidade transacional e
 
 Concluida e integrada pelo PR #47 no commit `cf61c4d8d10b6c513e7db9d5e8bce114179bb685`. Producao real nao exibe credenciais demonstrativas nem copy de backend/local nas telas de autenticacao. GitHub Pages permanece em modo demo seguro e desenvolvimento local continua utilizavel.
 
-#### GROUP-BOOTSTRAP-001B -- Grupos produtivos governados
+#### GROUP-BOOTSTRAP-001 -- Grupos produtivos governados
 
-Em implementacao. Objetivo: evoluir `StudyGroup` para bootstrap produtivo explicito, relacionar grupos canonicos a `KnowledgeBook`, manter campos operacionais opcionais e impedir fallback estatico silencioso em `/api/studies` quando a API estiver conectada ao banco.
+Concluido e integrado pelo rollout MULTIGROUP-001D. A entrega evoluiu `StudyGroup` para bootstrap produtivo explicito, relacionou grupos canonicos a `KnowledgeBook`, manteve campos operacionais opcionais e impediu fallback estatico silencioso em `/api/studies` quando a API esta conectada ao banco.
 
 Finding separado:
 
@@ -128,7 +132,7 @@ Integrado e Git-closed pelo PR #55 no commit `9aa04eba56869810e65cce6e30d6fcc6b7
 
 ### PROD-OBS-001 -- Publicacao controlada do OBS-001
 
-Concluido. A API de producao esta executando `e965352f5c76627d706362bc18ec6c8539c9c8a6`, com `/version`, `/health` e `/ready` validados. OPS-001 nao foi criado.
+Concluido. Na etapa PROD-OBS-001, a API de producao foi publicada em `e965352f5c76627d706362bc18ec6c8539c9c8a6`, com `/version`, `/health` e `/ready` validados. OPS-001 nao foi criado. O estado live atual da API esta registrado no topo deste plano.
 
 ### SMTP-SMOKE-001 -- Smoke transacional real controlado
 
@@ -142,9 +146,32 @@ Limites: o smoke nao validou `transactional_email_send_failed` em producao, flux
 
 Encerrado. W-001A auditou e identificou escopo material em metadados publicos da Web e no default versionado de `SMTP_FROM_NAME`; W-001B corrigiu o source; o PR #59 foi integrado pelo squash `1f92154cdaad211bcc7c080220f5df253f54f472`; GitHub Pages foi publicado e validado; a Web oficial foi publicada no deploy Render `dep-d9v7bregekts73evo580`, live em `1f92154cdaad211bcc7c080220f5df253f54f472`; a metadata publica foi validada com `title`, `og:title`, `og:site_name` e `twitter:title` como `Portal de Educação Continuada`; o smoke publico read-only foi aprovado. A API nao foi redeployada nesta entrega.
 
+### MULTIGROUP-001 -- Vinculo multi-grupo de professores
+
+Encerrado. O projeto possui vinculo persistente multi-grupo para usuarios `TEACHER` via `TeacherStudyGroup`, com chave composta `userId/groupId`. Esse vinculo e usado por rotas autenticadas de encontros e por endpoints administrativos de associacao de grupos do professor. A existencia dessa fundacao nao conclui BOOK-ACCESS-001 nem libera Professor real automaticamente.
+
+### MULTIGROUP-001D -- Rollout controlado de producao
+
+Encerrado. O rollout controlado aplicou migrations de producao, validou `KnowledgeBook` canonicos, materializou `StudyGroup` canonicos, publicou a API em `47917158545338cf442f97ebe8b3a4aee2feed86` e publicou a Web inicialmente no mesmo SHA.
+
+O aceite manual da Web inicial encontrou stale demo leakage na Home. A correcao 001D.5A foi integrada pelo PR #67 no squash `7818eabc81bf0152ec109468a79422e85783893a`, mudando a Home para consumir `listStudies()`/`/api/studies` como autoridade operacional. A etapa 001D.5B redeployou somente a Web no deploy `dep-da4poe3l550s738kmti0`, manteve a API em `47917158545338cf442f97ebe8b3a4aee2feed86` e teve aceite manual final aprovado.
+
+Estado funcional validado:
+
+- Home sem `88 participantes`, `62 participantes`, agenda demo, datas demo ou Meet demo;
+- `/portal` com dois grupos reais e sem dados operacionais ficticios;
+- `/materiais` funcional e terminal;
+- `/professor` protegido, redirecionando para `/login` sem autenticacao;
+- `/estudos` nao existe no contrato atual e permanece `NOT_APPLICABLE`.
+
+Observacao separada: o catalogo PostgreSQL conhecido tinha Emmanuel com 19 documentos, A Caminho da Luz com 13 documentos e `shared` com 2 documentos, enquanto o corpus publico exposto por `/api/knowledge/groups` foi revalidado com Emmanuel `fileCount=1` e A Caminho da Luz `fileCount=0`. Esse desalinhamento catalogo/corpus permanece fora do escopo de MULTIGROUP-001D.
+
 ## Backlog Atual
 
 - F-001 -- P3: timeouts historicos variaveis/flaky em testes nao modificados; F-001A nao reproduziu o problema, validou testes historicos Web/API repetidamente, suites completas Web/API e CIs recentes, sem evidencia de mascaramento por aumento global de timeout. Permanece como risco residual/historico.
 - DOC-001 -- RESOLVIDO: stale factual em documentos auxiliares corrigido, documentos historicos explicitamente marcados, contratos executaveis reconciliados e nenhum runtime alterado.
+- BOOK-ACCESS-001 -- PENDENTE: a fundacao estrutural `StudyGroup -> KnowledgeBook` esta integrada, mas o backend/RAG multi-livro por professor ainda nao foi implementado nem concluido.
+- Professor -- HOLD: nao ha provisioning real liberado neste estado; nao registrar credenciais nem e-mail pessoal. `TeacherStudyGroup` existe, mas nao equivale a autorizacao RAG multi-livro por professor.
+- Catalogo PostgreSQL vs corpus publico/RAG -- OBSERVACAO SEPARADA: estado conhecido indica desalinhamento numerico entre catalogo persistido e corpus publico exposto, sem correcao neste checkpoint.
 - Rate limit de password recovery/reset em memoria do processo: P2 conceitual antes de escala horizontal, nao bloqueante enquanto houver replica unica.
 - Observabilidade SMTP futura: dashboard, metricas agregadas, webhooks, integracoes de provider, fluxo de convite e caminho SMTP de falha em producao permanecem fora do escopo atual e dependem de necessidade operacional concreta.

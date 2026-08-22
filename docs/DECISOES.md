@@ -218,3 +218,17 @@ Evita popular producao com dados mockados ou incompletos, preserva a governanca 
 
 Status:
 Ativa.
+
+## D018 -- Vinculo multi-grupo normalizado para professores
+
+Decisao:
+Professores podem possuir vinculo persistente com multiplos grupos por meio de `TeacherStudyGroup`, usando chave composta `userId/groupId`. Alunos mantem o vinculo canonico atual no usuario.
+
+Racional:
+Permite administrar e consultar grupos de professores sem duplicar usuario, sem usar campos legados como autoridade multi-grupo e sem liberar acesso RAG multi-livro antes de BOOK-ACCESS-001.
+
+Limites:
+Essa decisao registra a fundacao estrutural de MULTIGROUP-001. Ela nao conclui BOOK-ACCESS-001, nao libera provisioning de Professor real e nao implica autorizacao RAG multi-livro por professor.
+
+Status:
+Ativa.
