@@ -33,10 +33,14 @@ const lessonTitleLookup = buildLessonTitleLookup(
     lessonId: summary.lessonId,
     lessonTitle: summary.lessonTitle,
   })),
-  groups.map((group) => ({
-    id: group.nextLesson.id,
-    title: group.nextLesson.title,
-  })),
+  groups.flatMap((group) =>
+    group.nextLesson
+      ? [{
+          id: group.nextLesson.id,
+          title: group.nextLesson.title,
+        }]
+      : [],
+  ),
 );
 
 const groupNameLookup = new Map(groups.map((group) => [group.slug, group.name]));

@@ -75,6 +75,10 @@ Encerrada quanto ao escopo consolidado de experiencia, identidade transacional e
 
 Concluida e integrada pelo PR #47 no commit `cf61c4d8d10b6c513e7db9d5e8bce114179bb685`. Producao real nao exibe credenciais demonstrativas nem copy de backend/local nas telas de autenticacao. GitHub Pages permanece em modo demo seguro e desenvolvimento local continua utilizavel.
 
+#### GROUP-BOOTSTRAP-001B -- Grupos produtivos governados
+
+Em implementacao. Objetivo: evoluir `StudyGroup` para bootstrap produtivo explicito, relacionar grupos canonicos a `KnowledgeBook`, manter campos operacionais opcionais e impedir fallback estatico silencioso em `/api/studies` quando a API estiver conectada ao banco.
+
 Finding separado:
 
 - F-001 -- P3: variable/flaky timeouts in unmodified tests, without evidence of relation to 9C.12.1. Aberto originalmente como P2 durante 9C.12.1, foi reclassificado para P3 apos a reavaliacao formal F-001A.

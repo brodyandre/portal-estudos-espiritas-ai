@@ -6,12 +6,12 @@ const DEMO_MEET_LINK_A_CAMINHO_DA_LUZ = "https://example.com/demo-meet/a-caminho
 export interface DemoGroup {
   slug: GroupSlug;
   name: string;
-  meetingDay: string;
-  meetingTime: string;
-  participantCount: number;
-  meetUrl: string;
+  meetingDay: string | null;
+  meetingTime: string | null;
+  participantCount: number | null;
+  meetUrl: string | null;
   bookTitle: string;
-  description: string;
+  description: string | null;
   nextLesson: {
     id: string;
     title: string;
@@ -20,7 +20,7 @@ export interface DemoGroup {
     scheduledLabel: string;
     status: "proxima" | "hoje";
     teacherNote: string;
-  };
+  } | null;
 }
 
 export interface DemoFlowStep {
@@ -509,7 +509,7 @@ export const studentAssistantPrompt =
 
 const cloneGroup = (group: DemoGroup): DemoGroup => ({
   ...group,
-  nextLesson: { ...group.nextLesson },
+  nextLesson: group.nextLesson ? { ...group.nextLesson } : null,
 });
 
 const cloneMaterial = (material: DemoMaterial): DemoMaterial => ({ ...material });
@@ -527,7 +527,11 @@ const createQuestionSeed = () => questions.map(cloneQuestion);
 
 let questionStore: DemoQuestion[] = createQuestionSeed();
 
-const lessonTitleFromGroups = new Map(groups.map((group) => [group.nextLesson.id, group.nextLesson.title]));
+const lessonTitleFromGroups = new Map(
+  groups.flatMap((group) =>
+    group.nextLesson ? [[group.nextLesson.id, group.nextLesson.title] as const] : [],
+  ),
+);
 const lessonTitleFromSummaries = new Map(summaries.map((summary) => [summary.lessonId, summary.lessonTitle]));
 
 const resolveLessonTitle = (groupSlug: GroupSlug, lessonId: string) => {

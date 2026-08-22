@@ -694,7 +694,7 @@ export const ProfessorPage = () => {
       materials: activeMaterials,
       summary: activeSummary,
       supportFiles: selectedSupportFiles,
-      theme: themeChapter.trim() || activeGroup.nextLesson.title,
+      theme: themeChapter.trim() || activeGroup.nextLesson?.title || activeGroup.bookTitle,
       bookTitle: selectedBook.trim() || activeGroup.name,
       meetLink: meetLink.trim(),
     };
@@ -930,6 +930,7 @@ export const ProfessorPage = () => {
           <div className="group-grid">
             {teacherVisibleGroups.map((group) => {
               const isActive = group.slug === activeGroup?.slug;
+              const hasSchedule = Boolean(group.meetingDay && group.meetingTime);
 
               return (
                 <Card
@@ -941,22 +942,28 @@ export const ProfessorPage = () => {
                   tone={isActive ? "brand" : "default"}
                 >
                   <div className="teacher-group-card__top">
-                    <Badge tone="brand">{group.participantCount} participantes</Badge>
+                    {group.participantCount !== null ? (
+                      <Badge tone="brand">{group.participantCount} participantes</Badge>
+                    ) : null}
                     <StatusTag label={isActive ? "Grupo ativo" : undefined} tone="upcoming" />
                   </div>
 
                   <div className="teacher-group-card__body">
                     <h2>{group.name}</h2>
-                    <p className="teacher-panel__note">{group.nextLesson.title}</p>
+                    {group.nextLesson ? (
+                      <p className="teacher-panel__note">{group.nextLesson.title}</p>
+                    ) : null}
                   </div>
 
                   <dl className="teacher-group-card__meta">
-                    <div>
-                      <dt>Encontro</dt>
-                      <dd>
-                        {group.meetingDay}, {group.meetingTime}
-                      </dd>
-                    </div>
+                    {hasSchedule ? (
+                      <div>
+                        <dt>Encontro</dt>
+                        <dd>
+                          {group.meetingDay}, {group.meetingTime}
+                        </dd>
+                      </div>
+                    ) : null}
                     <div>
                       <dt>Livro</dt>
                       <dd>{group.name}</dd>

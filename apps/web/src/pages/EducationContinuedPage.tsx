@@ -174,33 +174,45 @@ export const EducationContinuedPage = () => {
           />
         ) : (
           <div className="group-grid">
-            {groups.map((group) => (
-              <Card className="education-group-card" key={group.slug} tone="default">
-                <div className="education-group-card__top">
-                  <div>
-                    <p className="card-eyebrow">Grupo disponivel</p>
-                    <h3>{group.name}</h3>
-                  </div>
-                  <Badge tone="brand">{group.participantCount} participantes</Badge>
-                </div>
+            {groups.map((group) => {
+              const hasSchedule = Boolean(group.meetingDay && group.meetingTime);
 
-                <p className="education-group-card__schedule">
-                  {group.name}: {group.meetingDay}, {group.meetingTime}
-                </p>
-                <p className="student-panel__note">{group.description}</p>
+              return (
+                <Card className="education-group-card" key={group.slug} tone="default">
+                  <div className="education-group-card__top">
+                    <div>
+                      <p className="card-eyebrow">Grupo disponivel</p>
+                      <h3>{group.name}</h3>
+                    </div>
+                    {group.participantCount !== null ? (
+                      <Badge tone="brand">{group.participantCount} participantes</Badge>
+                    ) : null}
+                  </div>
 
-                <dl className="student-detail-list">
-                  <div>
-                    <dt>Livro e foco do grupo</dt>
-                    <dd>{group.bookTitle}</dd>
-                  </div>
-                  <div>
-                    <dt>Tema da proxima conversa</dt>
-                    <dd>{group.nextLesson.title}</dd>
-                  </div>
-                </dl>
-              </Card>
-            ))}
+                  {hasSchedule ? (
+                    <p className="education-group-card__schedule">
+                      {group.name}: {group.meetingDay}, {group.meetingTime}
+                    </p>
+                  ) : null}
+                  {group.description ? (
+                    <p className="student-panel__note">{group.description}</p>
+                  ) : null}
+
+                  <dl className="student-detail-list">
+                    <div>
+                      <dt>Livro e foco do grupo</dt>
+                      <dd>{group.bookTitle}</dd>
+                    </div>
+                    {group.nextLesson ? (
+                      <div>
+                        <dt>Tema da proxima conversa</dt>
+                        <dd>{group.nextLesson.title}</dd>
+                      </div>
+                    ) : null}
+                  </dl>
+                </Card>
+              );
+            })}
           </div>
         )}
       </section>

@@ -207,3 +207,14 @@ Nao introduzir dashboard, webhook, SDK de provider, endpoint, banco de metricas,
 
 Status:
 Ativa.
+
+## D017 -- Bootstrap governado dos grupos produtivos
+
+Decisao:
+Os grupos produtivos iniciais `emmanuel` e `a-caminho-da-luz` devem ser inicializados por script explicito `groups:bootstrap`, depois das migrations e da catalogacao `knowledge:catalog`. O script exige `KnowledgeBook` ativo correspondente, nao cria livros, nao usa seed demonstrativo e falha fechado em conflitos.
+
+Racional:
+Evita popular producao com dados mockados ou incompletos, preserva a governanca editorial por livro e separa schema, catalogo e dados operacionais.
+
+Status:
+Ativa.

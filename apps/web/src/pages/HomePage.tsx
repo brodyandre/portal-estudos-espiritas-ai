@@ -61,7 +61,12 @@ export const HomePage = () => {
         />
         <div className="group-grid">
           {groups.map((group) => (
-            <GroupCard actionLabel="Entrar no encontro" actionHref={group.meetUrl} group={group} key={group.slug} />
+            <GroupCard
+              actionLabel="Entrar no encontro"
+              actionHref={group.meetUrl ?? undefined}
+              group={group}
+              key={group.slug}
+            />
           ))}
         </div>
       </section>

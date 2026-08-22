@@ -89,7 +89,10 @@ export const PortalPage = () => {
     };
   }, []);
 
-  const participantTotal = groups.reduce((total, group) => total + group.participantCount, 0);
+  const participantTotal = groups.reduce(
+    (total, group) => total + (group.participantCount ?? 0),
+    0,
+  );
   const activeGroup = groups.find((group) => group.slug === activeGroupSlug) ?? groups[0] ?? null;
   const canShowMeetLink = appConfig.canShowRealMeetLink;
   const activeSummary = useMemo(() => {
@@ -116,6 +119,11 @@ export const PortalPage = () => {
 
     if (normalizedQuestion.length < 10) {
       setQuestionError("Escreva uma duvida com pelo menos 10 caracteres.");
+      return;
+    }
+
+    if (!activeGroup.nextLesson) {
+      setQuestionError("Este grupo ainda nao tem encontro configurado para receber perguntas.");
       return;
     }
 
@@ -165,7 +173,7 @@ export const PortalPage = () => {
             { label: "Grupos ativos", value: String(groups.length || 2) },
             {
               label: "Participantes",
-              value: participantTotal > 0 ? `${participantTotal} ao todo` : "Carregando",
+              value: participantTotal > 0 ? `${participantTotal} ao todo` : "A configurar",
             },
             { label: "Acesso", value: "Sem login" },
           ]}
@@ -235,6 +243,7 @@ export const PortalPage = () => {
               const groupSummary =
                 summaries.find((summary) => summary.groupSlug === group.slug) ?? null;
               const isActive = activeGroup?.slug === group.slug;
+              const hasSchedule = Boolean(group.meetingDay && group.meetingTime);
 
               return (
                 <Card
@@ -245,29 +254,37 @@ export const PortalPage = () => {
                   tone={isActive ? "brand" : "default"}
                 >
                   <div className="group-card__top">
-                    <Badge tone="brand">{group.participantCount} participantes</Badge>
-                    <StatusTag
-                      label={isActive ? "Em destaque" : undefined}
-                      tone={group.nextLesson.status === "hoje" ? "active" : "upcoming"}
-                    />
+                    {group.participantCount !== null ? (
+                      <Badge tone="brand">{group.participantCount} participantes</Badge>
+                    ) : null}
+                    {group.nextLesson ? (
+                      <StatusTag
+                        label={isActive ? "Em destaque" : undefined}
+                        tone={group.nextLesson.status === "hoje" ? "active" : "upcoming"}
+                      />
+                    ) : null}
                   </div>
 
                   <div className="group-card__content">
                     <h3>{group.name}</h3>
-                    <p>{group.description}</p>
+                    {group.description ? <p>{group.description}</p> : null}
                   </div>
 
                   <dl className="group-card__meta">
-                    <div>
-                      <dt>Encontro</dt>
-                      <dd>
-                        {group.meetingDay}, {group.meetingTime}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt>Tema da semana</dt>
-                      <dd>{group.nextLesson.title}</dd>
-                    </div>
+                    {hasSchedule ? (
+                      <div>
+                        <dt>Encontro</dt>
+                        <dd>
+                          {group.meetingDay}, {group.meetingTime}
+                        </dd>
+                      </div>
+                    ) : null}
+                    {group.nextLesson ? (
+                      <div>
+                        <dt>Tema da semana</dt>
+                        <dd>{group.nextLesson.title}</dd>
+                      </div>
+                    ) : null}
                     <div>
                       <dt>Resumo da ultima aula</dt>
                       <dd>
@@ -278,13 +295,13 @@ export const PortalPage = () => {
                   </dl>
 
                   <div className="button-row">
-                    {canShowMeetLink ? (
+                    {canShowMeetLink && group.meetUrl ? (
                       <Button href={group.meetUrl} rel="noreferrer" target="_blank">
                         Entrar no Google Meet
                       </Button>
-                    ) : (
+                    ) : !canShowMeetLink ? (
                       <p className="student-panel__note">{PUBLIC_MEET_NOTICE}</p>
-                    )}
+                    ) : null}
                     <Button to={`/materiais/${group.slug}`} variant="secondary">
                       Ver materiais do livro
                     </Button>
@@ -313,18 +330,27 @@ export const PortalPage = () => {
             <div className="two-column-grid portal-section-grid">
               <Card className="portal-detail-card" tone="brand">
                 <p className="card-eyebrow">Tema da semana</p>
-                <h3>{activeGroup.nextLesson.title}</h3>
-                <p className="card-subtitle">{activeGroup.nextLesson.scheduledLabel}</p>
-                <p>{activeGroup.nextLesson.theme}</p>
-                <div className="button-row">
-                  {canShowMeetLink ? (
-                    <Button href={activeGroup.meetUrl} rel="noreferrer" target="_blank">
-                      Entrar no Google Meet
-                    </Button>
-                  ) : (
-                    <p className="student-panel__note">{PUBLIC_MEET_NOTICE}</p>
-                  )}
-                </div>
+                {activeGroup.nextLesson ? (
+                  <>
+                    <h3>{activeGroup.nextLesson.title}</h3>
+                    <p className="card-subtitle">{activeGroup.nextLesson.scheduledLabel}</p>
+                    <p>{activeGroup.nextLesson.theme}</p>
+                    <div className="button-row">
+                      {canShowMeetLink && activeGroup.meetUrl ? (
+                        <Button href={activeGroup.meetUrl} rel="noreferrer" target="_blank">
+                          Entrar no Google Meet
+                        </Button>
+                      ) : !canShowMeetLink ? (
+                        <p className="student-panel__note">{PUBLIC_MEET_NOTICE}</p>
+                      ) : null}
+                    </div>
+                  </>
+                ) : (
+                  <EmptyState
+                    description="Este grupo ainda nao tem proximo encontro publicado."
+                    title="Encontro em preparacao"
+                  />
+                )}
               </Card>
 
               <Card className="portal-detail-card" tone="soft">

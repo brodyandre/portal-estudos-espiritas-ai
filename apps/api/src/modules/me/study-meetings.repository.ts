@@ -36,7 +36,7 @@ export interface MemoryUserStudyMeetingGroup {
   id: string;
   name: string;
   status: "active" | "inactive";
-  meetUrl: string;
+  meetUrl: string | null;
   bookTitle: string;
 }
 
@@ -67,7 +67,7 @@ const defaultMemoryGroups: MemoryUserStudyMeetingGroup[] = studyGroups.map((grou
   name: group.name,
   status: "active",
   meetUrl: group.meetUrl,
-  bookTitle: group.bookTitle,
+  bookTitle: group.bookTitle ?? group.name,
 }));
 
 const defaultMemoryUsers: MemoryUserStudyMeetingUser[] = [
@@ -130,7 +130,7 @@ const mapPrismaGroup = (
   name: group.name,
   status: mapPrismaGroupStatus(group.status),
   meetUrl: group.meetUrl,
-  bookTitle: group.bookTitle,
+  bookTitle: group.bookTitle ?? group.name,
 });
 
 const mapPrismaMeeting = (

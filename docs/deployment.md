@@ -142,6 +142,34 @@ O seed atual e demonstrativo e destrutivo: apaga dados administrativos locais e 
 
 O bootstrap seguro do primeiro administrador e pendencia P0 da 9C.2.
 
+## Bootstrap governado dos grupos de estudo
+
+Os grupos produtivos iniciais devem ser criados por bootstrap explicito, depois das migrations e depois da catalogacao governada dos livros. O fluxo normal e:
+
+1. aplicar migrations;
+2. executar a catalogacao autorizada da base de conhecimento (`knowledge:catalog`);
+3. executar `groups:bootstrap`.
+
+Execucao via npm:
+
+```bash
+export DATABASE_URL
+npm --workspace @portal-estudos-espiritas-ai/api run groups:bootstrap
+```
+
+O script cria ou vincula somente os grupos canonicos `emmanuel` e `a-caminho-da-luz`. Ele exige que os `KnowledgeBook` com slugs correspondentes ja existam e estejam ativos; nao cria livros, nao insere grupos demonstrativos e nao usa seed. Em grupos existentes, nao sobrescreve campos operacionais, status, agenda, link Meet, descricao ou contagem de participantes. Se houver conflito de nome, livro vinculado ou snapshot legado incompatível, termina em conflito controlado e sem escrita parcial.
+
+Campos operacionais de `StudyGroup` podem permanecer nulos ate configuracao administrativa posterior: `meetingDay`, `meetingTime`, `participantCount`, `bookTitle`, `meetUrl` e `description`. `StudyGroup.knowledgeBookId` e opcional no schema para permitir migracao estrutural, mas grupos produtivos servidos por `/api/studies` devem estar vinculados a `KnowledgeBook`.
+
+O script tambem faz backfill idempotente de `TeacherStudyGroup` apenas para usuarios `TEACHER` legados cujo `groupSlug` seja um grupo canonico. Usuarios `STUDENT` nao sao migrados para a tabela de vinculos multiplos de professor.
+
+Codigos de saida:
+
+- `0`: grupos criados, vinculados ou ja inicializados com seguranca.
+- `1`: configuracao invalida, como `DATABASE_URL` ausente.
+- `2`: conflito de catalogo ou de grupo existente que exige avaliacao manual.
+- `3`: erro de banco ou transacao.
+
 ## Bootstrap inicial seguro do administrador
 
 O primeiro administrador de producao deve ser criado por um job one-shot depois das migrations e antes da liberacao operacional do piloto. Este fluxo nao usa rota HTTP, nao depende do seed demonstrativo e nao deve ser usado como criador geral de administradores.

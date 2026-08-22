@@ -13,7 +13,7 @@ export interface UserStudyMeetingGroupRecord {
   id: string;
   name: string;
   status: "active" | "inactive";
-  meetUrl: string;
+  meetUrl: string | null;
   bookTitle: string;
 }
 
@@ -44,7 +44,7 @@ export interface UserStudyMeetingListItem {
   startsAt: string;
   endsAt: string;
   status: UserStudyMeetingStatus;
-  meetUrl: string;
+  meetUrl: string | null;
   group: UserStudyMeetingGroupSummary;
 }
 
