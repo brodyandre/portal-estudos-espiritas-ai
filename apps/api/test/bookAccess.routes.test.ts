@@ -1,8 +1,10 @@
+import bcrypt from "bcryptjs";
 import request from "supertest";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { app } from "../src/app";
-import { resetAuthStore } from "../src/modules/auth/auth.service";
+import { createMemoryAuthRepository } from "../src/modules/auth/auth.repository";
+import { resetAuthStore, setAuthRepositoryForTesting } from "../src/modules/auth/auth.service";
 import {
   createMemoryBookAccessRepository,
   createMemoryBookAccessState,
@@ -29,6 +31,39 @@ const activeGroup = (id: string, name: string): MemoryBookAccessGroup => ({
     status: "active",
   },
 });
+
+const installAuthStateWithVisitor = () => {
+  const baseRepository = createMemoryAuthRepository();
+  const visitor = {
+    id: "user-visitor-demo",
+    fullName: "Visitante Demonstrativo",
+    email: "visitante.demo@example.com",
+    passwordHash: bcrypt.hashSync("VisitanteDemo@123", 10),
+    role: "visitor" as const,
+    status: "active" as const,
+    accountActivatedAt: "2026-07-12T09:00:00.000Z",
+    mustChangePassword: false,
+    passwordChangedAt: null,
+  };
+
+  setAuthRepositoryForTesting({
+    ...baseRepository,
+    async getByEmail(email) {
+      if (email.trim().toLowerCase() === visitor.email) {
+        return { ...visitor };
+      }
+
+      return baseRepository.getByEmail(email);
+    },
+    async getById(id) {
+      if (id === visitor.id) {
+        return { ...visitor };
+      }
+
+      return baseRepository.getById(id);
+    },
+  });
+};
 
 const installState = (options: {
   studentGroupSlug?: string | null;
@@ -85,6 +120,23 @@ describe("GET /api/me/book-access", () => {
     expect(JSON.stringify(response.body)).not.toContain("Emmanuel");
   });
 
+  it("rejeita visitor autenticado sem expor livros ou grupos", async () => {
+    installAuthStateWithVisitor();
+    const token = await loginAs("visitante.demo@example.com", "VisitanteDemo@123");
+    const response = await request(app)
+      .get("/api/me/book-access")
+      .set("Authorization", `Bearer ${token}`);
+    const serializedBody = JSON.stringify(response.body);
+
+    expect(response.status).toBe(403);
+    expect(response.body.error.code).toBe("FORBIDDEN");
+    expect(serializedBody).not.toContain("Emmanuel");
+    expect(serializedBody).not.toContain("A Caminho da Luz");
+    expect(serializedBody).not.toContain("book-emmanuel");
+    expect(serializedBody).not.toContain("book-a-caminho-da-luz");
+    expect(serializedBody).not.toContain("a-caminho-da-luz");
+  });
+
   it("retorna apenas o livro do grupo do aluno", async () => {
     const token = await loginAs("aluno.demo@example.com", "AlunoDemo@123");
     const response = await request(app)
@@ -115,7 +167,7 @@ describe("GET /api/me/book-access", () => {
     expect(JSON.stringify(response.body)).not.toContain("a-caminho-da-luz");
   });
 
-  it("retorna todos os livros dos grupos vinculados ao professor", async () => {
+  it("retorna todos os livros dos grupos vinculados ao professor sem depender de meetings", async () => {
     installState({
       teacherGroupMemberships: [
         { userId: "user-professor-demo", groupId: "emmanuel" },

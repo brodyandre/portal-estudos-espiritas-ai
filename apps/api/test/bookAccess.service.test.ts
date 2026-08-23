@@ -248,6 +248,13 @@ describe("book access service", () => {
       statusCode: 503,
       details: { reason: "KNOWLEDGE_BOOK_INACTIVE" },
     });
+    await expect(
+      service.resolveBookAccessScope(makeUser({ id: "teacher-1", role: "teacher" })),
+    ).rejects.toMatchObject({
+      code: "BOOK_ACCESS_CATALOG_UNAVAILABLE",
+      statusCode: 503,
+      details: { reason: "KNOWLEDGE_BOOK_INACTIVE" },
+    });
   });
 
   it("resolve livro selecionado somente dentro do escopo autorizado", async () => {
@@ -264,6 +271,15 @@ describe("book access service", () => {
     });
     await expect(
       service.resolveSelectedBookAccess(makeUser(), "a-caminho-da-luz"),
+    ).rejects.toMatchObject({
+      code: "BOOK_ACCESS_FORBIDDEN",
+      statusCode: 403,
+    });
+    await expect(
+      service.resolveSelectedBookAccess(
+        makeUser({ id: "teacher-1", role: "teacher" }),
+        "a-caminho-da-luz",
+      ),
     ).rejects.toMatchObject({
       code: "BOOK_ACCESS_FORBIDDEN",
       statusCode: 403,
