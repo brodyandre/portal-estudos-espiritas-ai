@@ -1,5 +1,5 @@
 import { AppError } from "../../lib/app-error";
-import { getStudyBySlug, isStudyGroupId } from "../studies/studies.service";
+import type { BookAccessGroup } from "../book-access/book-access.types";
 import {
   buildLessonPlanFallback,
   buildReflectionQuestionsFallback,
@@ -20,6 +20,7 @@ import {
   AGENT_REVIEW_NOTE,
   AGENT_SOURCE_NOTE,
   type AgentAnswerResult,
+  type AgentBookAccessContext,
   type AgentDraft,
   type LessonPlanRequest,
   type ReflectionQuestionsRequest,
@@ -28,28 +29,20 @@ import {
 } from "../../agent/types";
 import { extractListItems, formatList, sanitizeGeneratedText } from "../../agent/safety";
 
-const resolveGroup = async (groupId: string) => {
-  if (!isStudyGroupId(groupId)) {
-    throw new AppError({
-      statusCode: 400,
-      code: "INVALID_GROUP_ID",
-      message: "Informe um groupId valido.",
-    });
-  }
-
-  const group = await getStudyBySlug(groupId);
-
-  if (!group) {
-    throw new AppError({
-      statusCode: 404,
-      code: "STUDY_NOT_FOUND",
-      message: "Grupo de estudo nao encontrado.",
-      details: { groupId },
-    });
-  }
-
-  return group;
-};
+const toAgentBookAccessContext = (
+  input:
+    | LessonPlanRequest
+    | ReflectionQuestionsRequest
+    | SummarizeRequest
+    | AnswerRequest,
+  selectedAccess: BookAccessGroup,
+): AgentBookAccessContext => ({
+  groupId: input.groupId,
+  groupName: selectedAccess.name,
+  knowledgeBookId: selectedAccess.knowledgeBook.id,
+  knowledgeBookSlug: selectedAccess.knowledgeBook.slug,
+  knowledgeBookTitle: selectedAccess.knowledgeBook.title,
+});
 
 const buildAgentDraft = (options: {
   kind: AgentDraft["kind"];
@@ -72,12 +65,13 @@ const buildAgentDraft = (options: {
 
 export const createLessonPlanDraft = async (
   input: LessonPlanRequest,
+  selectedAccess: BookAccessGroup,
 ): Promise<AgentDraft> => {
-  const group = await resolveGroup(input.groupId);
+  const accessContext = toAgentBookAccessContext(input, selectedAccess);
   const prompt = buildLessonPlanPrompt();
   const messages = await prompt.formatMessages({
-    groupName: group.name,
-    bookTitle: input.bookTitle ?? group.bookTitle,
+    groupName: accessContext.groupName,
+    bookTitle: accessContext.knowledgeBookTitle,
     theme: input.theme,
     durationMinutes: String(input.durationMinutes ?? 60),
     teacherNote: input.teacherNote ?? "Nao informado.",
@@ -89,7 +83,10 @@ export const createLessonPlanDraft = async (
   if (!llmResult.ok) {
     return buildLessonPlanFallback(
       input,
-      { groupName: group.name, bookTitle: input.bookTitle ?? group.bookTitle },
+      {
+        groupName: accessContext.groupName,
+        bookTitle: accessContext.knowledgeBookTitle,
+      },
       llmResult.reason,
     );
   }
@@ -99,14 +96,17 @@ export const createLessonPlanDraft = async (
   if (!safeText.ok) {
     return buildLessonPlanFallback(
       input,
-      { groupName: group.name, bookTitle: input.bookTitle ?? group.bookTitle },
+      {
+        groupName: accessContext.groupName,
+        bookTitle: accessContext.knowledgeBookTitle,
+      },
       safeText.reason,
     );
   }
 
   return buildAgentDraft({
     kind: "lesson-plan",
-    title: `Roteiro inicial para ${group.name}`,
+    title: `Roteiro inicial para ${accessContext.groupName}`,
     content: safeText.text,
     provider: llmResult.provider,
   });
@@ -114,13 +114,14 @@ export const createLessonPlanDraft = async (
 
 export const createReflectionQuestionsDraft = async (
   input: ReflectionQuestionsRequest,
+  selectedAccess: BookAccessGroup,
 ): Promise<AgentDraft> => {
-  const group = await resolveGroup(input.groupId);
+  const accessContext = toAgentBookAccessContext(input, selectedAccess);
   const questionCount = Math.min(Math.max(input.questionCount ?? 5, 3), 7);
   const prompt = buildReflectionQuestionsPrompt();
   const messages = await prompt.formatMessages({
-    groupName: group.name,
-    bookTitle: input.bookTitle ?? group.bookTitle,
+    groupName: accessContext.groupName,
+    bookTitle: accessContext.knowledgeBookTitle,
     theme: input.theme,
     questionCount: String(questionCount),
     context: input.context ?? "Nao ha contexto adicional enviado.",
@@ -131,7 +132,10 @@ export const createReflectionQuestionsDraft = async (
   if (!llmResult.ok) {
     return buildReflectionQuestionsFallback(
       { ...input, questionCount },
-      { groupName: group.name, bookTitle: input.bookTitle ?? group.bookTitle },
+      {
+        groupName: accessContext.groupName,
+        bookTitle: accessContext.knowledgeBookTitle,
+      },
       llmResult.reason,
     );
   }
@@ -141,7 +145,10 @@ export const createReflectionQuestionsDraft = async (
   if (!safeText.ok) {
     return buildReflectionQuestionsFallback(
       { ...input, questionCount },
-      { groupName: group.name, bookTitle: input.bookTitle ?? group.bookTitle },
+      {
+        groupName: accessContext.groupName,
+        bookTitle: accessContext.knowledgeBookTitle,
+      },
       safeText.reason,
     );
   }
@@ -151,14 +158,17 @@ export const createReflectionQuestionsDraft = async (
   if (items.length < 3) {
     return buildReflectionQuestionsFallback(
       { ...input, questionCount },
-      { groupName: group.name, bookTitle: input.bookTitle ?? group.bookTitle },
+      {
+        groupName: accessContext.groupName,
+        bookTitle: accessContext.knowledgeBookTitle,
+      },
       "O texto retornado nao trouxe perguntas suficientes para revisao.",
     );
   }
 
   return buildAgentDraft({
     kind: "reflection-questions",
-    title: `Perguntas sugeridas para ${group.name}`,
+    title: `Perguntas sugeridas para ${accessContext.groupName}`,
     content: formatList(items),
     items,
     provider: llmResult.provider,
@@ -167,12 +177,13 @@ export const createReflectionQuestionsDraft = async (
 
 export const createSummaryDraft = async (
   input: SummarizeRequest,
+  selectedAccess: BookAccessGroup,
 ): Promise<AgentDraft> => {
-  const group = await resolveGroup(input.groupId);
+  const accessContext = toAgentBookAccessContext(input, selectedAccess);
   const prompt = buildSummarizePrompt();
   const messages = await prompt.formatMessages({
-    groupName: group.name,
-    bookTitle: input.bookTitle ?? group.bookTitle,
+    groupName: accessContext.groupName,
+    bookTitle: accessContext.knowledgeBookTitle,
     theme: input.theme ?? "Nao informado.",
     sourceText: input.sourceText,
   });
@@ -182,7 +193,10 @@ export const createSummaryDraft = async (
   if (!llmResult.ok) {
     return buildSummarizeFallback(
       input,
-      { groupName: group.name, bookTitle: input.bookTitle ?? group.bookTitle },
+      {
+        groupName: accessContext.groupName,
+        bookTitle: accessContext.knowledgeBookTitle,
+      },
       llmResult.reason,
     );
   }
@@ -192,14 +206,17 @@ export const createSummaryDraft = async (
   if (!safeText.ok) {
     return buildSummarizeFallback(
       input,
-      { groupName: group.name, bookTitle: input.bookTitle ?? group.bookTitle },
+      {
+        groupName: accessContext.groupName,
+        bookTitle: accessContext.knowledgeBookTitle,
+      },
       safeText.reason,
     );
   }
 
   return buildAgentDraft({
     kind: "summarize",
-    title: `Resumo inicial para ${group.name}`,
+    title: `Resumo inicial para ${accessContext.groupName}`,
     content: safeText.text,
     provider: llmResult.provider,
   });
@@ -207,10 +224,11 @@ export const createSummaryDraft = async (
 
 export const createAnswerResponse = async (
   input: AnswerRequest,
+  selectedAccess: BookAccessGroup,
 ): Promise<AgentAnswerResult> => {
-  const group = await resolveGroup(input.groupId);
+  const accessContext = toAgentBookAccessContext(input, selectedAccess);
   try {
-    return await answerQuestionWithGraph(input, group);
+    return await answerQuestionWithGraph(input, accessContext);
   } catch (error) {
     if (isGovernedRetrievalOperationalError(error)) {
       throw toKnowledgeCorpusUnavailableError();

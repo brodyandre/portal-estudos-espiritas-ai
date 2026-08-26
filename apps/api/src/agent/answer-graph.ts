@@ -19,6 +19,7 @@ import {
   type AgentAnswerGroup,
   type AgentAnswerSource,
   type AgentGroupMatchMode,
+  type AgentBookAccessContext,
   type AgentProvider,
   type AnswerRequest,
 } from "./types";
@@ -37,6 +38,7 @@ const ANSWER_GRAPH_TIMEOUT_MS = env.nodeEnv === "test" ? 1500 : 12000;
 
 const AnswerGraphState = Annotation.Root({
   request: Annotation<AnswerRequest>(),
+  access: Annotation<AgentBookAccessContext>(),
   group: Annotation<AgentAnswerGroup>(),
   normalizedQuestion: Annotation<string>(),
   normalizedTheme: Annotation<string>(),
@@ -95,39 +97,15 @@ const dedupeNotes = (notes: string[]): string[] => {
 };
 
 const createGroupDescriptor = (
-  group: StudyGroup,
+  access: AgentBookAccessContext,
   matchMode: AgentGroupMatchMode,
-  bookTitle?: string,
 ): AgentAnswerGroup => {
   return {
-    id: group.id,
-    name: group.name,
-    bookTitle: bookTitle ?? group.name,
+    id: access.groupId,
+    name: access.groupName,
+    bookTitle: access.knowledgeBookTitle,
     matchMode,
   };
-};
-
-const createBroadGroupDescriptor = (): AgentAnswerGroup => {
-  return {
-    id: "both",
-    name: "Emmanuel e A Caminho da Luz",
-    bookTitle: "Emmanuel e A Caminho da Luz",
-    matchMode: "broad_search",
-  };
-};
-
-const findStudyGroupByChunk = (chunk: RetrievedChunk): StudyGroup | undefined => {
-  const normalizedChunkGroup = normalizeForMatch(chunk.group);
-  const normalizedChunkBook = normalizeForMatch(chunk.book);
-
-  return studyGroups.find((group) => {
-    const normalizedGroupName = normalizeForMatch(group.name);
-
-    return (
-      normalizedChunkGroup === normalizedGroupName ||
-      normalizedChunkBook === normalizedGroupName
-    );
-  });
 };
 
 const inferGroupHintFromQuestion = (
@@ -159,70 +137,8 @@ const inferGroupHintFromQuestion = (
   return bestMatch.group;
 };
 
-const inferGroupFromChunks = (
-  chunks: RetrievedChunk[],
-): AgentAnswerGroup => {
-  const scoreByGroupId = new Map<StudyGroup["id"], number>();
-
-  for (const chunk of chunks) {
-    const matchedGroup = findStudyGroupByChunk(chunk);
-
-    if (!matchedGroup) {
-      continue;
-    }
-
-    scoreByGroupId.set(
-      matchedGroup.id,
-      (scoreByGroupId.get(matchedGroup.id) ?? 0) + chunk.score,
-    );
-  }
-
-  const rankedGroups = [...scoreByGroupId.entries()].sort((left, right) => right[1] - left[1]);
-  const topGroup = rankedGroups[0];
-  const secondGroup = rankedGroups[1];
-
-  if (!topGroup) {
-    return createBroadGroupDescriptor();
-  }
-
-  if (secondGroup && topGroup[1] < secondGroup[1] * 1.2) {
-    return createBroadGroupDescriptor();
-  }
-
-  const resolvedGroup = studyGroups.find((group) => group.id === topGroup[0]);
-
-  return resolvedGroup
-    ? createGroupDescriptor(resolvedGroup, "retrieved_context")
-    : createBroadGroupDescriptor();
-};
-
-const isGroupRelevant = (chunk: RetrievedChunk, groupName: string): boolean => {
-  if (groupName === createBroadGroupDescriptor().name) {
-    return true;
-  }
-
-  const normalizedChunkGroup = normalizeForMatch(chunk.group);
-  const normalizedGroupName = normalizeForMatch(groupName);
-
-  return (
-    normalizedChunkGroup === normalizedGroupName ||
-    normalizedChunkGroup === "geral" ||
-    normalizedChunkGroup === "compartilhado"
-  );
-};
-
-const prioritizeChunks = (
-  chunks: RetrievedChunk[],
-  groupName: string,
-): RetrievedChunk[] => {
+const prioritizeChunks = (chunks: RetrievedChunk[]): RetrievedChunk[] => {
   return [...chunks].sort((left, right) => {
-    const leftRelevant = isGroupRelevant(left, groupName) ? 1 : 0;
-    const rightRelevant = isGroupRelevant(right, groupName) ? 1 : 0;
-
-    if (rightRelevant !== leftRelevant) {
-      return rightRelevant - leftRelevant;
-    }
-
     if (right.score !== left.score) {
       return right.score - left.score;
     }
@@ -242,11 +158,12 @@ const mapRetrievedSources = (chunks: RetrievedChunk[]): AgentAnswerSource[] => {
 
 const createInitialState = (
   request: AnswerRequest,
-  group: StudyGroup,
+  access: AgentBookAccessContext,
 ): AnswerGraphStateValue => {
   return {
     request,
-    group: createGroupDescriptor(group, "selected_group", request.bookTitle ?? group.name),
+    access,
+    group: createGroupDescriptor(access, "selected_group"),
     normalizedQuestion: "",
     normalizedTheme: "",
     userContext: "",
@@ -320,7 +237,7 @@ const classifyStudyGroup = (state: AnswerGraphStateValue): AnswerGraphUpdate => 
   );
   const explicitGroupHint = inferGroupHintFromQuestion(combinedText);
   const referencedOtherGroup = studyGroups.find((group) => {
-    if (group.id === state.request.groupId) {
+    if (group.id === state.group.id) {
       return false;
     }
 
@@ -329,26 +246,22 @@ const classifyStudyGroup = (state: AnswerGraphStateValue): AnswerGraphUpdate => 
       combinedText.includes(normalizeForMatch(group.bookTitle))
     );
   });
+  const hintedOtherGroup =
+    explicitGroupHint && explicitGroupHint.id !== state.group.id
+      ? explicitGroupHint
+      : referencedOtherGroup;
 
-  if (!referencedOtherGroup) {
-    if (explicitGroupHint && explicitGroupHint.id !== state.request.groupId) {
-      return {
-        group: createGroupDescriptor(explicitGroupHint, "question_hint"),
-      };
-    }
-
+  if (!hintedOtherGroup) {
     return {
       group: state.group,
     };
   }
 
   return {
-    group: explicitGroupHint
-      ? createGroupDescriptor(explicitGroupHint, "question_hint")
-      : createBroadGroupDescriptor(),
+    group: state.group,
     safetyNotes: dedupeNotes([
       ...state.safetyNotes,
-      `A pergunta menciona ${referencedOtherGroup.name}. Confira se o grupo selecionado esta correto antes de compartilhar a resposta.`,
+      `A pergunta menciona ${hintedOtherGroup.name}. A resposta permanece limitada ao grupo selecionado.`,
     ]),
   };
 };
@@ -360,12 +273,10 @@ const retrieveContext = async (
   const primarySearchOptions = {
     limit: 4,
     minScore: 0.55,
-    ...(state.group.id === "both"
-      ? {}
-      : {
-          group: state.group.name,
-          book: state.group.bookTitle,
-        }),
+    editorialScope: {
+      bookId: state.access.knowledgeBookId,
+      includeShared: true,
+    },
   };
   let retrievedChunks = await searchGovernedChunks(
     retrieverContext,
@@ -373,44 +284,30 @@ const retrieveContext = async (
     primarySearchOptions,
   );
   const primaryTopScore = retrievedChunks[0]?.score ?? 0;
-  let effectiveGroup = state.group;
 
   if (
     retrievedChunks.length === 0 ||
-    (state.group.id !== "both" && (retrievedChunks[0]?.score ?? 0) < 1)
+    (retrievedChunks[0]?.score ?? 0) < 1
   ) {
-    const broadChunks = await searchGovernedChunks(
+    const fallbackChunks = await searchGovernedChunks(
       retrieverContext,
       `${state.normalizedQuestion} ${state.normalizedTheme}`.trim(),
       {
         limit: 6,
         minScore: 0.35,
+        editorialScope: {
+          bookId: state.access.knowledgeBookId,
+          includeShared: true,
+        },
       },
     );
 
-    if (broadChunks.length > 0) {
-      retrievedChunks = broadChunks;
-
-      if (state.group.id === "both") {
-        effectiveGroup = inferGroupFromChunks(broadChunks);
-      } else {
-        const inferredGroup = inferGroupFromChunks(broadChunks);
-
-        if (
-          inferredGroup.id !== "both" &&
-          inferredGroup.name !== state.group.name &&
-          (broadChunks[0]?.score ?? 0) >= primaryTopScore
-        ) {
-          effectiveGroup = inferredGroup;
-        }
-      }
+    if ((fallbackChunks[0]?.score ?? 0) >= primaryTopScore) {
+      retrievedChunks = fallbackChunks;
     }
   }
 
-  const prioritizedChunks =
-    effectiveGroup.id === "both"
-      ? [...retrievedChunks].sort((left, right) => right.score - left.score).slice(0, 3)
-      : prioritizeChunks(retrievedChunks, effectiveGroup.name).slice(0, 3);
+  const prioritizedChunks = prioritizeChunks(retrievedChunks).slice(0, 3);
   const sources: AgentAnswerSource[] = [];
   const contextBlocks: string[] = [];
   const sensitiveTopics = [
@@ -445,24 +342,14 @@ const retrieveContext = async (
     state.normalizedTheme,
     prioritizedChunks,
   );
-  const switchedGroups =
-    effectiveGroup.id !== "both" &&
-    state.group.id !== "both" &&
-    effectiveGroup.name !== state.group.name;
-
   return {
-    group: effectiveGroup,
+    group: state.group,
     retrievedChunks: prioritizedChunks,
     sources,
     keywords,
     contextText: contextBlocks.join("\n\n"),
     safetyNotes: dedupeNotes([
       ...state.safetyNotes,
-      ...(switchedGroups
-        ? [
-            `A busca encontrou mais apoio em ${effectiveGroup.name}. A resposta vai seguir esse foco.`,
-          ]
-        : []),
       ...(sensitiveTopics.length > 0
         ? [
             `Os materiais recuperados tocam temas sensiveis (${sensitiveTopics.join(", ")}). Vale revisar a resposta com o professor.`,
@@ -686,9 +573,9 @@ const answerGraph = new StateGraph(AnswerGraphState)
 
 const invokeAnswerGraphWithTimeout = async (
   request: AnswerRequest,
-  group: StudyGroup,
+  access: AgentBookAccessContext,
 ) => {
-  const graphPromise = answerGraph.invoke(createInitialState(request, group));
+  const graphPromise = answerGraph.invoke(createInitialState(request, access));
 
   return await new Promise<AnswerGraphStateValue>((resolve, reject) => {
     const timeoutId = setTimeout(() => {
@@ -714,10 +601,10 @@ const invokeAnswerGraphWithTimeout = async (
 
 export const answerQuestionWithGraph = async (
   request: AnswerRequest,
-  group: StudyGroup,
+  access: AgentBookAccessContext,
 ): Promise<AgentAnswerResult> => {
   try {
-    const finalState = await invokeAnswerGraphWithTimeout(request, group);
+    const finalState = await invokeAnswerGraphWithTimeout(request, access);
 
     return {
       answer: finalState.answer,
@@ -739,13 +626,13 @@ export const answerQuestionWithGraph = async (
     return buildAnswerFallback(
       request,
       {
-        groupName: group.name,
-        bookTitle: request.bookTitle ?? group.name,
+        groupName: access.groupName,
+        bookTitle: access.knowledgeBookTitle,
       },
       "O fluxo de resposta encontrou um erro interno e retornou ao modo de contingencia.",
       {
         contextText: request.context,
-        group: createGroupDescriptor(group, "selected_group", request.bookTitle ?? group.name),
+        group: createGroupDescriptor(access, "selected_group"),
       },
     );
   }

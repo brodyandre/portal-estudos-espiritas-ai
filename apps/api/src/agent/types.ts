@@ -40,6 +40,14 @@ export interface AnswerRequest extends AgentBaseRequest {
   question: string;
 }
 
+export interface AgentBookAccessContext {
+  groupId: StudyGroupId;
+  groupName: string;
+  knowledgeBookId: string;
+  knowledgeBookSlug: string;
+  knowledgeBookTitle: string;
+}
+
 export interface AgentDraft {
   kind: AgentTaskKind;
   title: string;
