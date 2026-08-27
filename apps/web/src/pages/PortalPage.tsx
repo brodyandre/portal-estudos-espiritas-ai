@@ -170,7 +170,7 @@ export const PortalPage = () => {
           description="Boas-vindas ao portal dos encontros online. Aqui você encontra os grupos, o tema da semana, materiais de apoio e um caminho simples para enviar dúvidas sem login."
           eyebrow="Portal"
           meta={[
-            { label: "Grupos ativos", value: String(groups.length || 2) },
+            { label: "Grupos ativos", value: groups.length > 0 ? String(groups.length) : "A carregar" },
             {
               label: "Participantes",
               value: participantTotal > 0 ? `${participantTotal} ao todo` : "A configurar",
@@ -223,7 +223,7 @@ export const PortalPage = () => {
 
       <section className="page-section" id="portal-grupos">
         <SectionTitle
-          description="Os dois grupos ficam visiveis no topo para facilitar o acesso rapido ao encontro e aos detalhes da semana."
+          description="Os grupos ficam visiveis no topo para facilitar o acesso rapido ao encontro e aos detalhes da semana."
           title="Grupos e Google Meet"
         />
 

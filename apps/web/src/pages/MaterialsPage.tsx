@@ -12,17 +12,12 @@ import { SectionTitle } from "../components/ui/SectionTitle";
 import { StatusTag } from "../components/ui/StatusTag";
 import { collectServiceNotice } from "../services/api";
 import {
+  getPublicKnowledgeGroupId,
   listKnowledgeFilesByGroup,
   type KnowledgeSupportFile,
 } from "../services/knowledgeService";
 import { listStudies } from "../services/studiesService";
-import type { GroupSlug } from "../mocks";
 import type { StudyGroupId } from "../types/studyGroup";
-
-const groupRouteMap: Record<string, GroupSlug> = {
-  emmanuel: "emmanuel",
-  "a-caminho-da-luz": "a-caminho-da-luz",
-};
 
 const genericGroupShortGoal =
   "Apoiar o estudo com constancia, escuta respeitosa e perguntas serenas para o grupo.";
@@ -36,13 +31,14 @@ const groupShortGoals: Partial<Record<StudyGroupId, string>> = {
 
 export const MaterialsPage = () => {
   const { groupSlug: routeGroupSlug } = useParams<{ groupSlug?: string }>();
-  const selectedRouteGroupSlug = routeGroupSlug ? groupRouteMap[routeGroupSlug] ?? null : null;
+  const selectedRouteGroupSlug = routeGroupSlug?.trim() || null;
   const [groups, setGroups] = useState<Awaited<ReturnType<typeof listStudies>>["data"]>([]);
   const [supportFiles, setSupportFiles] = useState<Record<string, KnowledgeSupportFile[]>>({
     emmanuel: [],
     "a-caminho-da-luz": [],
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
@@ -50,38 +46,51 @@ export const MaterialsPage = () => {
 
     const loadMaterials = async () => {
       setIsLoading(true);
+      setCatalogError(null);
 
-      const [studiesResult, emmanuelKnowledgeResult, caminhoKnowledgeResult] = await Promise.all([
-        listStudies(),
-        listKnowledgeFilesByGroup("emmanuel"),
-        listKnowledgeFilesByGroup("a-caminho-da-luz"),
-      ]);
+      const studiesResult = await listStudies();
+      const groupsToLoad = selectedRouteGroupSlug
+        ? studiesResult.data.filter((group) => group.slug === selectedRouteGroupSlug)
+        : studiesResult.data;
+      const knowledgeResults = await Promise.all(
+        groupsToLoad.map(async (group) => {
+          const result = await listKnowledgeFilesByGroup(group.slug);
+          return [group.slug, result] as const;
+        }),
+      );
 
       if (!isActive) {
         return;
       }
 
       setGroups(studiesResult.data);
-      setSupportFiles({
-        emmanuel: emmanuelKnowledgeResult.data,
-        "a-caminho-da-luz": caminhoKnowledgeResult.data,
-      });
+      setSupportFiles(
+        Object.fromEntries(
+          knowledgeResults.map(([groupSlug, result]) => [groupSlug, result.data]),
+        ),
+      );
       setNotice(
-        collectServiceNotice([
-          studiesResult,
-          emmanuelKnowledgeResult,
-          caminhoKnowledgeResult,
-        ]),
+        collectServiceNotice([studiesResult, ...knowledgeResults.map(([, result]) => result)]),
       );
       setIsLoading(false);
     };
 
-    void loadMaterials();
+    void loadMaterials().catch(() => {
+      if (!isActive) {
+        return;
+      }
+
+      setGroups([]);
+      setSupportFiles({});
+      setCatalogError("Não foi possível carregar o catálogo público de grupos agora.");
+      setNotice(null);
+      setIsLoading(false);
+    });
 
     return () => {
       isActive = false;
     };
-  }, []);
+  }, [selectedRouteGroupSlug]);
 
   const activeGroup = useMemo(() => {
     if (!selectedRouteGroupSlug) {
@@ -91,11 +100,17 @@ export const MaterialsPage = () => {
     return groups.find((group) => group.slug === selectedRouteGroupSlug) ?? null;
   }, [groups, selectedRouteGroupSlug]);
 
-  const activeFiles = selectedRouteGroupSlug ? supportFiles[selectedRouteGroupSlug] ?? [] : [];
+  const activeFiles = activeGroup ? supportFiles[activeGroup.slug] ?? [] : [];
   const activeFaqFiles = activeFiles.filter((file) => file.type === "faq");
   const activeSensitiveFiles = activeFiles.filter((file) => file.teacherReviewRecommended);
+  const activeHasPublicKnowledge = activeGroup
+    ? getPublicKnowledgeGroupId(activeGroup.slug) !== null
+    : false;
+  const isTrueNotFound = Boolean(selectedRouteGroupSlug) && !isLoading && !catalogError && !activeGroup;
+  const groupsCountLabel =
+    groups.length > 0 ? `${groups.length} grupo${groups.length === 1 ? "" : "s"}` : "A carregar";
 
-  if (routeGroupSlug && !selectedRouteGroupSlug) {
+  if (isTrueNotFound) {
     return (
       <div className="materials-page page-stack">
         <EmptyState
@@ -106,6 +121,22 @@ export const MaterialsPage = () => {
           }
           description="O livro solicitado nao foi encontrado. Escolha um dos grupos disponiveis para continuar."
           title="Material nao encontrado"
+        />
+      </div>
+    );
+  }
+
+  if (catalogError) {
+    return (
+      <div className="materials-page page-stack">
+        <EmptyState
+          action={
+            <Button to="/portal" variant="secondary">
+              Voltar ao portal
+            </Button>
+          }
+          description="Não foi possível consultar o catálogo público de grupos agora. Tente novamente em instantes."
+          title="Materiais indisponíveis"
         />
       </div>
     );
@@ -140,7 +171,7 @@ export const MaterialsPage = () => {
                   { label: "Duvidas frequentes", value: String(activeFaqFiles.length) },
                 ]
               : [
-                  { label: "Livros", value: "2 grupos" },
+                  { label: "Livros", value: groupsCountLabel },
                   { label: "Uso", value: "Aluno e professor" },
                   { label: "Acesso", value: "Sem login" },
                 ]
@@ -177,6 +208,7 @@ export const MaterialsPage = () => {
             <div className="group-grid">
               {groups.map((group) => {
                 const groupFiles = supportFiles[group.slug] ?? [];
+                const hasPublicKnowledge = getPublicKnowledgeGroupId(group.slug) !== null;
                 const fileTags = [...new Set(groupFiles.flatMap((file) => file.tags))].slice(0, 5);
                 const faqCount = groupFiles.filter((file) => file.type === "faq").length;
 
@@ -187,8 +219,15 @@ export const MaterialsPage = () => {
                     tone="default"
                   >
                     <div className="group-card__top">
-                      <Badge tone="brand">{groupFiles.length} arquivos</Badge>
-                      <StatusTag label={`${faqCount} FAQ`} tone="upcoming" />
+                      <Badge tone="brand">
+                        {hasPublicKnowledge
+                          ? `${groupFiles.length} arquivos`
+                          : "Materiais em preparação"}
+                      </Badge>
+                      <StatusTag
+                        label={hasPublicKnowledge ? `${faqCount} FAQ` : "Em preparação"}
+                        tone="upcoming"
+                      />
                     </div>
 
                     <div className="group-card__content">
@@ -313,8 +352,12 @@ export const MaterialsPage = () => {
               </div>
             ) : (
               <EmptyState
-                description="Ainda nao encontramos arquivos curtos para este livro."
-                title="Sem arquivos disponiveis"
+                description={
+                  activeHasPublicKnowledge
+                    ? "Ainda nao encontramos arquivos curtos para este livro."
+                    : "Ainda não há materiais públicos disponíveis para este livro."
+                }
+                title={activeHasPublicKnowledge ? "Sem arquivos disponiveis" : "Materiais em preparação"}
               />
             )}
           </section>
