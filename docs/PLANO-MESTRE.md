@@ -50,12 +50,17 @@ Estado operacional oficial previamente validado:
 - Administracao de usuarios, status, grupos, convites e encontros.
 - Grupos de estudo, grupos canonicos produtivos e encontros autenticados.
 - Vinculo persistente multi-grupo para professores via `TeacherStudyGroup`, com PK composta `userId/groupId`.
+- BookAccess privado em `GET /api/me/book-access`, com escopo de aluno por grupo persistido e escopo de professor por `TeacherStudyGroup`.
 - Catalogo editorial persistido para livros e documentos.
 - Relacao governada opcional `StudyGroup -> KnowledgeBook`.
 - RAG governado por manifesto seguro.
+- Agent/RAG autenticado protegido por BookAccess e filtro editorial por `bookId` canonico, com fail-closed para escopo invalido ou indisponivel.
+- Frontend Aluno/Professor usando BookAccess como authority privada; query string e localStorage permanecem nao autoritativos.
+- `StudyGroupId` dinamico como string de runtime no frontend, com `DemoGroupSlug` restrito a fixtures demonstrativos.
+- Rotas publicas `/materiais/:groupSlug` resolvidas dinamicamente por `/api/studies`, separadas da capability publica de Knowledge.
 - Corpus governado com identidade editorial/fisica, estado operacional e rebuild administrativo.
 - Bootstrap automatico assincrono do corpus no startup da API.
-- Agent Answer com precedencia de `groupId` explicito e retrieval filtrado.
+- Agent Answer com precedencia de `groupId` explicito dentro do escopo BookAccess autorizado e retrieval filtrado.
 - Provider Groq configuravel para producao.
 - Fallback LLM seguro.
 - Infraestrutura SMTP configuravel com `nodemailer`.
@@ -148,7 +153,7 @@ Encerrado. W-001A auditou e identificou escopo material em metadados publicos da
 
 ### MULTIGROUP-001 -- Vinculo multi-grupo de professores
 
-Encerrado. O projeto possui vinculo persistente multi-grupo para usuarios `TEACHER` via `TeacherStudyGroup`, com chave composta `userId/groupId`. Esse vinculo e usado por rotas autenticadas de encontros e por endpoints administrativos de associacao de grupos do professor. A existencia dessa fundacao nao conclui BOOK-ACCESS-001 nem libera Professor real automaticamente.
+Encerrado. O projeto possui vinculo persistente multi-grupo para usuarios `TEACHER` via `TeacherStudyGroup`, com chave composta `userId/groupId`. Esse vinculo e usado por rotas autenticadas de encontros, por endpoints administrativos de associacao de grupos do professor e, apos BOOK-ACCESS-001A/B/C, como fonte persistida para calcular o escopo TEACHER autorizado. A existencia dessa fundacao nao libera Professor real automaticamente.
 
 ### MULTIGROUP-001D -- Rollout controlado de producao
 
@@ -166,12 +171,43 @@ Estado funcional validado:
 
 Observacao separada: o catalogo PostgreSQL conhecido tinha Emmanuel com 19 documentos, A Caminho da Luz com 13 documentos e `shared` com 2 documentos, enquanto o corpus publico exposto por `/api/knowledge/groups` foi revalidado com Emmanuel `fileCount=1` e A Caminho da Luz `fileCount=0`. Esse desalinhamento catalogo/corpus permanece fora do escopo de MULTIGROUP-001D.
 
+### BOOK-ACCESS-001A -- Backend access authority
+
+Integrado pelo PR #69 no commit `ae788e9747029ac8f602ace179f0cfbfa6bd3d25`. A entrega implementou `GET /api/me/book-access` como authority backend privada: `STUDENT` deriva escopo do grupo persistido no usuario, `StudyGroup` ativo e `KnowledgeBook` ativo; `TEACHER` deriva escopo de `TeacherStudyGroup`, `StudyGroup` ativo e `KnowledgeBook` ativo; `VISITOR` e `ADMIN` nao recebem acesso pedagogico automatico. Migration: `NOT_REQUIRED`.
+
+### BOOK-ACCESS-001B -- Agent/RAG canonical book access
+
+Integrado pelo PR #70 no commit `6eb461edcd4970af55e44b4247b65a5a60c2de53`. Agent/RAG autenticados passaram a ser protegidos por BookAccess e por filtro editorial de `bookId` canonico. O grupo selecionado fica imutavel durante a request; `bookTitle`, hints de frontend, query string e estado local nao concedem acesso; conteudo `shared` depende de politica explicita; conflitos e indisponibilidade falham fechado. Migration: `NOT_REQUIRED`.
+
+### BOOK-ACCESS-001C -- Frontend canonical BookAccess
+
+Integrado pelo PR #71 no commit `c908373b7a19d3a13f639689671cf2d5df9b618c`. As paginas de Aluno e Professor passaram a usar `GET /api/me/book-access` como authority privada. `listStudies` permanece enrichment publico, meetings permanecem agenda, e query/localStorage sao reconciliados como estado nao autoritativo. Migration: `NOT_REQUIRED`.
+
+BOOK-ACCESS-001 esta com implementacao de codigo concluida ate 001C; BOOK-ACCESS-001D permanece pendente para rollout controlado. Professor real continua HOLD.
+
+### DYNAMIC-GROUPS-001 -- Identidades dinamicas de grupos no frontend
+
+Integrado pelo PR #72 no commit `06b2256dd95b9605a01667c0511dc9dabcd44e4c`. `StudyGroupId` passou a ser string dinamica de runtime, `DemoGroupSlug` permaneceu estrito a fixtures demo, o adapter de BookAccess deixou de usar allowlist local, novo grupo autorizado nao e descartado pelo frontend e Knowledge desconhecido falha fechado sem coercao para Emmanuel. Backend Knowledge nao foi alterado. Migration: `NOT_REQUIRED`.
+
+### PUBLIC-MATERIALS-DYNAMIC-001 -- Rotas publicas dinamicas de materiais
+
+Integrado pelo PR #73 no commit `8654febc66c66a8cf0a19826abe2ce9a1097c694`. `/materiais/:groupSlug` passou a resolver o grupo dinamicamente pelo catalogo publico `GET /api/studies`; a allowlist local foi removida; grupo publico conhecido sem Knowledge apresenta estado seguro `Materiais em preparação`; slug ausente vira true not-found somente apos resolucao do catalogo; falha de catalogo nao vira falso 404. Backend Knowledge nao foi alterado. Migration: `NOT_REQUIRED`.
+
 ## Backlog Atual
 
 - F-001 -- P3: timeouts historicos variaveis/flaky em testes nao modificados; F-001A nao reproduziu o problema, validou testes historicos Web/API repetidamente, suites completas Web/API e CIs recentes, sem evidencia de mascaramento por aumento global de timeout. Permanece como risco residual/historico.
 - DOC-001 -- RESOLVIDO: stale factual em documentos auxiliares corrigido, documentos historicos explicitamente marcados, contratos executaveis reconciliados e nenhum runtime alterado.
-- BOOK-ACCESS-001 -- PENDENTE: a fundacao estrutural `StudyGroup -> KnowledgeBook` esta integrada, mas o backend/RAG multi-livro por professor ainda nao foi implementado nem concluido.
-- Professor -- HOLD: nao ha provisioning real liberado neste estado; nao registrar credenciais nem e-mail pessoal. `TeacherStudyGroup` existe, mas nao equivale a autorizacao RAG multi-livro por professor.
-- Catalogo PostgreSQL vs corpus publico/RAG -- OBSERVACAO SEPARADA: estado conhecido indica desalinhamento numerico entre catalogo persistido e corpus publico exposto, sem correcao neste checkpoint.
+- BOOK-ACCESS-001 -- IMPLEMENTACAO DE CODIGO CONCLUIDA ATE 001C; 001D PENDENTE: backend BookAccess, Agent/RAG protegido e frontend Aluno/Professor ja foram integrados. Falta rollout controlado BOOK-ACCESS-001D.
+- PUBLIC-KNOWLEDGE-DYNAMIC-001 -- DEFERRED / NOT STARTED: rotas publicas de materiais ja sao dinamicas por `/api/studies`, mas backend publico de Knowledge continua capability de dois grupos (`emmanuel` e `a-caminho-da-luz`) e deve falhar fechado para grupos desconhecidos.
+- CORPUS-COVERAGE-001 -- PENDENTE: estado conhecido indica desalinhamento numerico entre catalogo persistido e corpus publico exposto. Catalogo PostgreSQL: Emmanuel com 19 documentos, A Caminho da Luz com 13 e `shared` com 2. Corpus publico conhecido: Emmanuel `fileCount=1`, A Caminho da Luz `fileCount=0`. Sem correcao neste checkpoint.
+- Professor -- HOLD: nao ha provisioning real liberado neste estado; nao registrar credenciais nem e-mail pessoal. `TeacherStudyGroup` e fonte de escopo TEACHER em BookAccess, mas nao autoriza criacao de Professor real.
 - Rate limit de password recovery/reset em memoria do processo: P2 conceitual antes de escala horizontal, nao bloqueante enquanto houver replica unica.
 - Observabilidade SMTP futura: dashboard, metricas agregadas, webhooks, integracoes de provider, fluxo de convite e caminho SMTP de falha em producao permanecem fora do escopo atual e dependem de necessidade operacional concreta.
+
+## Sequencia Recomendada
+
+1. GOV-004 -- reconciliacao documental pos BOOK-ACCESS e dynamic groups.
+2. CORPUS-COVERAGE-001 -- reconciliar cobertura entre catalogo persistido e corpus publico/RAG.
+3. BOOK-ACCESS-001D -- rollout controlado de BookAccess.
+
+PUBLIC-KNOWLEDGE-DYNAMIC-001 permanece deferred, a menos que futuramente seja necessario publicar conteudo Knowledge de novos grupos. Professor real permanece HOLD.

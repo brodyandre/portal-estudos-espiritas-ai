@@ -225,10 +225,54 @@ Decisao:
 Professores podem possuir vinculo persistente com multiplos grupos por meio de `TeacherStudyGroup`, usando chave composta `userId/groupId`. Alunos mantem o vinculo canonico atual no usuario.
 
 Racional:
-Permite administrar e consultar grupos de professores sem duplicar usuario, sem usar campos legados como autoridade multi-grupo e sem liberar acesso RAG multi-livro antes de BOOK-ACCESS-001.
+Permite administrar e consultar grupos de professores sem duplicar usuario, sem usar campos legados como autoridade multi-grupo. Originalmente esta foi a fundacao estrutural para uma autorizacao pedagogica posterior; apos BOOK-ACCESS-001A/B/C, `TeacherStudyGroup` tambem e a fonte persistida usada pelo backend para calcular o escopo TEACHER autorizado.
 
 Limites:
-Essa decisao registra a fundacao estrutural de MULTIGROUP-001. Ela nao conclui BOOK-ACCESS-001, nao libera provisioning de Professor real e nao implica autorizacao RAG multi-livro por professor.
+Essa decisao registra a fundacao estrutural de MULTIGROUP-001. Ela nao libera provisioning de Professor real, nao substitui a authority BookAccess e nao concede acesso por si so fora das regras autenticadas de usuario, grupo ativo e livro editorial ativo.
+
+Status:
+Ativa.
+
+## D019 -- BookAccess como autoridade pedagogica privada
+
+Decisao:
+O escopo pedagogico privado de aluno e professor deve ser resolvido no backend por BookAccess autenticado. O endpoint `GET /api/me/book-access` e a authority privada para retornar grupos e livros autorizados: aluno deriva do grupo persistido no usuario; professor deriva de `TeacherStudyGroup`; `VISITOR` e `ADMIN` nao recebem acesso pedagogico automatico.
+
+Racional:
+Centraliza a autorizacao em dados persistidos e governados, evita que o frontend conceda acesso por query string, localStorage ou titulo de livro, e separa administracao de usuarios de autoridade pedagogica.
+
+Status:
+Ativa.
+
+## D020 -- Agent/RAG protegido por BookAccess e bookId editorial
+
+Decisao:
+Agent Answer e retrieval RAG autenticados devem usar o escopo BookAccess do usuario e o `bookId` editorial canonico. `groupId`, `bookTitle`, hints de frontend, query string e estado local nao concedem acesso nem trocam o livro autorizado durante uma request. O grupo selecionado e imutavel durante a request; indisponibilidade, conflito ou ausencia de escopo autorizado falham fechado.
+
+Racional:
+Preserva a fronteira entre preferencia visual do cliente e autorizacao real, evita cross-group leakage e garante que o filtro editorial use identidade canonica persistida.
+
+Status:
+Ativa.
+
+## D021 -- Identidade dinamica de StudyGroup no frontend
+
+Decisao:
+`StudyGroupId` no frontend e uma identidade string de runtime para grupos persistidos. `DemoGroupSlug` permanece restrito aos fixtures e dados demonstrativos. A existencia de uma string de grupo nao significa autorizacao: escopo privado vem de BookAccess e navegacao publica vem do catalogo publico de estudos.
+
+Racional:
+Permite que novos grupos persistidos sejam exibidos e reconciliados sem allowlist local no frontend, mantendo dados demo estritos e evitando que identidade dinamica seja confundida com permissao.
+
+Status:
+Ativa.
+
+## D022 -- Catalogo publico de materiais separado da capability Knowledge
+
+Decisao:
+O catalogo publico `/api/studies` define quais grupos sao navegaveis em `/materiais/:groupSlug`. A capability publica de Knowledge pode ser menor e permanece fail-closed para grupos sem suporte em `/api/knowledge`; atualmente os grupos publicos suportados por Knowledge sao `emmanuel` e `a-caminho-da-luz`. Grupos conhecidos sem Knowledge publico devem apresentar estado seguro de preparacao, sem coercao para outro grupo e sem endpoint inventado.
+
+Racional:
+Separa descoberta publica de grupos da disponibilidade editorial/publica de materiais Knowledge, permitindo rotas publicas dinamicas sem expor conteudo nao catalogado nem depender de fallback cruzado.
 
 Status:
 Ativa.

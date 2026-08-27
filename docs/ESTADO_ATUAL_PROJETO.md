@@ -70,6 +70,8 @@ A API possui autenticacao local com JWT, sessoes persistidas, papeis `VISITOR`, 
 
 O projeto possui grupos de estudo, atribuicao administrativa de grupos e gerenciamento de encontros. Professores possuem vinculo persistente multi-grupo normalizado por `TeacherStudyGroup`, com chave composta `userId/groupId`; alunos mantem o vinculo canonico atual no usuario. A area autenticada do aluno consome encontros associados ao usuario, e professores podem consumir encontros agregados dos grupos ativos vinculados.
 
+`StudyGroupId` no frontend e identidade string dinamica de runtime. `DemoGroupSlug` permanece restrito a fixtures demonstrativos. A existencia de uma string de grupo nao concede acesso: escopo privado vem de BookAccess autenticado; navegacao publica de materiais vem de `/api/studies`.
+
 ## Catalogo Editorial
 
 O catalogo editorial de conhecimento usa livros e documentos persistidos. Livros ativos e documentos aprovados sao a autoridade editorial para inclusao no manifesto seguro do RAG. Arquivos fisicos precisam estar dentro de `data/knowledge`. Em producao, os livros canonicos ativos incluem `Emmanuel` e `A Caminho da Luz`; tambem existe conteudo compartilhado conforme catalogo persistido.
@@ -92,7 +94,7 @@ Observacao operacional separada: apos MULTIGROUP-001D, o catalogo PostgreSQL e o
 
 ## Agent Answer, Group Matching e LLM
 
-O Agent Answer preserva `groupId` explicito valido, evita `broad_search` indevido em perguntas neutras e mantem filtros de retrieval do grupo selecionado.
+O Agent Answer autenticado usa BookAccess como authority privada e filtra retrieval pelo `bookId` editorial canonico. `groupId`, `bookTitle`, hints de frontend, query string e localStorage nao concedem acesso nem trocam o escopo autorizado. O grupo selecionado e imutavel durante a request; conflito, indisponibilidade ou ausencia de escopo autorizado falham fechado. O Agent Answer tambem preserva `groupId` explicito valido dentro do escopo autorizado, evita `broad_search` indevido em perguntas neutras e mantem filtros de retrieval do grupo selecionado.
 
 Provider principal em producao: Groq.
 
@@ -154,7 +156,7 @@ A 9C.12, PILOT-01, PILOT-02, OBS-001, PROD-OBS-001 e SMTP-SMOKE-001 estao encerr
 
 GROUP-BOOTSTRAP-001 foi concluido e integrado no rollout MULTIGROUP-001D. A entrega preparou `StudyGroup` para campos operacionais opcionais, adicionou relacao governada opcional com `KnowledgeBook`, criou `groups:bootstrap` explicito para os grupos canonicos e tornou `/api/studies` DB-backed em producao, com falha fechada se faltar livro vinculado. Os grupos canonicos materializados em producao sao `emmanuel` e `a-caminho-da-luz`.
 
-MULTIGROUP-001 tambem foi concluido: existe vinculo persistente multi-grupo para usuarios `TEACHER` por `TeacherStudyGroup`, com PK composta `userId/groupId`. Essa fundacao estrutural nao conclui BOOK-ACCESS-001.
+MULTIGROUP-001 tambem foi concluido: existe vinculo persistente multi-grupo para usuarios `TEACHER` por `TeacherStudyGroup`, com PK composta `userId/groupId`.
 
 MULTIGROUP-001D foi aprovado como rollout controlado de producao concluido:
 
@@ -168,6 +170,18 @@ MULTIGROUP-001D foi aprovado como rollout controlado de producao concluido:
 
 A Home de producao nao usa mais `groups` demo como autoridade operacional e o aceite manual final confirmou ausencia de `88 participantes`, `62 participantes`, agenda demonstrativa, datas demonstrativas e Meet demonstrativo. `/portal` foi validado com os dois grupos reais e sem dados operacionais ficticios. `/materiais` esta funcional e terminal. `/professor` permanece rota protegida e, sem autenticacao, redireciona para `/login`. `/estudos` nao existe no contrato atual e permanece `NOT_APPLICABLE`.
 
+BOOK-ACCESS-001A foi integrado pelo PR #69 no commit de integracao `ae788e9747029ac8f602ace179f0cfbfa6bd3d25`. A entrega implementou a authority backend de BookAccess em `GET /api/me/book-access`: alunos derivam escopo do grupo persistido no usuario, `StudyGroup` ativo e `KnowledgeBook` ativo; professores derivam escopo de `TeacherStudyGroup`, `StudyGroup` ativo e `KnowledgeBook` ativo; `VISITOR` e `ADMIN` nao recebem acesso pedagogico automatico. Migration: `NOT_REQUIRED`.
+
+BOOK-ACCESS-001B foi integrado pelo PR #70 no commit de integracao `6eb461edcd4970af55e44b4247b65a5a60c2de53`. Agent/RAG autenticados passaram a ser protegidos pela authority BookAccess com filtro editorial por `bookId` canonico, grupo selecionado imutavel durante a request, fail-closed para escopo invalido/indisponivel, ausencia de acesso concedido por `bookTitle`/frontend e conteudo `shared` somente por politica explicita. Migration: `NOT_REQUIRED`.
+
+BOOK-ACCESS-001C foi integrado pelo PR #71 no commit de integracao `c908373b7a19d3a13f639689671cf2d5df9b618c`. O frontend de Aluno/Professor passou a usar `GET /api/me/book-access` como authority privada; `listStudies` e enrichment publico, meetings sao agenda, e query/localStorage sao reconciliados como estado nao autoritativo. Migration: `NOT_REQUIRED`.
+
+DYNAMIC-GROUPS-001 foi integrado pelo PR #72 no commit de integracao `06b2256dd95b9605a01667c0511dc9dabcd44e4c`. `StudyGroupId` tornou-se string dinamica de runtime, `DemoGroupSlug` permaneceu estrito a demo, o adapter de BookAccess deixou de depender de allowlist local, novo grupo autorizado nao e descartado pelo frontend e Knowledge desconhecido falha fechado sem coercao para Emmanuel. Backend Knowledge nao foi alterado. Migration: `NOT_REQUIRED`.
+
+PUBLIC-MATERIALS-DYNAMIC-001 foi integrado pelo PR #73 no commit de integracao `8654febc66c66a8cf0a19826abe2ce9a1097c694`. `/materiais/:groupSlug` agora resolve dinamicamente pelo catalogo publico `GET /api/studies`; a allowlist local foi removida; grupo publico conhecido sem Knowledge mostra estado seguro `Materiais em preparação`; slug ausente vira true not-found somente apos resolucao do catalogo; falha de catalogo nao vira falso 404. Backend Knowledge nao foi alterado. Migration: `NOT_REQUIRED`.
+
+BOOK-ACCESS-001 deve ser representado como implementacao de codigo concluida ate 001C, com BOOK-ACCESS-001D pendente para rollout controlado. Professor real permanece HOLD.
+
 ## Limites Pos-Validacao
 
 Achados nao bloqueantes registrados para evolucao futura:
@@ -177,10 +191,13 @@ Achados nao bloqueantes registrados para evolucao futura:
 - F-001 -- P3: variable/flaky timeouts in unmodified tests, without evidence of relation to 9C.12.1. Aberto originalmente como P2, foi reavaliado na F-001A e reclassificado para P3 apos nao reproducao repetida, testes historicos Web/API verdes, suites completas Web/API verdes, CIs posteriores verdes e ausencia de evidencia de mascaramento por aumento global de timeout;
 - W-001 -- RESOLVIDO: W-001A identificou escopo material em metadados publicos da Web e no default versionado de `SMTP_FROM_NAME`; W-001B corrigiu metadata publica Web, default versionado de `SMTP_FROM_NAME` e `.env.example`; o PR #59 integrou a correcao no squash `1f92154cdaad211bcc7c080220f5df253f54f472`; GitHub Pages foi publicado e validado; a Web oficial foi publicada manualmente de forma controlada no deploy Render `dep-d9v7bregekts73evo580`, live em `1f92154cdaad211bcc7c080220f5df253f54f472`; a validacao publica confirmou HTTP 200 e `title`, `og:title`, `og:site_name` e `twitter:title` como `Portal de Educação Continuada`, com a marca historica ausente nesses quatro campos; o smoke read-only passou em `/`, `/portal`, `/materiais`, `/inscricao`, `/robots.txt` e `/sitemap.xml`; a API nao foi redeployada; o default SMTP esta correto em source, a producao ja possuia override institucional correto e nenhum SMTP real foi executado nessa entrega;
 - DOC-001 -- RESOLVIDO: stale factual em documentos auxiliares corrigido, documentos historicos explicitamente marcados, contratos executaveis reconciliados e nenhum runtime alterado;
-- BOOK-ACCESS-001 -- PENDENTE: a fundacao estrutural `StudyGroup -> KnowledgeBook` esta integrada, mas backend/RAG multi-livro por professor ainda nao foi implementado nem concluido. Professor permanece HOLD; a existencia de `TeacherStudyGroup` nao libera provisioning de professor nem autorizacao RAG multi-livro;
-- Catalogo PostgreSQL vs corpus publico/RAG -- OBSERVACAO SEPARADA: catalogo persistido e corpus publico exposto nao estao numericamente alinhados no estado conhecido; isso nao foi corrigido em GOV-003;
+- BOOK-ACCESS-001 -- IMPLEMENTACAO DE CODIGO CONCLUIDA ATE 001C; 001D PENDENTE: backend BookAccess, Agent/RAG protegido e frontend Aluno/Professor ja foram integrados. O rollout controlado BOOK-ACCESS-001D permanece pendente. Professor permanece HOLD e nao ha provisioning real liberado;
+- DYNAMIC-GROUPS-001 -- INTEGRADO: `StudyGroupId` e string dinamica de runtime, `DemoGroupSlug` permanece demo-only e autorizacao privada continua vindo de BookAccess;
+- PUBLIC-MATERIALS-DYNAMIC-001 -- INTEGRADO: rotas publicas `/materiais/:groupSlug` usam `/api/studies` como catalogo navegavel; public Knowledge permanece capability separada de dois grupos e falha fechado para grupos nao suportados;
+- PUBLIC-KNOWLEDGE-DYNAMIC-001 -- DEFERRED / NOT STARTED: backend publico de Knowledge ainda nao e dinamico para novos grupos; isso nao bloqueia BookAccess privado nem rotas publicas de materiais;
+- CORPUS-COVERAGE-001 -- PENDENTE: catalogo persistido e corpus publico exposto nao estao numericamente alinhados no estado conhecido; Emmanuel possui 19 documentos no catalogo PostgreSQL, A Caminho da Luz 13 e `shared` 2, enquanto `/api/knowledge/groups` foi revalidado com Emmanuel `fileCount=1` e A Caminho da Luz `fileCount=0`. Isso nao foi corrigido em GOV-004;
 - observabilidade SMTP inicial esta publicada em producao e teve evento real de sucesso validado para `password_recovery`; dashboard, metricas agregadas, webhooks, integracoes de provider, fluxo de convite e caminho SMTP de falha seguem fora do escopo atual.
 
 ## Proxima Entrega
 
-Proximos itens ja previstos no backlog incluem BOOK-ACCESS-001, evolucao de rate limit distribuido antes de escala horizontal e observabilidade SMTP futura, sem testar caminho SMTP de falha em producao automaticamente. Professor permanece HOLD ate planejamento/autorizacao especificos.
+Sequencia recomendada apos GOV-004: CORPUS-COVERAGE-001 e depois BOOK-ACCESS-001D rollout controlado. PUBLIC-KNOWLEDGE-DYNAMIC-001 permanece deferred, a menos que futuramente seja necessario publicar conteudo Knowledge de novos grupos. Evolucao de rate limit distribuido e observabilidade SMTP futura seguem no backlog. Professor permanece HOLD ate planejamento/autorizacao especificos.
