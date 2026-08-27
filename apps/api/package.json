@@ -15,7 +15,8 @@
     "prisma:studio": "node scripts/run-prisma.mjs studio",
     "admin:bootstrap": "node --import tsx scripts/bootstrap-initial-admin.ts",
     "groups:bootstrap": "node --import tsx scripts/bootstrap-study-groups.ts",
-    "knowledge:catalog": "node --import tsx scripts/catalog-knowledge.ts"
+    "knowledge:catalog": "node --import tsx scripts/catalog-knowledge.ts",
+    "knowledge:coverage": "node --import tsx scripts/audit-knowledge-coverage.ts"
   },
   "dependencies": {
     "@langchain/core": "^1.2.2",
