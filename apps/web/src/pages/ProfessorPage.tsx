@@ -15,6 +15,7 @@ import { StatusTag } from "../components/ui/StatusTag";
 import { TextArea } from "../components/ui/TextArea";
 import { TextInput } from "../components/ui/TextInput";
 import type { DemoFlowStep, DemoGroup, DemoQuestion } from "../mocks";
+import { useBookAccess } from "../hooks/useBookAccess";
 import { useUserStudyMeetings } from "../hooks/useUserStudyMeetings";
 import type {
   Enrollment,
@@ -22,7 +23,7 @@ import type {
   EnrollmentStatus,
   StudentAccessInfo,
 } from "../types/enrollment";
-import { collectServiceNotice } from "../services/api";
+import { ServiceRequestError, collectServiceNotice } from "../services/api";
 import {
   generateGroupMessageDraft,
   generateLessonPlanDraft,
@@ -52,6 +53,12 @@ import {
 } from "../utils/enrollmentMessages";
 import { buildWhatsAppUrl, getWhatsAppPhoneLabel } from "../utils/whatsapp";
 import { DEMO_MODE_NOTICE, PUBLIC_MEET_NOTICE, appConfig } from "../config/appMode";
+import {
+  buildAuthorizedStudyGroups,
+  getAgentErrorMessage,
+  getBookAccessUnavailableCopy,
+  isKnownGroupSlug,
+} from "../utils/bookAccess";
 
 type ReviewState = "draft" | "approved" | "published";
 type PreviewKind = "outline" | "questions" | "summary" | "message" | "review";
@@ -305,6 +312,7 @@ const mergeWorkspace = (
   return {
     ...defaultWorkspace,
     ...storedWorkspace,
+    selectedBook: defaultWorkspace.selectedBook,
     selectedSupportFileIds:
       selectedSupportFileIds.length > 0
         ? selectedSupportFileIds
@@ -397,19 +405,15 @@ export const ProfessorPage = () => {
   const [studentAccessByEnrollment, setStudentAccessByEnrollment] = useState<
     Record<string, StudentAccessInfo>
   >({});
+  const bookAccess = useBookAccess();
   const userMeetings = useUserStudyMeetings({ limit: 3 });
   const teacherVisibleGroups = useMemo(() => {
-    if (appConfig.canUseDemoFallback) {
-      return groups;
+    if (!bookAccess.data) {
+      return [];
     }
 
-    if (!userMeetings.data) {
-      return userMeetings.isLoading ? groups : [];
-    }
-
-    const authorizedGroupIds = new Set(userMeetings.data.groups.map((group) => group.id));
-    return groups.filter((group) => authorizedGroupIds.has(group.slug));
-  }, [groups, userMeetings.data, userMeetings.isLoading]);
+    return buildAuthorizedStudyGroups(bookAccess.data.groups, groups);
+  }, [bookAccess.data, groups]);
 
   useEffect(() => {
     let isActive = true;
@@ -423,16 +427,12 @@ export const ProfessorPage = () => {
         questionsResult,
         materialsResult,
         summariesResult,
-        emmanuelKnowledgeResult,
-        caminhoKnowledgeResult,
       ] = await Promise.all([
         listEnrollments(),
         listStudies(),
         listQuestions(),
         listMaterials(),
         listSummaries(),
-        listKnowledgeFilesByGroup("emmanuel"),
-        listKnowledgeFilesByGroup("a-caminho-da-luz"),
       ]);
 
       if (!isActive) {
@@ -444,10 +444,6 @@ export const ProfessorPage = () => {
       setQuestions(questionsResult.data);
       setMaterials(materialsResult.data);
       setSummaries(summariesResult.data);
-      setSupportFiles([
-        ...emmanuelKnowledgeResult.data,
-        ...caminhoKnowledgeResult.data,
-      ]);
       setNotice(
         collectServiceNotice([
           enrollmentsResult,
@@ -455,15 +451,8 @@ export const ProfessorPage = () => {
           questionsResult,
           materialsResult,
           summariesResult,
-          emmanuelKnowledgeResult,
-          caminhoKnowledgeResult,
         ]),
       );
-      setGroupSlug((currentSlug) => {
-        return studiesResult.data.some((group) => group.slug === currentSlug)
-          ? currentSlug
-          : (studiesResult.data[0]?.slug ?? currentSlug);
-      });
       setIsLoading(false);
     };
 
@@ -486,6 +475,44 @@ export const ProfessorPage = () => {
       isActive = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (bookAccess.isLoading || bookAccess.error || teacherVisibleGroups.length === 0) {
+      setSupportFiles([]);
+      return;
+    }
+
+    let isActive = true;
+
+    const loadAuthorizedKnowledge = async () => {
+      const results = await Promise.all(
+        teacherVisibleGroups.map((group) => listKnowledgeFilesByGroup(group.slug)),
+      );
+
+      if (!isActive) {
+        return;
+      }
+
+      setSupportFiles(results.flatMap((result) => result.data));
+      const knowledgeNotice = collectServiceNotice(results);
+      if (knowledgeNotice) {
+        setNotice((current) => current ?? knowledgeNotice);
+      }
+    };
+
+    void loadAuthorizedKnowledge().catch(() => {
+      if (!isActive) {
+        return;
+      }
+
+      setSupportFiles([]);
+      setNotice((current) => current ?? "Não foi possível carregar a base de apoio agora.");
+    });
+
+    return () => {
+      isActive = false;
+    };
+  }, [bookAccess.error, bookAccess.isLoading, teacherVisibleGroups]);
 
   const activeGroup = teacherVisibleGroups.find((group) => group.slug === groupSlug) ?? teacherVisibleGroups[0] ?? null;
   const activeQuestions = useMemo(() => {
@@ -564,6 +591,9 @@ export const ProfessorPage = () => {
     };
   }, [pendingEnrollments]);
   const requestedGroupSlug = searchParams.get("grupo");
+  const bookAccessUnavailable = bookAccess.error
+    ? getBookAccessUnavailableCopy(bookAccess.error, "teacher")
+    : null;
   const portalUrl = buildPortalUrl(
     typeof window === "undefined"
       ? undefined
@@ -629,12 +659,12 @@ export const ProfessorPage = () => {
     const normalizedRequestedGroup = requestedGroupSlug.trim().toLowerCase();
 
     if (
-      normalizedRequestedGroup === "emmanuel" ||
-      normalizedRequestedGroup === "a-caminho-da-luz"
+      isKnownGroupSlug(normalizedRequestedGroup) &&
+      teacherVisibleGroups.some((group) => group.slug === normalizedRequestedGroup)
     ) {
       setGroupSlug(normalizedRequestedGroup as DemoGroup["slug"]);
     }
-  }, [requestedGroupSlug]);
+  }, [requestedGroupSlug, teacherVisibleGroups]);
 
   useEffect(() => {
     if (teacherVisibleGroups.length === 0) {
@@ -695,7 +725,7 @@ export const ProfessorPage = () => {
       summary: activeSummary,
       supportFiles: selectedSupportFiles,
       theme: themeChapter.trim() || activeGroup.nextLesson?.title || activeGroup.bookTitle,
-      bookTitle: selectedBook.trim() || activeGroup.bookTitle,
+      bookTitle: activeGroup.bookTitle,
       meetLink: meetLink.trim(),
     };
   };
@@ -709,38 +739,47 @@ export const ProfessorPage = () => {
 
     setActiveAction(kind);
 
-    const result =
-      kind === "outline"
-        ? await generateLessonPlanDraft(teacherInput)
-        : kind === "questions"
-          ? await generateReflectionQuestionsDraft(teacherInput)
-          : kind === "summary"
-            ? await generateSummaryDraft(teacherInput)
-            : kind === "message"
-              ? await generateGroupMessageDraft(teacherInput)
-              : await generateReviewPointsDraft(teacherInput);
+    try {
+      const result =
+        kind === "outline"
+          ? await generateLessonPlanDraft(teacherInput)
+          : kind === "questions"
+            ? await generateReflectionQuestionsDraft(teacherInput)
+            : kind === "summary"
+              ? await generateSummaryDraft(teacherInput)
+              : kind === "message"
+                ? await generateGroupMessageDraft(teacherInput)
+                : await generateReviewPointsDraft(teacherInput);
 
-    const nextPreview =
-      kind === "outline"
-        ? { ...preview, outline: result.data.content }
-        : kind === "questions"
-          ? { ...preview, questions: result.data.content }
-          : kind === "summary"
-            ? { ...preview, summary: result.data.content }
-            : kind === "message"
-              ? { ...preview, message: result.data.content }
-              : { ...preview, review: result.data.content };
+      const nextPreview =
+        kind === "outline"
+          ? { ...preview, outline: result.data.content }
+          : kind === "questions"
+            ? { ...preview, questions: result.data.content }
+            : kind === "summary"
+              ? { ...preview, summary: result.data.content }
+              : kind === "message"
+                ? { ...preview, message: result.data.content }
+                : { ...preview, review: result.data.content };
 
-    persistWorkspace({
-      selectedBook,
-      themeChapter,
-      meetLink,
-      selectedSupportFileIds,
-      preview: nextPreview,
-      reviewState: "draft",
-      actionMessage: result.notice ?? result.data.reviewNote,
-    });
-    setActiveAction(null);
+      persistWorkspace({
+        selectedBook: activeGroup.bookTitle,
+        themeChapter,
+        meetLink,
+        selectedSupportFileIds,
+        preview: nextPreview,
+        reviewState: "draft",
+        actionMessage: result.notice ?? result.data.reviewNote,
+      });
+    } catch (error) {
+      setActionMessage(getAgentErrorMessage(error));
+
+      if (error instanceof ServiceRequestError && error.code === "BOOK_ACCESS_FORBIDDEN") {
+        void bookAccess.refetch();
+      }
+    } finally {
+      setActiveAction(null);
+    }
   };
 
   const handleToggleSupportFile = (fileId: string) => {
@@ -749,7 +788,7 @@ export const ProfessorPage = () => {
       : [...selectedSupportFileIds, fileId];
 
     persistWorkspace({
-      selectedBook,
+      selectedBook: activeGroup?.bookTitle ?? selectedBook,
       themeChapter,
       meetLink,
       selectedSupportFileIds: nextSelectedIds,
@@ -764,7 +803,7 @@ export const ProfessorPage = () => {
 
   const handleEdit = () => {
     persistWorkspace({
-      selectedBook,
+      selectedBook: activeGroup?.bookTitle ?? selectedBook,
       themeChapter,
       meetLink,
       selectedSupportFileIds,
@@ -776,7 +815,7 @@ export const ProfessorPage = () => {
 
   const handleSaveDraft = () => {
     persistWorkspace({
-      selectedBook,
+      selectedBook: activeGroup?.bookTitle ?? selectedBook,
       themeChapter,
       meetLink,
       selectedSupportFileIds,
@@ -788,7 +827,7 @@ export const ProfessorPage = () => {
 
   const handleApprove = () => {
     persistWorkspace({
-      selectedBook,
+      selectedBook: activeGroup?.bookTitle ?? selectedBook,
       themeChapter,
       meetLink,
       selectedSupportFileIds,
@@ -916,7 +955,22 @@ export const ProfessorPage = () => {
           title="Escolha o grupo ou livro"
         />
 
-        {isLoading ? (
+        {bookAccess.isLoading ? (
+          <LoadingState
+            description="Estamos carregando seus vínculos de estudo autorizados."
+            title="Carregando acesso aos livros"
+          />
+        ) : bookAccessUnavailable ? (
+          <EmptyState
+            action={
+              <Button onClick={() => void bookAccess.refetch()} variant="secondary">
+                Tentar novamente
+              </Button>
+            }
+            description={bookAccessUnavailable.description}
+            title={bookAccessUnavailable.title}
+          />
+        ) : isLoading ? (
           <LoadingState
             description="Estamos reunindo grupos, dúvidas e materiais para montar o painel."
             title="Carregando painel do professor"
@@ -1034,7 +1088,7 @@ export const ProfessorPage = () => {
                     setGroupSlug(nextSlug);
                     const nextGroup = teacherVisibleGroups.find((group) => group.slug === nextSlug);
                     if (nextGroup) {
-                      setSelectedBook(nextGroup.name);
+                      setSelectedBook(nextGroup.bookTitle);
                     }
                   }}
                   options={teacherVisibleGroups.map((group) => ({

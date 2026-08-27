@@ -109,13 +109,60 @@ const createUserStudyMeetingsErrorEnvelope = (code: string, message: string) => 
   },
 });
 
+const createBookAccessEnvelope = (
+  groups: Array<{
+    id: string;
+    name: string;
+    knowledgeBook: { id: string; slug: string; title: string };
+  }> = [
+    {
+      id: "emmanuel",
+      name: "Emmanuel",
+      knowledgeBook: { id: "book-emmanuel", slug: "emmanuel", title: "Emmanuel" },
+    },
+    {
+      id: "a-caminho-da-luz",
+      name: "A Caminho da Luz",
+      knowledgeBook: {
+        id: "book-a-caminho-da-luz",
+        slug: "a-caminho-da-luz",
+        title: "A Caminho da Luz",
+      },
+    },
+  ],
+) => ({
+  success: true,
+  message: "Vínculos de livros listados com sucesso.",
+  data: { groups },
+  meta: { count: groups.length },
+});
+
+const createBookAccessErrorEnvelope = (code: string, message: string) => ({
+  success: false,
+  error: {
+    code,
+    message,
+  },
+});
+
 const mockFetchWithUserStudyMeetings = (
   responses: Array<{ ok: boolean; payload: unknown }> = [
     { ok: true, payload: createUserStudyMeetingsEnvelope() },
   ],
+  bookAccessPayload: { ok: boolean; payload: unknown } = {
+    ok: true,
+    payload: createBookAccessEnvelope(),
+  },
 ) =>
   vi.fn(async (input: unknown) => {
     const url = getFetchUrl(input);
+
+    if (url.includes("/api/me/book-access")) {
+      return {
+        ok: bookAccessPayload.ok,
+        json: async () => bookAccessPayload.payload,
+      };
+    }
 
     if (url.includes("/api/me/study-meetings/upcoming")) {
       const response = responses.shift() ?? responses[responses.length - 1] ?? {
@@ -241,21 +288,18 @@ describe("paginas principais com fallback local", () => {
   it("/aluno renderiza materiais dos dois grupos e continua util sem backend", async () => {
     storeAuthenticatedUser("student");
     window.localStorage.setItem("portal-estudos-espiritas-ai:student-access", "approved");
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => {
-        throw new Error("backend offline");
-      }),
-    );
+    vi.stubGlobal("fetch", mockFetchWithUserStudyMeetings());
     renderRoute("/aluno?grupo=emmanuel", <AlunoPage />);
 
     expect(
       screen.getByRole("heading", { name: "Educação Continuada" }),
     ).toBeInTheDocument();
     expect(await screen.findByText("Modo demonstrativo ativo")).toBeInTheDocument();
-    expect(await screen.findByText("Não foi possível carregar a agenda")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Tentar novamente" })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Entrar no Google Meet" })).not.toBeInTheDocument();
+    expect(await screen.findByText("Encontro autenticado")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Entrar no Google Meet" })).toHaveAttribute(
+      "href",
+      "https://meet.google.com/abc-defg-hij",
+    );
     expect(await screen.findByRole("heading", { name: "Materiais de apoio" })).toBeInTheDocument();
     expect(await screen.findByText("Emmanuel - visao geral")).toBeInTheDocument();
 
@@ -292,14 +336,18 @@ describe("paginas principais com fallback local", () => {
 
   it("/aluno não consulta agenda pessoal quando o perfil autenticado é admin", async () => {
     storeAuthenticatedUser("admin");
-    const fetchMock = vi.fn(async (..._args: Parameters<typeof fetch>) => {
-      throw new Error("backend offline");
-    });
+    const fetchMock = mockFetchWithUserStudyMeetings(
+      [],
+      {
+        ok: false,
+        payload: createBookAccessErrorEnvelope("FORBIDDEN", "Acesso negado."),
+      },
+    );
     vi.stubGlobal("fetch", fetchMock);
 
     renderRoute("/aluno?grupo=emmanuel", <AlunoPage />);
 
-    expect(await screen.findByText("Modo demonstrativo ativo")).toBeInTheDocument();
+    expect(await screen.findByText("Este perfil não possui acesso à área de livros do aluno.")).toBeInTheDocument();
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalled();
@@ -445,6 +493,8 @@ describe("paginas principais com fallback local", () => {
   });
 
   it("/professor renderiza a base de apoio e troca o contexto do livro sem backend", async () => {
+    vi.stubGlobal("fetch", mockFetchWithUserStudyMeetings());
+
     renderRoute("/professor?grupo=emmanuel", <ProfessorPage />);
 
     expect(
@@ -727,6 +777,8 @@ describe("paginas principais com fallback local", () => {
   });
 
   it("professor aprova interessado e o acesso demonstrativo do aluno e liberado", async () => {
+    vi.stubGlobal("fetch", mockFetchWithUserStudyMeetings());
+
     const professorView = renderRoute("/professor", <ProfessorPage />);
 
     expect(await screen.findByText("Novos interessados")).toBeInTheDocument();
@@ -747,7 +799,10 @@ describe("paginas principais com fallback local", () => {
     renderRoute("/aluno", <AlunoPage />);
 
     expect(await screen.findByText("Painel do Aluno")).toBeInTheDocument();
-    expect(await screen.findByText("Não foi possível carregar a agenda")).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Entrar no Google Meet" })).not.toBeInTheDocument();
+    expect(await screen.findByText("Encontro autenticado")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Entrar no Google Meet" })).toHaveAttribute(
+      "href",
+      "https://meet.google.com/abc-defg-hij",
+    );
   });
 });

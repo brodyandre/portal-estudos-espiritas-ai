@@ -55,6 +55,7 @@ interface FallbackOptions<TRaw, TData> extends RequestOptions {
   fallback: () => TData | Promise<TData>;
   mapData?: (data: TRaw) => TData;
   friendlyMessage?: string;
+  shouldUseFallback?: (error: ServiceRequestError) => boolean;
 }
 
 const apiBaseUrl = appConfig.apiUrl?.replace(/\/$/u, "") ?? null;
@@ -218,6 +219,7 @@ export const loadWithFallback = async <TRaw, TData>({
   fallback,
   mapData,
   friendlyMessage,
+  shouldUseFallback,
 }: FallbackOptions<TRaw, TData>): Promise<ServiceResult<TData>> => {
   try {
     const payload = await requestJson<TRaw>({ path, query, init });
@@ -228,7 +230,15 @@ export const loadWithFallback = async <TRaw, TData>({
       notice: null,
     };
   } catch (error) {
-    if (!appConfig.canUseDemoFallback) {
+    const requestError =
+      error instanceof ServiceRequestError
+        ? error
+        : new ServiceRequestError({
+            message: "Nao foi possivel conectar ao servico do portal agora.",
+            kind: "network",
+          });
+
+    if (!appConfig.canUseDemoFallback || shouldUseFallback?.(requestError) === false) {
       throw error;
     }
 
