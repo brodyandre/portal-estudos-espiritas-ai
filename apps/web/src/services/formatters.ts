@@ -97,7 +97,7 @@ export const buildLessonTitleLookup = (
   return lookup;
 };
 
-export const sortQuestionsByDate = (items: DemoQuestion[]) => {
+export const sortQuestionsByDate = <T extends Pick<DemoQuestion, "createdAt">>(items: T[]) => {
   return [...items].sort((left, right) => {
     return new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime();
   });

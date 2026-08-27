@@ -1,4 +1,6 @@
-import type { DemoGroup, DemoMaterial, DemoSummary } from "../mocks";
+import type { StudyGroup } from "../types/studyGroup";
+import type { StudyMaterial } from "./materialsService";
+import type { StudySummary } from "./summariesService";
 import type { KnowledgeSupportFile } from "./knowledgeService";
 import type { ServiceRequestError, ServiceResult } from "./api";
 import { loadWithFallback } from "./api";
@@ -66,16 +68,16 @@ export interface TeacherDraftReply {
 
 interface AskStudyAssistantInput {
   question: string;
-  group: DemoGroup;
-  materials: DemoMaterial[];
-  summary?: DemoSummary | null;
+  group: StudyGroup;
+  materials: StudyMaterial[];
+  summary?: StudySummary | null;
   supportFiles?: KnowledgeSupportFile[];
 }
 
 export interface TeacherAssistInput {
-  group: DemoGroup;
-  materials: DemoMaterial[];
-  summary?: DemoSummary | null;
+  group: StudyGroup;
+  materials: StudyMaterial[];
+  summary?: StudySummary | null;
   supportFiles?: KnowledgeSupportFile[];
   theme: string;
   bookTitle: string;
@@ -92,12 +94,12 @@ const AGENT_SECURITY_ERROR_CODES = new Set([
   "BOOK_ACCESS_CATALOG_UNAVAILABLE",
   "KNOWLEDGE_CORPUS_UNAVAILABLE",
 ]);
-const getGroupLessonTheme = (group: DemoGroup) => group.nextLesson?.theme ?? group.bookTitle;
-const getGroupTeacherNote = (group: DemoGroup) =>
+const getGroupLessonTheme = (group: StudyGroup) => group.nextLesson?.theme ?? group.bookTitle;
+const getGroupTeacherNote = (group: StudyGroup) =>
   group.nextLesson?.teacherNote ?? "Encontro em preparacao.";
-const getGroupLessonTitle = (group: DemoGroup) =>
+const getGroupLessonTitle = (group: StudyGroup) =>
   group.nextLesson?.title ?? "Encontro em preparacao";
-const getGroupScheduledLabel = (group: DemoGroup) =>
+const getGroupScheduledLabel = (group: StudyGroup) =>
   group.nextLesson?.scheduledLabel ?? "agenda em configuracao";
 const KNOWLEDGE_STOPWORDS = new Set([
   "a",
@@ -217,9 +219,9 @@ const findKnowledgeMatches = (question: string, supportFiles: KnowledgeSupportFi
 };
 
 const buildSourceLabels = (options: {
-  group: DemoGroup;
-  materials: DemoMaterial[];
-  summary?: DemoSummary | null;
+  group: StudyGroup;
+  materials: StudyMaterial[];
+  summary?: StudySummary | null;
 }) => {
   return dedupeStrings([
     options.summary?.title ?? "",

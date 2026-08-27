@@ -1,12 +1,12 @@
-import type { DemoGroup } from "../../data/demo";
 import { PUBLIC_MEET_NOTICE, appConfig } from "../../config/appMode";
+import type { StudyGroup } from "../../types/studyGroup";
 import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { StatusTag } from "../ui/StatusTag";
 
 interface GroupCardProps {
-  group: DemoGroup;
+  group: StudyGroup;
   actionLabel: string;
   actionTo?: string;
   actionHref?: string;

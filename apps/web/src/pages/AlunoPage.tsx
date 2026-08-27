@@ -17,11 +17,8 @@ import { StatusTag } from "../components/ui/StatusTag";
 import { TextInput } from "../components/ui/TextInput";
 import type {
   DemoFlowStep,
-  DemoGroup,
-  DemoProgressResponse,
-  DemoQuestion,
-  GroupSlug,
 } from "../mocks";
+import type { StudyGroup, StudyGroupId } from "../types/studyGroup";
 import { useBookAccess } from "../hooks/useBookAccess";
 import { useUserStudyMeetings } from "../hooks/useUserStudyMeetings";
 import { ServiceRequestError, collectServiceNotice } from "../services/api";
@@ -35,8 +32,12 @@ import {
   type KnowledgeSupportFile,
 } from "../services/knowledgeService";
 import { listMaterials } from "../services/materialsService";
-import { buildProgressHighlights, getProgress } from "../services/progressService";
-import { createQuestion, listQuestions } from "../services/questionsService";
+import {
+  buildProgressHighlights,
+  getProgress,
+  type StudyProgressResponse,
+} from "../services/progressService";
+import { createQuestion, listQuestions, type StudyQuestion } from "../services/questionsService";
 import { listStudies } from "../services/studiesService";
 import {
   getStudentAccessStatusFromSearch,
@@ -50,7 +51,8 @@ import {
   buildAuthorizedStudyGroups,
   getAgentErrorMessage,
   getBookAccessUnavailableCopy,
-  isKnownGroupSlug,
+  genericQuickQuestionSuggestions,
+  getGroupCardId,
 } from "../utils/bookAccess";
 
 type AssistantFeedback = "helpful" | "not-helpful" | null;
@@ -83,12 +85,11 @@ const studentSteps: DemoFlowStep[] = [
   },
 ];
 
-const groupCardIds: Record<DemoGroup["slug"], string> = {
-  emmanuel: "grupo-emmanuel",
-  "a-caminho-da-luz": "grupo-a-caminho-da-luz",
+const getStudentGroupCardId = (groupId: StudyGroupId) => {
+  return getGroupCardId("grupo", groupId);
 };
 
-const quickQuestionSuggestions: Record<GroupSlug, string[]> = {
+const quickQuestionSuggestions: Record<string, string[]> = {
   emmanuel: [
     "Como continuar estudando mesmo desanimado?",
     "O que significa esforco proprio?",
@@ -103,7 +104,7 @@ const quickQuestionSuggestions: Record<GroupSlug, string[]> = {
   ],
 };
 
-const getQuestionStatus = (status: DemoQuestion["status"]) => {
+const getQuestionStatus = (status: StudyQuestion["status"]) => {
   if (status === "answered") {
     return { tone: "answered" as const, label: "Respondida" };
   }
@@ -145,15 +146,15 @@ export const AlunoPage = () => {
     ? (getStudentAccessStatusFromSearch(searchParams) ?? readStudentAccessStatus())
     : "visitor";
   const [studentAccessStatus, setStudentAccessStatus] = useState<StudentAccessStatus>(initialAccessStatus);
-  const [groups, setGroups] = useState<DemoGroup[]>([]);
+  const [groups, setGroups] = useState<StudyGroup[]>([]);
   const [materials, setMaterials] = useState<Awaited<ReturnType<typeof listMaterials>>["data"]>([]);
   const [summaries, setSummaries] = useState<Awaited<ReturnType<typeof listSummaries>>["data"]>([]);
-  const [questions, setQuestions] = useState<DemoQuestion[]>([]);
+  const [questions, setQuestions] = useState<StudyQuestion[]>([]);
   const [supportFiles, setSupportFiles] = useState<KnowledgeSupportFile[]>([]);
-  const [progress, setProgress] = useState<DemoProgressResponse | null>(null);
+  const [progress, setProgress] = useState<StudyProgressResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);
-  const [activeGroupSlug, setActiveGroupSlug] = useState<DemoGroup["slug"]>("emmanuel");
+  const [activeGroupSlug, setActiveGroupSlug] = useState<StudyGroupId>("emmanuel");
   const [selectedSupportFileId, setSelectedSupportFileId] = useState<string | null>(null);
   const [assistantInput, setAssistantInput] = useState("");
   const [assistantResponse, setAssistantResponse] = useState<AssistantReply>(getInitialAssistantReply());
@@ -302,8 +303,8 @@ export const AlunoPage = () => {
   const activeSupportFile =
     activeSupportFiles.find((file) => file.id === selectedSupportFileId) ?? activeSupportFiles[0] ?? null;
   const activeQuickQuestions = activeGroup
-    ? quickQuestionSuggestions[activeGroup.slug]
-    : quickQuestionSuggestions.emmanuel;
+    ? (quickQuestionSuggestions[activeGroup.slug] ?? genericQuickQuestionSuggestions)
+    : (quickQuestionSuggestions.emmanuel ?? genericQuickQuestionSuggestions);
   const requestedGroupSlug = searchParams.get("grupo");
   const bookAccessUnavailable = bookAccess.error
     ? getBookAccessUnavailableCopy(bookAccess.error, "student")
@@ -356,13 +357,10 @@ export const AlunoPage = () => {
       return;
     }
 
-    const normalizedRequestedGroup = requestedGroupSlug.trim().toLowerCase();
+    const normalizedRequestedGroup = requestedGroupSlug.trim();
 
-    if (
-      isKnownGroupSlug(normalizedRequestedGroup) &&
-      availableGroups.some((group) => group.slug === normalizedRequestedGroup)
-    ) {
-      setActiveGroupSlug(normalizedRequestedGroup as DemoGroup["slug"]);
+    if (availableGroups.some((group) => group.slug === normalizedRequestedGroup)) {
+      setActiveGroupSlug(normalizedRequestedGroup);
     }
   }, [availableGroups, requestedGroupSlug, studentAccessStatus]);
 
@@ -531,7 +529,7 @@ export const AlunoPage = () => {
             <Select
               id="student-group-select"
               label="Livro ou grupo"
-              onChange={(event) => setActiveGroupSlug(event.target.value as DemoGroup["slug"])}
+              onChange={(event) => setActiveGroupSlug(event.target.value)}
               options={availableGroups.map((group) => ({
                 label: group.name,
                 value: group.slug,
@@ -583,7 +581,7 @@ export const AlunoPage = () => {
                   className={`student-group-card ${
                     isActive ? "student-group-card--active" : ""
                   }`}
-                  id={groupCardIds[group.slug]}
+                  id={getStudentGroupCardId(group.slug)}
                   key={group.slug}
                   tone={isActive ? "brand" : "default"}
                 >

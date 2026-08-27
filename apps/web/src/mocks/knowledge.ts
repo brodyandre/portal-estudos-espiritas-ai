@@ -1,4 +1,5 @@
 import type { GroupSlug } from "./index";
+import type { StudyGroupId } from "../types/studyGroup";
 
 export type KnowledgeFileType = "tema" | "capitulo" | "faq" | "palavras_chave" | "visao_geral";
 
@@ -7,7 +8,7 @@ export interface KnowledgeSupportFile {
   title: string;
   filename: string;
   path: string;
-  groupSlug: GroupSlug;
+  groupSlug: StudyGroupId;
   groupName: string;
   bookTitle: string;
   type: KnowledgeFileType;

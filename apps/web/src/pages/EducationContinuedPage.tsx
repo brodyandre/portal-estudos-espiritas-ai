@@ -10,9 +10,9 @@ import { EmptyState } from "../components/ui/EmptyState";
 import { LoadingState } from "../components/ui/LoadingState";
 import { SectionTitle } from "../components/ui/SectionTitle";
 import { appConfig } from "../config/appMode";
-import type { DemoGroup } from "../mocks";
 import { collectServiceNotice } from "../services/api";
 import { listStudies } from "../services/studiesService";
+import type { StudyGroup } from "../types/studyGroup";
 
 const teacherNames = ["Professora Ariete", "Professor Luiz"];
 
@@ -23,7 +23,7 @@ const publicFlow = [
 ];
 
 export const EducationContinuedPage = () => {
-  const [groups, setGroups] = useState<DemoGroup[]>([]);
+  const [groups, setGroups] = useState<StudyGroup[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);
 

@@ -2,10 +2,11 @@ import {
   listMockKnowledgeFilesByGroup,
   type KnowledgeSupportFile,
 } from "../mocks/knowledge";
-import type { GroupSlug } from "../mocks";
-import { loadWithFallback } from "./api";
+import type { StudyGroupId } from "../types/studyGroup";
+import { isDemoGroupSlug } from "../types/studyGroup";
+import { loadWithFallback, type ServiceResult } from "./api";
 
-type ApiKnowledgeGroupId = "emmanuel" | "a_caminho_da_luz";
+type PublicKnowledgeGroupId = "emmanuel" | "a_caminho_da_luz";
 
 interface ApiKnowledgeFile {
   id: string;
@@ -21,23 +22,16 @@ interface ApiKnowledgeFile {
   sensitiveTopics: string[];
 }
 
-const apiGroupBySlug: Record<GroupSlug, ApiKnowledgeGroupId> = {
-  emmanuel: "emmanuel",
-  "a-caminho-da-luz": "a_caminho_da_luz",
-};
+export const getPublicKnowledgeGroupId = (groupId: StudyGroupId): PublicKnowledgeGroupId | null => {
+  if (groupId === "emmanuel") {
+    return "emmanuel";
+  }
 
-const normalizeText = (value: string) => {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/gu, "")
-    .toLowerCase()
-    .trim();
-};
+  if (groupId === "a-caminho-da-luz") {
+    return "a_caminho_da_luz";
+  }
 
-const mapApiGroupToSlug = (group: string): GroupSlug => {
-  return normalizeText(group) === normalizeText("A Caminho da Luz")
-    ? "a-caminho-da-luz"
-    : "emmanuel";
+  return null;
 };
 
 const trimSummary = (value: string) => {
@@ -81,8 +75,10 @@ const mapApiActionLabel = (type: string): KnowledgeSupportFile["actionLabel"] =>
   return type === "faq" || type === "palavras_chave" ? "Usar como apoio" : "Ver resumo";
 };
 
-const mapApiKnowledgeFile = (file: ApiKnowledgeFile): KnowledgeSupportFile => {
-  const groupSlug = mapApiGroupToSlug(file.group);
+const mapApiKnowledgeFile = (
+  file: ApiKnowledgeFile,
+  groupSlug: StudyGroupId,
+): KnowledgeSupportFile => {
   const normalizedType = mapApiType(file.type);
 
   return {
@@ -91,9 +87,7 @@ const mapApiKnowledgeFile = (file: ApiKnowledgeFile): KnowledgeSupportFile => {
     filename: file.filename,
     path:
       file.path ??
-      `data/knowledge/${
-        groupSlug === "emmanuel" ? "emmanuel" : "a_caminho_da_luz"
-      }/${file.filename}`,
+      `data/knowledge/${getPublicKnowledgeGroupId(groupSlug) ?? groupSlug}/${file.filename}`,
     groupSlug,
     groupName: file.group,
     bookTitle: file.book,
@@ -125,11 +119,24 @@ const sortKnowledgeFiles = (left: KnowledgeSupportFile, right: KnowledgeSupportF
 
 export type { KnowledgeSupportFile } from "../mocks/knowledge";
 
-export const listKnowledgeFilesByGroup = (groupSlug: GroupSlug) => {
+export const listKnowledgeFilesByGroup = (
+  groupSlug: StudyGroupId,
+): Promise<ServiceResult<KnowledgeSupportFile[]>> => {
+  const publicKnowledgeGroupId = getPublicKnowledgeGroupId(groupSlug);
+
+  if (!publicKnowledgeGroupId) {
+    return Promise.resolve({
+      data: [],
+      source: "api",
+      notice: null,
+    });
+  }
+
   return loadWithFallback<ApiKnowledgeFile[], KnowledgeSupportFile[]>({
-    path: `/api/knowledge/${apiGroupBySlug[groupSlug]}/files`,
-    fallback: () => listMockKnowledgeFilesByGroup(groupSlug),
-    mapData: (items) => items.map(mapApiKnowledgeFile).sort(sortKnowledgeFiles),
+    path: `/api/knowledge/${publicKnowledgeGroupId}/files`,
+    fallback: () => (isDemoGroupSlug(groupSlug) ? listMockKnowledgeFilesByGroup(groupSlug) : []),
+    mapData: (items) =>
+      items.map((item) => mapApiKnowledgeFile(item, groupSlug)).sort(sortKnowledgeFiles),
     friendlyMessage:
       "Os materiais de apoio do livro selecionado nao puderam ser atualizados agora. Mantivemos a base demonstrativa local disponivel para voce continuar o estudo.",
   });

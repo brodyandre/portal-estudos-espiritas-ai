@@ -1,41 +1,58 @@
-import type { DemoGroup, GroupSlug } from "../mocks";
 import type { ServiceRequestError } from "../services/api";
 import type { UserBookAccessGroup } from "../types/bookAccess";
+import type { StudyGroup, StudyGroupId } from "../types/studyGroup";
 
 export type BookAccessAudience = "student" | "teacher";
 
-export const isKnownGroupSlug = (value: string): value is GroupSlug => {
-  return value === "emmanuel" || value === "a-caminho-da-luz";
-};
+const DEFAULT_STUDY_THEME = "Preparação do próximo encontro";
+
+export const genericQuickQuestionSuggestions = [
+  "Qual é o tema principal deste estudo?",
+  "Quais pontos devo revisar antes do próximo encontro?",
+  "Que perguntas posso levar ao professor?",
+];
 
 export const buildAuthorizedStudyGroups = (
   accessGroups: UserBookAccessGroup[],
-  studies: DemoGroup[],
-): DemoGroup[] => {
+  studies: StudyGroup[],
+): StudyGroup[] => {
   const studiesBySlug = new Map(studies.map((study) => [study.slug, study]));
 
-  return accessGroups.flatMap((accessGroup) => {
-    if (!isKnownGroupSlug(accessGroup.id)) {
-      return [];
-    }
-
+  return accessGroups.map((accessGroup) => {
     const groupSlug = accessGroup.id;
     const study = studiesBySlug.get(groupSlug);
 
-    return [
-      {
-        slug: groupSlug,
-        name: accessGroup.name,
-        meetingDay: study?.meetingDay ?? null,
-        meetingTime: study?.meetingTime ?? null,
-        participantCount: study?.participantCount ?? null,
-        meetUrl: study?.meetUrl ?? null,
-        bookTitle: accessGroup.knowledgeBook.title,
-        description: study?.description ?? null,
-        nextLesson: study?.nextLesson ?? null,
-      },
-    ];
+    return {
+      slug: groupSlug,
+      name: accessGroup.name,
+      meetingDay: study?.meetingDay ?? null,
+      meetingTime: study?.meetingTime ?? null,
+      participantCount: study?.participantCount ?? null,
+      meetUrl: study?.meetUrl ?? null,
+      bookTitle: accessGroup.knowledgeBook.title,
+      description: study?.description ?? null,
+      nextLesson: study?.nextLesson ?? null,
+    };
   });
+};
+
+export const getDefaultStudyTheme = (group: StudyGroup) => {
+  return group.nextLesson?.theme || group.bookTitle || DEFAULT_STUDY_THEME;
+};
+
+const sanitizeDomIdPart = (value: StudyGroupId) => {
+  const normalized = value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/gu, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/gu, "-")
+    .replace(/^-+|-+$/gu, "");
+
+  return normalized || "grupo";
+};
+
+export const getGroupCardId = (prefix: string, groupId: StudyGroupId) => {
+  return `${prefix}-${sanitizeDomIdPart(groupId)}`;
 };
 
 export const getBookAccessUnavailableCopy = (

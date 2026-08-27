@@ -8,6 +8,7 @@ import { AUTH_TOKEN_STORAGE_KEY, AUTH_USER_STORAGE_KEY } from "../auth/storage";
 import type { UserRole } from "../auth/types";
 import { AlunoPage } from "../pages/AlunoPage";
 import { ProfessorPage } from "../pages/ProfessorPage";
+import type { UserBookAccessGroup } from "../types/bookAccess";
 
 const storeAuthenticatedUser = (role: Extract<UserRole, "student" | "teacher" | "admin">) => {
   window.localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, "token-local");
@@ -84,50 +85,102 @@ const caminhoAccess = {
   },
 };
 
-const studiesEnvelope = {
+const obrasAccess: UserBookAccessGroup = {
+  id: "obras-postumas",
+  name: "Grupo Obras Póstumas",
+  knowledgeBook: {
+    id: "book-obras-postumas",
+    slug: "obras-postumas",
+    title: "Obras Póstumas",
+  },
+};
+
+interface TestApiStudy {
+  id: string;
+  name: string;
+  meetingDay: string | null;
+  meetingTime: string | null;
+  participantCount: number | null;
+  bookTitle: string;
+  meetUrl: string | null;
+  description: string | null;
+  nextLesson: {
+    id: string;
+    title: string;
+    theme: string;
+    scheduledAt: string;
+    meetUrl: string | null;
+    status: string;
+    teacherNote: string;
+  } | null;
+}
+
+const baseStudiesData: TestApiStudy[] = [
+  {
+    id: "emmanuel",
+    name: "Grupo Emmanuel legado",
+    meetingDay: null,
+    meetingTime: null,
+    participantCount: null,
+    bookTitle: "valor legado",
+    meetUrl: null,
+    description: "Descrição operacional Emmanuel.",
+    nextLesson: {
+      id: "lesson-emmanuel",
+      title: "Aula Emmanuel",
+      theme: "Tema Emmanuel",
+      scheduledAt: "2026-07-15T20:00:00.000-03:00",
+      meetUrl: null,
+      status: "scheduled",
+      teacherNote: "Nota Emmanuel.",
+    },
+  },
+  {
+    id: "a-caminho-da-luz",
+    name: "Grupo A Caminho legado",
+    meetingDay: null,
+    meetingTime: null,
+    participantCount: null,
+    bookTitle: "outro valor legado",
+    meetUrl: null,
+    description: "Descrição operacional A Caminho.",
+    nextLesson: {
+      id: "lesson-caminho",
+      title: "Aula A Caminho",
+      theme: "Tema A Caminho",
+      scheduledAt: "2026-07-16T20:00:00.000-03:00",
+      meetUrl: null,
+      status: "scheduled",
+      teacherNote: "Nota A Caminho.",
+    },
+  },
+];
+
+const obrasStudy: TestApiStudy = {
+  id: "obras-postumas",
+  name: "Grupo Obras Póstumas legado",
+  meetingDay: "quarta-feira",
+  meetingTime: "20:00",
+  participantCount: 12,
+  bookTitle: "valor operacional que não é authority",
+  meetUrl: null,
+  description: "Descrição operacional Obras.",
+  nextLesson: {
+    id: "lesson-obras",
+    title: "Aula Obras Póstumas",
+    theme: "Tema operacional Obras",
+    scheduledAt: "2026-07-17T20:00:00.000-03:00",
+    meetUrl: null,
+    status: "scheduled",
+    teacherNote: "Nota Obras.",
+  },
+};
+
+const buildStudiesEnvelope = (data = baseStudiesData) => ({
   success: true,
   message: "Grupos listados com sucesso.",
-  data: [
-    {
-      id: "emmanuel",
-      name: "Grupo Emmanuel legado",
-      meetingDay: null,
-      meetingTime: null,
-      participantCount: null,
-      bookTitle: "valor legado",
-      meetUrl: null,
-      description: "Descrição operacional Emmanuel.",
-      nextLesson: {
-        id: "lesson-emmanuel",
-        title: "Aula Emmanuel",
-        theme: "Tema Emmanuel",
-        scheduledAt: "2026-07-15T20:00:00.000-03:00",
-        meetUrl: null,
-        status: "scheduled",
-        teacherNote: "Nota Emmanuel.",
-      },
-    },
-    {
-      id: "a-caminho-da-luz",
-      name: "Grupo A Caminho legado",
-      meetingDay: null,
-      meetingTime: null,
-      participantCount: null,
-      bookTitle: "outro valor legado",
-      meetUrl: null,
-      description: "Descrição operacional A Caminho.",
-      nextLesson: {
-        id: "lesson-caminho",
-        title: "Aula A Caminho",
-        theme: "Tema A Caminho",
-        scheduledAt: "2026-07-16T20:00:00.000-03:00",
-        meetUrl: null,
-        status: "scheduled",
-        teacherNote: "Nota A Caminho.",
-      },
-    },
-  ],
-};
+  data,
+});
 
 const emptyMeetingsEnvelope = {
   success: true,
@@ -160,9 +213,10 @@ const knowledgeEnvelope = (group: "emmanuel" | "a_caminho_da_luz") => ({
 });
 
 const createFetchMock = (options: {
-  accessGroups?: typeof emmanuelAccess[];
+  accessGroups?: UserBookAccessGroup[];
   bookAccessError?: { code: string; message: string };
   agentError?: { code: string; message: string };
+  studiesData?: TestApiStudy[];
 } = {}) => {
   const calls = {
     bookAccess: 0,
@@ -199,7 +253,7 @@ const createFetchMock = (options: {
     }
 
     if (url.endsWith("/api/studies")) {
-      return { ok: true, json: async () => studiesEnvelope };
+      return { ok: true, json: async () => buildStudiesEnvelope(options.studiesData) };
     }
 
     if (url.includes("/api/me/study-meetings/upcoming")) {
@@ -339,6 +393,97 @@ describe("BookAccess frontend authority", () => {
     expect(JSON.stringify(calls.agentBodies[0])).not.toContain("A Caminho da Luz");
   });
 
+  it("Professor seleciona terceiro grupo autorizado, lê workspace próprio e envia Agent canônico", async () => {
+    storeAuthenticatedUser("teacher");
+    window.localStorage.setItem(
+      "portal-estudos:teacher-workspace:obras-postumas",
+      JSON.stringify({
+        selectedBook: "Livro salvo forjado",
+        themeChapter: "Tema salvo Obras",
+        meetLink: "",
+        selectedSupportFileIds: [],
+        preview: { outline: "", questions: "", summary: "", message: "", review: "" },
+        reviewState: "draft",
+        actionMessage: "Workspace salvo.",
+      }),
+    );
+    const { fetchMock, calls } = createFetchMock({
+      accessGroups: [obrasAccess],
+      studiesData: [obrasStudy],
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderRoute("/professor?grupo=obras-postumas", <ProfessorPage />);
+
+    const groupSelect = (await screen.findByLabelText("Grupo ou livro", {
+      selector: "#teacher-group-select",
+    })) as HTMLSelectElement;
+
+    await waitFor(() => {
+      expect(groupSelect.value).toBe("obras-postumas");
+    });
+    expect(screen.getByRole("heading", { level: 2, name: "Grupo Obras Póstumas" })).toBeInTheDocument();
+    expect(document.getElementById("professor-grupo-obras-postumas")).toBeInTheDocument();
+    expect(screen.getByLabelText("Tema ou capitulo")).toHaveValue("Tema salvo Obras");
+    expect(calls.knowledgeUrls).toEqual([]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Gerar roteiro da aula" }));
+
+    await waitFor(() => {
+      expect(calls.agentBodies).toHaveLength(1);
+    });
+    expect(calls.agentBodies[0]).toMatchObject({
+      groupId: "obras-postumas",
+      bookTitle: "Obras Póstumas",
+    });
+    expect(JSON.stringify(calls.agentBodies[0])).not.toContain("emmanuel");
+    expect(JSON.stringify(calls.agentBodies[0])).not.toContain("a-caminho-da-luz");
+  });
+
+  it("Professor ignora query e workspace de terceiro grupo sem BookAccess", async () => {
+    storeAuthenticatedUser("teacher");
+    window.localStorage.setItem(
+      "portal-estudos:teacher-workspace:obras-postumas",
+      JSON.stringify({
+        selectedBook: "Obras Póstumas",
+        themeChapter: "Tema não autorizado",
+        meetLink: "",
+        selectedSupportFileIds: [],
+        preview: { outline: "", questions: "", summary: "", message: "", review: "" },
+        reviewState: "draft",
+        actionMessage: "Workspace salvo.",
+      }),
+    );
+    const { fetchMock, calls } = createFetchMock({
+      accessGroups: [emmanuelAccess],
+      studiesData: [baseStudiesData[0], obrasStudy],
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderRoute("/professor?grupo=obras-postumas", <ProfessorPage />);
+
+    const groupSelect = (await screen.findByLabelText("Grupo ou livro", {
+      selector: "#teacher-group-select",
+    })) as HTMLSelectElement;
+
+    await waitFor(() => {
+      expect(groupSelect.value).toBe("emmanuel");
+    });
+    expect(screen.queryByRole("heading", { level: 2, name: "Grupo Obras Póstumas" })).not.toBeInTheDocument();
+    expect(screen.queryByDisplayValue("Tema não autorizado")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Gerar roteiro da aula" }));
+
+    await waitFor(() => {
+      expect(calls.agentBodies).toHaveLength(1);
+    });
+    expect(calls.agentBodies[0]).toMatchObject({
+      groupId: "emmanuel",
+      bookTitle: "Emmanuel",
+    });
+    expect(JSON.stringify(calls.agentBodies[0])).not.toContain("Obras Póstumas");
+  });
+
   it("Professor mostra 503 BookAccess terminal sem grupos de studies", async () => {
     storeAuthenticatedUser("teacher");
     const { fetchMock } = createFetchMock({
@@ -381,6 +526,41 @@ describe("BookAccess frontend authority", () => {
       groupId: "emmanuel",
       bookTitle: "Emmanuel",
     });
+  });
+
+  it("Aluno seleciona terceiro grupo autorizado, usa sugestões genéricas e envia Agent canônico", async () => {
+    storeAuthenticatedUser("student");
+    const { fetchMock, calls } = createFetchMock({
+      accessGroups: [obrasAccess],
+      studiesData: [obrasStudy],
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderRoute("/aluno?grupo=obras-postumas", <AlunoPage />);
+
+    const groupSelect = (await screen.findByLabelText("Livro ou grupo")) as HTMLSelectElement;
+    await waitFor(() => {
+      expect(groupSelect.value).toBe("obras-postumas");
+    });
+    expect(screen.getByRole("heading", { level: 2, name: "Grupo Obras Póstumas" })).toBeInTheDocument();
+    expect(document.getElementById("grupo-obras-postumas")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Qual é o tema principal deste estudo?" })).toBeInTheDocument();
+    expect(calls.knowledgeUrls).toEqual([]);
+
+    fireEvent.change(screen.getByLabelText("Sua duvida"), {
+      target: { value: "Como estudar Obras Póstumas com serenidade?" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Enviar" }));
+
+    await waitFor(() => {
+      expect(calls.agentBodies).toHaveLength(1);
+    });
+    expect(calls.agentBodies[0]).toMatchObject({
+      groupId: "obras-postumas",
+      bookTitle: "Obras Póstumas",
+    });
+    expect(JSON.stringify(calls.agentBodies[0])).not.toContain("emmanuel");
+    expect(JSON.stringify(calls.agentBodies[0])).not.toContain("a-caminho-da-luz");
   });
 
   it("Aluno não transforma Agent BOOK_ACCESS_FORBIDDEN em fallback e refaz BookAccess uma vez", async () => {

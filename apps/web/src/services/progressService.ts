@@ -1,16 +1,25 @@
 import {
   getMockProgress,
   type DemoProgressResponse,
-  type GroupSlug,
 } from "../mocks";
+import type { StudyGroupId } from "../types/studyGroup";
+import { isDemoGroupSlug } from "../types/studyGroup";
 import { formatPercentLabel } from "./formatters";
 import { loadWithFallback } from "./api";
+
+export type StudyProgressItem = Omit<DemoProgressResponse["items"][number], "groupSlug"> & {
+  groupSlug: StudyGroupId;
+};
+
+export type StudyProgressResponse = Omit<DemoProgressResponse, "items"> & {
+  items: StudyProgressItem[];
+};
 
 interface ApiProgressItem {
   id: string;
   studentId: string;
   studentName: string;
-  groupId: GroupSlug;
+  groupId: string;
   completedLessons: number;
   totalLessons: number;
   attendanceRate: number;
@@ -40,7 +49,7 @@ export interface ProgressHighlight {
   percentage: number;
 }
 
-const mapProgress = (payload: ApiProgressResponse): DemoProgressResponse => {
+const mapProgress = (payload: ApiProgressResponse): StudyProgressResponse => {
   return {
     overview: { ...payload.overview },
     items: payload.items.map((item) => ({
@@ -50,21 +59,28 @@ const mapProgress = (payload: ApiProgressResponse): DemoProgressResponse => {
   };
 };
 
-export const getProgress = (filters?: { studentId?: string; groupSlug?: GroupSlug }) => {
-  return loadWithFallback<ApiProgressResponse, DemoProgressResponse>({
+export const getProgress = (filters?: { studentId?: string; groupSlug?: StudyGroupId }) => {
+  return loadWithFallback<ApiProgressResponse, StudyProgressResponse>({
     path: "/api/progress",
     query: {
       studentId: filters?.studentId,
       groupId: filters?.groupSlug,
     },
-    fallback: () => getMockProgress(filters),
+    fallback: () =>
+      getMockProgress({
+        studentId: filters?.studentId,
+        groupSlug:
+          filters?.groupSlug && isDemoGroupSlug(filters.groupSlug)
+            ? filters.groupSlug
+            : undefined,
+      }),
     mapData: mapProgress,
     friendlyMessage:
       "O progresso do aluno nao foi atualizado agora pelo servidor. O painel segue com os dados demonstrativos para apoiar seu estudo.",
   });
 };
 
-export const buildProgressHighlights = (progress: DemoProgressResponse): ProgressHighlight[] => {
+export const buildProgressHighlights = (progress: StudyProgressResponse): ProgressHighlight[] => {
   const totalQuestions = progress.items.reduce((sum, item) => sum + item.questionsSent, 0);
   const completedShare =
     progress.overview.totalPlannedLessons > 0
