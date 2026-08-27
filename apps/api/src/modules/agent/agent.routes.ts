@@ -10,6 +10,8 @@ import { AppError } from "../../lib/app-error";
 import { sendSuccess } from "../../lib/api-response";
 import { asyncHandler } from "../../lib/async-handler";
 import { isStudyGroupId } from "../studies/studies.service";
+import { requireRole } from "../auth/auth.middleware";
+import { resolveSelectedBookAccess } from "../book-access/book-access.service";
 import {
   createAnswerResponse,
   createLessonPlanDraft,
@@ -225,9 +227,11 @@ export const agentRouter = Router();
 
 agentRouter.post(
   "/lesson-plan",
+  ...requireRole(["teacher"]),
   asyncHandler(async (request, response) => {
     const input = parseLessonPlanBody(request.body);
-    const draft = await createLessonPlanDraft(input);
+    const selectedAccess = await resolveSelectedBookAccess(request.authUser, input.groupId);
+    const draft = await createLessonPlanDraft(input, selectedAccess);
 
     return sendSuccess(response, {
       message: buildSuccessMessage(
@@ -245,9 +249,11 @@ agentRouter.post(
 
 agentRouter.post(
   "/reflection-questions",
+  ...requireRole(["teacher"]),
   asyncHandler(async (request, response) => {
     const input = parseReflectionQuestionsBody(request.body);
-    const draft = await createReflectionQuestionsDraft(input);
+    const selectedAccess = await resolveSelectedBookAccess(request.authUser, input.groupId);
+    const draft = await createReflectionQuestionsDraft(input, selectedAccess);
 
     return sendSuccess(response, {
       message: buildSuccessMessage(
@@ -265,9 +271,11 @@ agentRouter.post(
 
 agentRouter.post(
   "/summarize",
+  ...requireRole(["teacher"]),
   asyncHandler(async (request, response) => {
     const input = parseSummarizeBody(request.body);
-    const draft = await createSummaryDraft(input);
+    const selectedAccess = await resolveSelectedBookAccess(request.authUser, input.groupId);
+    const draft = await createSummaryDraft(input, selectedAccess);
 
     return sendSuccess(response, {
       message: buildSuccessMessage(
@@ -285,9 +293,11 @@ agentRouter.post(
 
 agentRouter.post(
   "/answer",
+  ...requireRole(["student", "teacher"]),
   asyncHandler(async (request, response) => {
     const input = parseAnswerBody(request.body);
-    const answerResponse = await createAnswerResponse(input);
+    const selectedAccess = await resolveSelectedBookAccess(request.authUser, input.groupId);
+    const answerResponse = await createAnswerResponse(input, selectedAccess);
 
     return sendSuccess(response, {
       message: buildSuccessMessage(

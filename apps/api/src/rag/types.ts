@@ -139,6 +139,10 @@ export interface RetrieveOptions {
   minScore?: number;
   group?: string;
   book?: string;
+  editorialScope?: {
+    bookId: string;
+    includeShared: boolean;
+  };
 }
 
 export interface RetrievedChunk {

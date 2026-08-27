@@ -4,6 +4,57 @@ import { loadKnowledgeDocuments } from "../src/rag/documentLoader";
 import { createKeywordRetriever } from "../src/rag/retriever";
 import type { KeywordRetriever, KnowledgeDocument } from "../src/rag/types";
 
+const buildSyntheticDocument = (
+  id: string,
+  group: string,
+  book: string,
+  bookId: string,
+  bookSlug: string,
+  content: string,
+  editorial = true,
+): KnowledgeDocument => ({
+  id,
+  title: `Documento ${id}`,
+  group,
+  book,
+  source: "fixture sintetica",
+  sourceLabel: `${book} · Documento ${id}`,
+  filename: `${id}.md`,
+  path: `data/knowledge/${id}.md`,
+  type: "tema",
+  tags: [id],
+  description: `Descricao ${id}`,
+  sensitiveTopics: [],
+  teacherReviewRecommended: false,
+  purpose: "teste de filtro editorial",
+  content,
+  rawContent: content,
+  frontmatter: {
+    title: `Documento ${id}`,
+    group,
+    purpose: "teste de filtro editorial",
+    source: "fixture sintetica",
+  },
+  charCount: content.length,
+  wordCount: content.split(/\s+/u).filter(Boolean).length,
+  ...(editorial
+    ? {
+        editorial: {
+          manifestFingerprint: "test-fingerprint",
+          manifestSourceId: `${id}:1`,
+          documentId: id,
+          bookId,
+          catalogKey: id,
+          documentTitle: `Documento ${id}`,
+          bookTitle: book,
+          bookSlug,
+          documentVersion: 1,
+          origin: "catalog" as const,
+        },
+      }
+    : {}),
+});
+
 describe("RAG local", () => {
   let documents: KnowledgeDocument[] = [];
   let retriever: KeywordRetriever;
@@ -137,5 +188,99 @@ describe("RAG local", () => {
         teacherReviewRecommended: expect.any(Boolean),
       }),
     );
+  });
+});
+
+describe("RAG protected editorial scope", () => {
+  const protectedDocuments = [
+    buildSyntheticDocument(
+      "emmanuel",
+      "Emmanuel",
+      "Emmanuel",
+      "book-emmanuel",
+      "emmanuel",
+      "constancia estudo simples",
+    ),
+    buildSyntheticDocument(
+      "a-caminho-da-luz",
+      "A Caminho da Luz",
+      "A Caminho da Luz",
+      "book-a-caminho-da-luz",
+      "a-caminho-da-luz",
+      "constancia constancia constancia capela score alto",
+    ),
+    buildSyntheticDocument(
+      "shared",
+      "Compartilhado",
+      "Base compartilhada",
+      "book-shared",
+      "shared",
+      "constancia compartilhada prece",
+    ),
+    buildSyntheticDocument(
+      "sem-editorial",
+      "Emmanuel",
+      "Emmanuel",
+      "book-emmanuel",
+      "emmanuel",
+      "constancia sem metadata editorial",
+      false,
+    ),
+  ];
+
+  it("filtra por editorial.bookId antes do ranking e permite shared somente quando explicito", async () => {
+    const protectedRetriever = await createKeywordRetriever({ documents: protectedDocuments });
+    const withShared = await protectedRetriever.search("constancia capela", {
+      limit: 10,
+      minScore: 0.1,
+      editorialScope: {
+        bookId: "book-emmanuel",
+        includeShared: true,
+      },
+    });
+    const withoutShared = await protectedRetriever.search("constancia capela", {
+      limit: 10,
+      minScore: 0.1,
+      editorialScope: {
+        bookId: "book-emmanuel",
+        includeShared: false,
+      },
+    });
+
+    expect(withShared.map((result) => result.documentId)).toContain("emmanuel");
+    expect(withShared.map((result) => result.documentId)).toContain("shared");
+    expect(withShared.map((result) => result.documentId)).not.toContain("a-caminho-da-luz");
+    expect(withShared.map((result) => result.documentId)).not.toContain("sem-editorial");
+
+    expect(withoutShared.map((result) => result.documentId)).toContain("emmanuel");
+    expect(withoutShared.map((result) => result.documentId)).not.toContain("shared");
+    expect(withoutShared.map((result) => result.documentId)).not.toContain("a-caminho-da-luz");
+  });
+
+  it("exclui fail-closed chunks sem editorial ou com bookId diferente", async () => {
+    const protectedRetriever = await createKeywordRetriever({ documents: protectedDocuments });
+    const results = await protectedRetriever.search("constancia", {
+      limit: 10,
+      minScore: 0.1,
+      editorialScope: {
+        bookId: "book-emmanuel",
+        includeShared: false,
+      },
+    });
+
+    expect(results.every((result) => result.editorial?.bookId === "book-emmanuel")).toBe(true);
+    expect(results.map((result) => result.documentId)).toEqual(["emmanuel"]);
+  });
+
+  it("preserva busca legacy quando editorialScope nao e fornecido", async () => {
+    const protectedRetriever = await createKeywordRetriever({ documents: protectedDocuments });
+    const results = await protectedRetriever.search("metadata editorial", {
+      group: "Emmanuel",
+      book: "Emmanuel",
+      limit: 10,
+      minScore: 0.1,
+    });
+
+    expect(results.map((result) => result.documentId)).toContain("sem-editorial");
   });
 });

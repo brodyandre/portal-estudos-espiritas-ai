@@ -139,7 +139,29 @@ const matchesFilterValue = (value: string, expected?: string): boolean => {
   return normalizeSearchText(value) === normalizeSearchText(expected);
 };
 
+const matchesEditorialScope = (chunk: KnowledgeChunk, options: RetrieveOptions): boolean => {
+  if (!options.editorialScope) {
+    return true;
+  }
+
+  const bookId = chunk.editorial?.bookId;
+
+  if (!bookId) {
+    return false;
+  }
+
+  if (bookId === options.editorialScope.bookId) {
+    return true;
+  }
+
+  return options.editorialScope.includeShared && chunk.editorial?.bookSlug === "shared";
+};
+
 const matchesChunkFilters = (chunk: KnowledgeChunk, options: RetrieveOptions): boolean => {
+  if (!matchesEditorialScope(chunk, options)) {
+    return false;
+  }
+
   const matchesGroup = !options.group || matchesFilterValue(chunk.group, options.group) || isSharedChunk(chunk);
   const matchesBook = !options.book || matchesFilterValue(chunk.book, options.book) || isSharedChunk(chunk);
 
