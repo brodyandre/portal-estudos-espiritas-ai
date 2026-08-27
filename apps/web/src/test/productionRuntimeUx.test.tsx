@@ -129,7 +129,8 @@ describe("production runtime UX", () => {
   it("nao renderiza aviso demonstrativo no painel do aluno production-like", async () => {
     await renderPage("/aluno", "aluno");
 
-    expect(await screen.findByText("Painel indisponível")).toBeInTheDocument();
+    expect((await screen.findAllByText("Painel indisponível")).length).toBeGreaterThan(0);
+    expect(await screen.findByText("Não foi possível carregar seus vínculos de estudo agora. Tente novamente em instantes.")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Educação Continuada" })).toBeInTheDocument();
     expect(screen.queryByText("Modo demonstrativo ativo")).not.toBeInTheDocument();
     expect(screen.queryByText(/Agenda demonstrativa/i)).not.toBeInTheDocument();
@@ -139,7 +140,8 @@ describe("production runtime UX", () => {
   it("nao renderiza blocos de fallback demonstrativo no professor production-like", async () => {
     await renderPage("/professor", "professor");
 
-    expect(await screen.findByText("Painel indisponível")).toBeInTheDocument();
+    expect((await screen.findAllByText("Painel indisponível")).length).toBeGreaterThan(0);
+    expect(await screen.findByText("Não foi possível carregar seus vínculos de estudo agora. Tente novamente em instantes.")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Educação Continuada" })).toBeInTheDocument();
     expect(screen.queryByText("Modo demonstrativo ativo")).not.toBeInTheDocument();
     expect(screen.queryByText("Fluxo demonstrativo")).not.toBeInTheDocument();

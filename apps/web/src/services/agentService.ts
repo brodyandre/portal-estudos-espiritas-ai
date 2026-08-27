@@ -1,6 +1,6 @@
 import type { DemoGroup, DemoMaterial, DemoSummary } from "../mocks";
 import type { KnowledgeSupportFile } from "./knowledgeService";
-import type { ServiceResult } from "./api";
+import type { ServiceRequestError, ServiceResult } from "./api";
 import { loadWithFallback } from "./api";
 
 type AgentProvider = "ollama" | "groq" | "fallback" | "local";
@@ -85,6 +85,13 @@ export interface TeacherAssistInput {
 const SUPPORT_NOTICE = "Resposta baseada nos materiais cadastrados.";
 const LOCAL_AGENT_FALLBACK_MESSAGE =
   "Esta é uma resposta demonstrativa baseada nos materiais locais. Para resposta completa, use o backend do agente.";
+const AGENT_SECURITY_ERROR_CODES = new Set([
+  "AUTH_REQUIRED",
+  "FORBIDDEN",
+  "BOOK_ACCESS_FORBIDDEN",
+  "BOOK_ACCESS_CATALOG_UNAVAILABLE",
+  "KNOWLEDGE_CORPUS_UNAVAILABLE",
+]);
 const getGroupLessonTheme = (group: DemoGroup) => group.nextLesson?.theme ?? group.bookTitle;
 const getGroupTeacherNote = (group: DemoGroup) =>
   group.nextLesson?.teacherNote ?? "Encontro em preparacao.";
@@ -150,6 +157,10 @@ const normalizeText = (value: string) => {
     .replace(/[\u0300-\u036f]/gu, "")
     .toLowerCase()
     .trim();
+};
+
+const shouldUseAgentFallback = (error: ServiceRequestError) => {
+  return !error.code || !AGENT_SECURITY_ERROR_CODES.has(error.code);
 };
 
 const extractKnowledgeTerms = (question: string) => {
@@ -530,7 +541,7 @@ export const askStudyAssistant = async ({
     materials,
     summary,
     theme: getGroupLessonTheme(group),
-    bookTitle: group.name,
+    bookTitle: group.bookTitle,
     meetLink: group.meetUrl ?? "",
   }).concat(supportContext ? `\n\nMateriais de apoio do livro:\n${supportContext}` : "");
 
@@ -541,13 +552,14 @@ export const askStudyAssistant = async ({
       body: JSON.stringify({
         groupId: group.slug,
         theme: getGroupLessonTheme(group),
-        bookTitle: group.name,
+        bookTitle: group.bookTitle,
         context: requestContext,
         question,
       }),
     },
     fallback: () => buildStudentFallbackReply({ question, group, materials, summary, supportFiles }),
     mapData: (payload) => mapAssistantReply(payload, fallbackSources),
+    shouldUseFallback: shouldUseAgentFallback,
     friendlyMessage:
       "Nao foi possivel consultar os materiais pelo servidor agora. Seguimos com uma resposta demonstrativa para voce continuar o estudo.",
   });
@@ -572,6 +584,7 @@ export const generateLessonPlanDraft = async (input: TeacherAssistInput) => {
     },
     fallback: () => buildLessonPlanFallbackReply(input),
     mapData: mapTeacherDraftReply,
+    shouldUseFallback: shouldUseAgentFallback,
     friendlyMessage:
       "Nao foi possivel preparar o roteiro pelo servidor agora. Criamos uma versao demonstrativa para voce revisar.",
   });
@@ -592,6 +605,7 @@ export const generateReflectionQuestionsDraft = async (input: TeacherAssistInput
     },
     fallback: () => buildReflectionQuestionsFallbackReply(input),
     mapData: mapTeacherDraftReply,
+    shouldUseFallback: shouldUseAgentFallback,
     friendlyMessage:
       "Nao foi possivel criar as perguntas pelo servidor agora. Montamos uma versao demonstrativa para a sua revisao.",
   });
@@ -611,6 +625,7 @@ export const generateSummaryDraft = async (input: TeacherAssistInput) => {
     },
     fallback: () => buildSummaryFallbackReply(input),
     mapData: mapTeacherDraftReply,
+    shouldUseFallback: shouldUseAgentFallback,
     friendlyMessage:
       "Nao foi possivel preparar o resumo pelo servidor agora. Criamos uma versao demonstrativa para voce revisar.",
   });

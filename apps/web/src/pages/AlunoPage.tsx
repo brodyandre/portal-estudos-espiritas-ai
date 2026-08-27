@@ -22,9 +22,9 @@ import type {
   DemoQuestion,
   GroupSlug,
 } from "../mocks";
-import { groups as demoGroups } from "../mocks";
+import { useBookAccess } from "../hooks/useBookAccess";
 import { useUserStudyMeetings } from "../hooks/useUserStudyMeetings";
-import { collectServiceNotice } from "../services/api";
+import { ServiceRequestError, collectServiceNotice } from "../services/api";
 import {
   askStudyAssistant,
   getInitialAssistantReply,
@@ -46,6 +46,12 @@ import {
 } from "../services/studentAccessService";
 import { listSummaries } from "../services/summariesService";
 import { appConfig } from "../config/appMode";
+import {
+  buildAuthorizedStudyGroups,
+  getAgentErrorMessage,
+  getBookAccessUnavailableCopy,
+  isKnownGroupSlug,
+} from "../utils/bookAccess";
 
 type AssistantFeedback = "helpful" | "not-helpful" | null;
 
@@ -157,6 +163,7 @@ export const AlunoPage = () => {
   const [isAssistantLoading, setIsAssistantLoading] = useState(false);
   const [isSendingTeacherQuestion, setIsSendingTeacherQuestion] = useState(false);
   const canLoadPersonalMeetings = user?.role === "student" || user?.role === "teacher";
+  const bookAccess = useBookAccess({ enabled: studentAccessStatus === "approved" });
   const userMeetings = useUserStudyMeetings({
     enabled: studentAccessStatus === "approved" && canLoadPersonalMeetings,
     limit: 3,
@@ -199,16 +206,12 @@ export const AlunoPage = () => {
         summariesResult,
         questionsResult,
         progressResult,
-        emmanuelKnowledgeResult,
-        caminhoKnowledgeResult,
       ] = await Promise.all([
         listStudies(),
         listMaterials(),
         listSummaries(),
         listQuestions(),
         getProgress(),
-        listKnowledgeFilesByGroup("emmanuel"),
-        listKnowledgeFilesByGroup("a-caminho-da-luz"),
       ]);
 
       if (!isActive) {
@@ -219,10 +222,6 @@ export const AlunoPage = () => {
       setMaterials(materialsResult.data);
       setSummaries(summariesResult.data);
       setQuestions(questionsResult.data);
-      setSupportFiles([
-        ...emmanuelKnowledgeResult.data,
-        ...caminhoKnowledgeResult.data,
-      ]);
       setProgress(progressResult.data);
       setNotice(
         collectServiceNotice([
@@ -231,15 +230,8 @@ export const AlunoPage = () => {
           summariesResult,
           questionsResult,
           progressResult,
-          emmanuelKnowledgeResult,
-          caminhoKnowledgeResult,
         ]),
       );
-      setActiveGroupSlug((currentSlug) => {
-        return studiesResult.data.some((group) => group.slug === currentSlug)
-          ? currentSlug
-          : (studiesResult.data[0]?.slug ?? currentSlug);
-      });
       setIsLoading(false);
     };
 
@@ -263,9 +255,14 @@ export const AlunoPage = () => {
     };
   }, [studentAccessStatus]);
 
-  const availableGroups = groups.length > 0 ? groups : appConfig.canUseDemoFallback ? demoGroups : [];
+  const availableGroups = useMemo(() => {
+    if (!bookAccess.data) {
+      return [];
+    }
+
+    return buildAuthorizedStudyGroups(bookAccess.data.groups, groups);
+  }, [bookAccess.data, groups]);
   const activeGroup =
-    groups.find((group) => group.slug === activeGroupSlug) ??
     availableGroups.find((group) => group.slug === activeGroupSlug) ??
     availableGroups[0] ??
     null;
@@ -308,6 +305,47 @@ export const AlunoPage = () => {
     ? quickQuestionSuggestions[activeGroup.slug]
     : quickQuestionSuggestions.emmanuel;
   const requestedGroupSlug = searchParams.get("grupo");
+  const bookAccessUnavailable = bookAccess.error
+    ? getBookAccessUnavailableCopy(bookAccess.error, "student")
+    : null;
+
+  useEffect(() => {
+    if (bookAccess.isLoading || bookAccess.error || availableGroups.length === 0) {
+      setSupportFiles([]);
+      return;
+    }
+
+    let isActive = true;
+
+    const loadAuthorizedKnowledge = async () => {
+      const results = await Promise.all(
+        availableGroups.map((group) => listKnowledgeFilesByGroup(group.slug)),
+      );
+
+      if (!isActive) {
+        return;
+      }
+
+      setSupportFiles(results.flatMap((result) => result.data));
+      const knowledgeNotice = collectServiceNotice(results);
+      if (knowledgeNotice) {
+        setNotice((current) => current ?? knowledgeNotice);
+      }
+    };
+
+    void loadAuthorizedKnowledge().catch(() => {
+      if (!isActive) {
+        return;
+      }
+
+      setSupportFiles([]);
+      setNotice((current) => current ?? "Não foi possível carregar os materiais de apoio agora.");
+    });
+
+    return () => {
+      isActive = false;
+    };
+  }, [availableGroups, bookAccess.error, bookAccess.isLoading]);
 
   useEffect(() => {
     if (studentAccessStatus !== "approved") {
@@ -321,12 +359,24 @@ export const AlunoPage = () => {
     const normalizedRequestedGroup = requestedGroupSlug.trim().toLowerCase();
 
     if (
-      normalizedRequestedGroup === "emmanuel" ||
-      normalizedRequestedGroup === "a-caminho-da-luz"
+      isKnownGroupSlug(normalizedRequestedGroup) &&
+      availableGroups.some((group) => group.slug === normalizedRequestedGroup)
     ) {
       setActiveGroupSlug(normalizedRequestedGroup as DemoGroup["slug"]);
     }
-  }, [requestedGroupSlug, studentAccessStatus]);
+  }, [availableGroups, requestedGroupSlug, studentAccessStatus]);
+
+  useEffect(() => {
+    if (availableGroups.length === 0) {
+      return;
+    }
+
+    setActiveGroupSlug((currentSlug) =>
+      availableGroups.some((group) => group.slug === currentSlug)
+        ? currentSlug
+        : availableGroups[0].slug,
+    );
+  }, [availableGroups]);
 
   useEffect(() => {
     setAssistantResponse(getInitialAssistantReply());
@@ -365,24 +415,33 @@ export const AlunoPage = () => {
     setAssistantMessage(null);
     setLastSubmittedQuestion(content);
 
-    const result = await askStudyAssistant({
-      question: content,
-      group: activeGroup,
-      materials: activeMaterials,
-      summary: activeSummary,
-      supportFiles: activeSupportFiles,
-    });
+    try {
+      const result = await askStudyAssistant({
+        question: content,
+        group: activeGroup,
+        materials: activeMaterials,
+        summary: activeSummary,
+        supportFiles: activeSupportFiles,
+      });
 
-    setAssistantResponse(result.data);
-    setAssistantMessage(
-      result.notice ??
-        (result.data.usedFallback
-          ? appConfig.canUseDemoFallback
-            ? "A resposta foi preparada em modo demonstrativo. Se precisar aprofundar, envie a duvida ao professor."
-            : "A resposta foi preparada com os materiais disponíveis. Se precisar aprofundar, envie a dúvida ao professor."
-          : null),
-    );
-    setIsAssistantLoading(false);
+      setAssistantResponse(result.data);
+      setAssistantMessage(
+        result.notice ??
+          (result.data.usedFallback
+            ? appConfig.canUseDemoFallback
+              ? "A resposta foi preparada em modo demonstrativo. Se precisar aprofundar, envie a duvida ao professor."
+              : "A resposta foi preparada com os materiais disponíveis. Se precisar aprofundar, envie a dúvida ao professor."
+            : null),
+      );
+    } catch (error) {
+      setAssistantMessage(getAgentErrorMessage(error));
+
+      if (error instanceof ServiceRequestError && error.code === "BOOK_ACCESS_FORBIDDEN") {
+        void bookAccess.refetch();
+      }
+    } finally {
+      setIsAssistantLoading(false);
+    }
   };
 
   const handleSendQuestionToTeacher = async () => {
@@ -397,19 +456,24 @@ export const AlunoPage = () => {
 
     setIsSendingTeacherQuestion(true);
 
-    const result = await createQuestion({
-      groupId: activeGroup.slug,
-      lessonId: activeGroup.nextLesson.id,
-      authorName: progress.overview.studentName,
-      question: lastSubmittedQuestion,
-      visibility: "teacher",
-    });
+    try {
+      const result = await createQuestion({
+        groupId: activeGroup.slug,
+        lessonId: activeGroup.nextLesson.id,
+        authorName: progress.overview.studentName,
+        question: lastSubmittedQuestion,
+        visibility: "teacher",
+      });
 
-    setQuestions((current) => [result.data, ...current]);
-    setAssistantMessage(
-      result.notice ?? "Sua duvida foi enviada ao professor para revisao no proximo encontro.",
-    );
-    setIsSendingTeacherQuestion(false);
+      setQuestions((current) => [result.data, ...current]);
+      setAssistantMessage(
+        result.notice ?? "Sua duvida foi enviada ao professor para revisao no proximo encontro.",
+      );
+    } catch (_error) {
+      setAssistantMessage("Não foi possível enviar sua dúvida agora. Tente novamente em instantes.");
+    } finally {
+      setIsSendingTeacherQuestion(false);
+    }
   };
 
   return (
@@ -479,19 +543,34 @@ export const AlunoPage = () => {
           title="Escolha o grupo ou livro"
         />
 
-        {isLoading ? (
+        {bookAccess.isLoading ? (
+          <LoadingState
+            description="Estamos carregando seus vínculos de estudo autorizados."
+            title="Carregando acesso aos livros"
+          />
+        ) : bookAccessUnavailable ? (
+          <EmptyState
+            action={
+              <Button onClick={() => void bookAccess.refetch()} variant="secondary">
+                Tentar novamente
+              </Button>
+            }
+            description={bookAccessUnavailable.description}
+            title={bookAccessUnavailable.title}
+          />
+        ) : isLoading ? (
           <LoadingState
             description="Estamos reunindo grupos, materiais e progresso para montar seu painel."
             title="Carregando painel do aluno"
           />
-        ) : groups.length === 0 ? (
+        ) : availableGroups.length === 0 ? (
           <EmptyState
-            description="Nenhum grupo foi encontrado para exibir agora."
-            title="Sem grupos disponiveis"
+            description="Nenhum grupo vinculado ao seu perfil."
+            title="Sem grupos vinculados"
           />
         ) : (
           <div className="group-grid">
-            {groups.map((group) => {
+            {availableGroups.map((group) => {
               const isActive = activeGroup?.slug === group.slug;
               const hasSchedule = Boolean(group.meetingDay && group.meetingTime);
               const readingTitle =
