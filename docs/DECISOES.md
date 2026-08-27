@@ -276,3 +276,17 @@ Separa descoberta publica de grupos da disponibilidade editorial/publica de mate
 
 Status:
 Ativa.
+
+## D023 -- Cobertura governada do corpus por StudyGroup ativo
+
+Decisao:
+A cobertura operacional do corpus governado nao deve comparar o total de documentos catalogados com o total de fontes publicadas no manifesto. O gate correto deriva os alvos de `StudyGroup` ativo vinculado a `KnowledgeBook` ativo, deduplicado por livro, e exige ao menos uma fonte pedagogica utilizavel incluida no manifesto editorial governado para esse `bookId` canonico.
+
+Racional:
+O catalogo pode conter documentos `DRAFT`, `NEEDS_REVIEW`, `REVIEWED` ou `ARCHIVED` legitimamente fora do RAG. Somente documento aprovado, livro ativo e arquivo fisico validado dentro de `data/knowledge` podem chegar ao manifesto. Fonte `readme` isolada nao satisfaz cobertura pedagogica, e conteudo `shared` nao cobre automaticamente outro livro sem fonte propria.
+
+Limites:
+O gate de cobertura e read-only e nao automatiza aprovacao editorial, transicoes de review, rebuild de corpus, seed, migration, bootstrap ou alteracao de producao. Uma eventual operacao editorial/rebuild posterior pertence a CORPUS-COVERAGE-001B e depende de autorizacao explicita.
+
+Status:
+Ativa.

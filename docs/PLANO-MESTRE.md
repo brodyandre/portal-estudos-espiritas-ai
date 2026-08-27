@@ -171,6 +171,8 @@ Estado funcional validado:
 
 Observacao separada: o catalogo PostgreSQL conhecido tinha Emmanuel com 19 documentos, A Caminho da Luz com 13 documentos e `shared` com 2 documentos, enquanto o corpus publico exposto por `/api/knowledge/groups` foi revalidado com Emmanuel `fileCount=1` e A Caminho da Luz `fileCount=0`. Esse desalinhamento catalogo/corpus permanece fora do escopo de MULTIGROUP-001D.
 
+CORPUS-COVERAGE-001A corrige a interpretacao operacional desse finding: `catalog count` nao e `expected corpus count`. A cobertura governada deve ser medida por `StudyGroup` ativo vinculado a `KnowledgeBook` ativo, com ao menos uma fonte pedagogica aprovada, fisicamente valida e incluida no manifesto editorial para o `bookId` canonico. Documentos nao aprovados nao contam como corpus; fonte `readme` isolada nao basta; `shared` nao mascara livro sem fonte propria. O gate e read-only e nao executa aprovacao editorial, migration, seed, bootstrap, rebuild, deploy ou mutacao de producao.
+
 ### BOOK-ACCESS-001A -- Backend access authority
 
 Integrado pelo PR #69 no commit `ae788e9747029ac8f602ace179f0cfbfa6bd3d25`. A entrega implementou `GET /api/me/book-access` como authority backend privada: `STUDENT` deriva escopo do grupo persistido no usuario, `StudyGroup` ativo e `KnowledgeBook` ativo; `TEACHER` deriva escopo de `TeacherStudyGroup`, `StudyGroup` ativo e `KnowledgeBook` ativo; `VISITOR` e `ADMIN` nao recebem acesso pedagogico automatico. Migration: `NOT_REQUIRED`.
@@ -199,7 +201,7 @@ Integrado pelo PR #73 no commit `8654febc66c66a8cf0a19826abe2ce9a1097c694`. `/ma
 - DOC-001 -- RESOLVIDO: stale factual em documentos auxiliares corrigido, documentos historicos explicitamente marcados, contratos executaveis reconciliados e nenhum runtime alterado.
 - BOOK-ACCESS-001 -- IMPLEMENTACAO DE CODIGO CONCLUIDA ATE 001C; 001D PENDENTE: backend BookAccess, Agent/RAG protegido e frontend Aluno/Professor ja foram integrados. Falta rollout controlado BOOK-ACCESS-001D.
 - PUBLIC-KNOWLEDGE-DYNAMIC-001 -- DEFERRED / NOT STARTED: rotas publicas de materiais ja sao dinamicas por `/api/studies`, mas backend publico de Knowledge continua capability de dois grupos (`emmanuel` e `a-caminho-da-luz`) e deve falhar fechado para grupos desconhecidos.
-- CORPUS-COVERAGE-001 -- PENDENTE: estado conhecido indica desalinhamento numerico entre catalogo persistido e corpus publico exposto. Catalogo PostgreSQL: Emmanuel com 19 documentos, A Caminho da Luz com 13 e `shared` com 2. Corpus publico conhecido: Emmanuel `fileCount=1`, A Caminho da Luz `fileCount=0`. Sem correcao neste checkpoint.
+- CORPUS-COVERAGE-001 -- PENDENTE: CORPUS-COVERAGE-001A adiciona diagnostico/gate read-only de cobertura governada. O criterio correto nao exige igualdade numerica catalogo/manifesto; exige `StudyGroup` ativo -> `KnowledgeBook` ativo -> fonte pedagogica aprovada e utilizavel no manifesto. CORPUS-COVERAGE-001B fica reservado para eventual operacao editorial/rebuild posterior e nao esta autorizado por 001A.
 - Professor -- HOLD: nao ha provisioning real liberado neste estado; nao registrar credenciais nem e-mail pessoal. `TeacherStudyGroup` e fonte de escopo TEACHER em BookAccess, mas nao autoriza criacao de Professor real.
 - Rate limit de password recovery/reset em memoria do processo: P2 conceitual antes de escala horizontal, nao bloqueante enquanto houver replica unica.
 - Observabilidade SMTP futura: dashboard, metricas agregadas, webhooks, integracoes de provider, fluxo de convite e caminho SMTP de falha em producao permanecem fora do escopo atual e dependem de necessidade operacional concreta.
@@ -207,7 +209,8 @@ Integrado pelo PR #73 no commit `8654febc66c66a8cf0a19826abe2ce9a1097c694`. `/ma
 ## Sequencia Recomendada
 
 1. GOV-004 -- reconciliacao documental pos BOOK-ACCESS e dynamic groups.
-2. CORPUS-COVERAGE-001 -- reconciliar cobertura entre catalogo persistido e corpus publico/RAG.
-3. BOOK-ACCESS-001D -- rollout controlado de BookAccess.
+2. CORPUS-COVERAGE-001A -- diagnostico/gate read-only de cobertura governada.
+3. CORPUS-COVERAGE-001B -- eventual operacao editorial/rebuild posterior, somente se autorizada explicitamente.
+4. BOOK-ACCESS-001D -- rollout controlado de BookAccess.
 
 PUBLIC-KNOWLEDGE-DYNAMIC-001 permanece deferred, a menos que futuramente seja necessario publicar conteudo Knowledge de novos grupos. Professor real permanece HOLD.
