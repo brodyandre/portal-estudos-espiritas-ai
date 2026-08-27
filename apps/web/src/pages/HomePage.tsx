@@ -97,7 +97,7 @@ export const HomePage = () => {
 
       <section className="page-section">
         <SectionTitle
-          description="Os dois grupos aparecem em destaque logo no inicio para facilitar o acesso rapido ao encontro e ao planejamento."
+          description="Os grupos aparecem em destaque logo no inicio para facilitar o acesso rapido ao encontro e ao planejamento."
           title="Grupos em destaque"
         />
         {groupsState.status === "loading" ? (
