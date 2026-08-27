@@ -14,7 +14,8 @@ import { Select } from "../components/ui/Select";
 import { StatusTag } from "../components/ui/StatusTag";
 import { TextArea } from "../components/ui/TextArea";
 import { TextInput } from "../components/ui/TextInput";
-import type { DemoFlowStep, DemoGroup, DemoQuestion } from "../mocks";
+import type { DemoFlowStep } from "../mocks";
+import type { StudyGroup, StudyGroupId } from "../types/studyGroup";
 import { useBookAccess } from "../hooks/useBookAccess";
 import { useUserStudyMeetings } from "../hooks/useUserStudyMeetings";
 import type {
@@ -41,7 +42,7 @@ import {
   updateEnrollmentStatus,
 } from "../services/enrollmentsService";
 import { listMaterials } from "../services/materialsService";
-import { listQuestions } from "../services/questionsService";
+import { listQuestions, type StudyQuestion } from "../services/questionsService";
 import { syncStudentAccessFromEnrollmentStatus } from "../services/studentAccessService";
 import { listStudies } from "../services/studiesService";
 import { listSummaries } from "../services/summariesService";
@@ -57,7 +58,8 @@ import {
   buildAuthorizedStudyGroups,
   getAgentErrorMessage,
   getBookAccessUnavailableCopy,
-  isKnownGroupSlug,
+  getDefaultStudyTheme,
+  getGroupCardId,
 } from "../utils/bookAccess";
 
 type ReviewState = "draft" | "approved" | "published";
@@ -110,14 +112,13 @@ const teacherSteps: DemoFlowStep[] = [
   },
 ];
 
-const defaultThemes: Record<DemoGroup["slug"], string> = {
+const defaultThemes: Partial<Record<StudyGroupId, string>> = {
   emmanuel: "Constancia no estudo e presenca atenta",
   "a-caminho-da-luz": "Convivio fraterno e responsabilidade na aula",
 };
 
-const groupCardIds: Record<DemoGroup["slug"], string> = {
-  emmanuel: "professor-grupo-emmanuel",
-  "a-caminho-da-luz": "professor-grupo-a-caminho-da-luz",
+const getProfessorGroupCardId = (groupId: StudyGroupId) => {
+  return getGroupCardId("professor-grupo", groupId);
 };
 
 const teacherSupportSectionIds = {
@@ -192,7 +193,7 @@ const sensitiveTopicRules = [
   },
 ] as const;
 
-const getStorageKey = (groupSlug: DemoGroup["slug"]) => {
+const getStorageKey = (groupSlug: StudyGroupId) => {
   return `portal-estudos:teacher-workspace:${groupSlug}`;
 };
 
@@ -209,13 +210,13 @@ const uniqueStrings = (items: string[]) => {
 };
 
 const createDefaultWorkspace = (
-  group: DemoGroup,
+  group: StudyGroup,
   summarySource: string,
   supportFiles: KnowledgeSupportFile[],
 ): TeacherWorkspace => {
   return {
     selectedBook: group.bookTitle,
-    themeChapter: defaultThemes[group.slug],
+    themeChapter: defaultThemes[group.slug] ?? getDefaultStudyTheme(group),
     meetLink: "",
     selectedSupportFileIds: supportFiles.slice(0, 2).map((file) => file.id),
     preview: {
@@ -230,7 +231,7 @@ const createDefaultWorkspace = (
   };
 };
 
-const readWorkspace = (groupSlug: DemoGroup["slug"]): Partial<TeacherWorkspace> | null => {
+const readWorkspace = (groupSlug: StudyGroupId): Partial<TeacherWorkspace> | null => {
   if (typeof window === "undefined") {
     return null;
   }
@@ -243,7 +244,7 @@ const readWorkspace = (groupSlug: DemoGroup["slug"]): Partial<TeacherWorkspace> 
   }
 };
 
-const writeWorkspace = (groupSlug: DemoGroup["slug"], workspace: TeacherWorkspace) => {
+const writeWorkspace = (groupSlug: StudyGroupId, workspace: TeacherWorkspace) => {
   if (typeof window === "undefined") {
     return;
   }
@@ -251,7 +252,7 @@ const writeWorkspace = (groupSlug: DemoGroup["slug"], workspace: TeacherWorkspac
   window.localStorage.setItem(getStorageKey(groupSlug), JSON.stringify(workspace));
 };
 
-const getQuestionStatus = (status: DemoQuestion["status"]) => {
+const getQuestionStatus = (status: StudyQuestion["status"]) => {
   if (status === "answered") {
     return { tone: "answered" as const, label: "Respondida" };
   }
@@ -370,13 +371,13 @@ const BellIcon = () => {
 
 export const ProfessorPage = () => {
   const [searchParams] = useSearchParams();
-  const [groups, setGroups] = useState<DemoGroup[]>([]);
-  const [questions, setQuestions] = useState<DemoQuestion[]>([]);
+  const [groups, setGroups] = useState<StudyGroup[]>([]);
+  const [questions, setQuestions] = useState<StudyQuestion[]>([]);
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [materials, setMaterials] = useState<Awaited<ReturnType<typeof listMaterials>>["data"]>([]);
   const [summaries, setSummaries] = useState<Awaited<ReturnType<typeof listSummaries>>["data"]>([]);
   const [supportFiles, setSupportFiles] = useState<KnowledgeSupportFile[]>([]);
-  const [groupSlug, setGroupSlug] = useState<DemoGroup["slug"]>("emmanuel");
+  const [groupSlug, setGroupSlug] = useState<StudyGroupId>("emmanuel");
   const [selectedBook, setSelectedBook] = useState("");
   const [themeChapter, setThemeChapter] = useState("");
   const [meetLink, setMeetLink] = useState("");
@@ -656,13 +657,10 @@ export const ProfessorPage = () => {
       return;
     }
 
-    const normalizedRequestedGroup = requestedGroupSlug.trim().toLowerCase();
+    const normalizedRequestedGroup = requestedGroupSlug.trim();
 
-    if (
-      isKnownGroupSlug(normalizedRequestedGroup) &&
-      teacherVisibleGroups.some((group) => group.slug === normalizedRequestedGroup)
-    ) {
-      setGroupSlug(normalizedRequestedGroup as DemoGroup["slug"]);
+    if (teacherVisibleGroups.some((group) => group.slug === normalizedRequestedGroup)) {
+      setGroupSlug(normalizedRequestedGroup);
     }
   }, [requestedGroupSlug, teacherVisibleGroups]);
 
@@ -943,7 +941,7 @@ export const ProfessorPage = () => {
             <Select
               id="teacher-group-select"
               label="Grupo ou livro"
-              onChange={(event) => setGroupSlug(event.target.value as DemoGroup["slug"])}
+              onChange={(event) => setGroupSlug(event.target.value)}
               options={teacherVisibleGroups.map((group) => ({
                 label: group.name,
                 value: group.slug,
@@ -991,7 +989,7 @@ export const ProfessorPage = () => {
                   className={`teacher-group-card ${
                     isActive ? "teacher-group-card--active" : ""
                   }`}
-                  id={groupCardIds[group.slug]}
+                  id={getProfessorGroupCardId(group.slug)}
                   key={group.slug}
                   tone={isActive ? "brand" : "default"}
                 >
@@ -1084,7 +1082,7 @@ export const ProfessorPage = () => {
                   id="teacher-book"
                   label="Grupo ou livro"
                   onChange={(event) => {
-                    const nextSlug = event.target.value as DemoGroup["slug"];
+                    const nextSlug = event.target.value;
                     setGroupSlug(nextSlug);
                     const nextGroup = teacherVisibleGroups.find((group) => group.slug === nextSlug);
                     if (nextGroup) {

@@ -12,12 +12,12 @@ import { Select } from "../components/ui/Select";
 import { StatusTag } from "../components/ui/StatusTag";
 import { TextArea } from "../components/ui/TextArea";
 import { DEMO_MODE_NOTICE, PUBLIC_MEET_NOTICE, appConfig } from "../config/appMode";
-import type { DemoGroup, DemoMaterial, DemoSummary, GroupSlug } from "../mocks";
 import { collectServiceNotice } from "../services/api";
-import { listMaterials } from "../services/materialsService";
+import { listMaterials, type StudyMaterial } from "../services/materialsService";
 import { createQuestion } from "../services/questionsService";
 import { listStudies } from "../services/studiesService";
-import { listSummaries } from "../services/summariesService";
+import { listSummaries, type StudySummary } from "../services/summariesService";
+import type { StudyGroup, StudyGroupId } from "../types/studyGroup";
 
 const newcomerTips = [
   "Escolha o grupo que deseja acompanhar e confira o horario do encontro.",
@@ -33,10 +33,10 @@ const responsibleUsePoints = [
 ];
 
 export const PortalPage = () => {
-  const [groups, setGroups] = useState<DemoGroup[]>([]);
-  const [materials, setMaterials] = useState<DemoMaterial[]>([]);
-  const [summaries, setSummaries] = useState<DemoSummary[]>([]);
-  const [activeGroupSlug, setActiveGroupSlug] = useState<GroupSlug>("emmanuel");
+  const [groups, setGroups] = useState<StudyGroup[]>([]);
+  const [materials, setMaterials] = useState<StudyMaterial[]>([]);
+  const [summaries, setSummaries] = useState<StudySummary[]>([]);
+  const [activeGroupSlug, setActiveGroupSlug] = useState<StudyGroupId>("emmanuel");
   const [questionDraft, setQuestionDraft] = useState("");
   const [questionError, setQuestionError] = useState<string | null>(null);
   const [questionNotice, setQuestionNotice] = useState<string | null>(null);
@@ -397,7 +397,7 @@ export const PortalPage = () => {
                 <Select
                   id="portal-group"
                   label="Grupo"
-                  onChange={(event) => setActiveGroupSlug(event.target.value as GroupSlug)}
+                  onChange={(event) => setActiveGroupSlug(event.target.value)}
                   options={groups.map((group) => ({
                     label: group.name,
                     value: group.slug,

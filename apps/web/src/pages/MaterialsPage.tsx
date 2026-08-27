@@ -17,13 +17,17 @@ import {
 } from "../services/knowledgeService";
 import { listStudies } from "../services/studiesService";
 import type { GroupSlug } from "../mocks";
+import type { StudyGroupId } from "../types/studyGroup";
 
 const groupRouteMap: Record<string, GroupSlug> = {
   emmanuel: "emmanuel",
   "a-caminho-da-luz": "a-caminho-da-luz",
 };
 
-const groupShortGoals: Record<GroupSlug, string> = {
+const genericGroupShortGoal =
+  "Apoiar o estudo com constancia, escuta respeitosa e perguntas serenas para o grupo.";
+
+const groupShortGoals: Partial<Record<StudyGroupId, string>> = {
   emmanuel:
     "Apoiar o estudo com constancia, escuta respeitosa e aplicacao pratica no dia a dia.",
   "a-caminho-da-luz":
@@ -34,7 +38,7 @@ export const MaterialsPage = () => {
   const { groupSlug: routeGroupSlug } = useParams<{ groupSlug?: string }>();
   const selectedRouteGroupSlug = routeGroupSlug ? groupRouteMap[routeGroupSlug] ?? null : null;
   const [groups, setGroups] = useState<Awaited<ReturnType<typeof listStudies>>["data"]>([]);
-  const [supportFiles, setSupportFiles] = useState<Record<GroupSlug, KnowledgeSupportFile[]>>({
+  const [supportFiles, setSupportFiles] = useState<Record<string, KnowledgeSupportFile[]>>({
     emmanuel: [],
     "a-caminho-da-luz": [],
   });
@@ -192,7 +196,9 @@ export const MaterialsPage = () => {
                       {group.description ? <p>{group.description}</p> : null}
                     </div>
 
-                    <p className="portal-card-note">{groupShortGoals[group.slug]}</p>
+                    <p className="portal-card-note">
+                      {groupShortGoals[group.slug] ?? genericGroupShortGoal}
+                    </p>
 
                     <div className="materials-tag-row" aria-label="Tags do livro">
                       {fileTags.map((tag) => (
@@ -240,7 +246,9 @@ export const MaterialsPage = () => {
                 <h3>{activeGroup.name}</h3>
                 <p className="card-subtitle">Objetivo do grupo</p>
                 <p>{activeGroup.description}</p>
-                <p className="portal-card-note">{groupShortGoals[activeGroup.slug]}</p>
+                <p className="portal-card-note">
+                  {groupShortGoals[activeGroup.slug] ?? genericGroupShortGoal}
+                </p>
               </Card>
 
               <Card className="materials-overview-card" tone="soft">

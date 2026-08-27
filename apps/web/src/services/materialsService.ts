@@ -1,10 +1,16 @@
-import { listMockMaterials, type DemoMaterial, type GroupSlug } from "../mocks";
+import { listMockMaterials, type DemoMaterial } from "../mocks";
+import type { StudyGroupId } from "../types/studyGroup";
+import { isDemoGroupSlug } from "../types/studyGroup";
 import { formatPublishedLabel, mapMaterialKind } from "./formatters";
 import { loadWithFallback } from "./api";
 
+export type StudyMaterial = Omit<DemoMaterial, "groupSlug"> & {
+  groupSlug: StudyGroupId;
+};
+
 interface ApiMaterial {
   id: string;
-  groupId: GroupSlug;
+  groupId: string;
   title: string;
   type: "reading" | "summary" | "guide" | "activity";
   lessonId: string | null;
@@ -14,7 +20,7 @@ interface ApiMaterial {
   publishedAt: string;
 }
 
-const mapMaterial = (material: ApiMaterial): DemoMaterial => {
+const mapMaterial = (material: ApiMaterial): StudyMaterial => {
   return {
     id: material.id,
     groupSlug: material.groupId,
@@ -29,11 +35,14 @@ const mapMaterial = (material: ApiMaterial): DemoMaterial => {
   };
 };
 
-export const listMaterials = (groupSlug?: GroupSlug) => {
-  return loadWithFallback<ApiMaterial[], DemoMaterial[]>({
+export const listMaterials = (groupSlug?: StudyGroupId) => {
+  return loadWithFallback<ApiMaterial[], StudyMaterial[]>({
     path: "/api/materials",
     query: groupSlug ? { groupId: groupSlug } : undefined,
-    fallback: () => listMockMaterials({ groupSlug }),
+    fallback: () =>
+      listMockMaterials({
+        groupSlug: groupSlug && isDemoGroupSlug(groupSlug) ? groupSlug : undefined,
+      }),
     mapData: (items) => items.map(mapMaterial),
     friendlyMessage:
       "Os materiais da semana nao puderam ser atualizados agora. Mantivemos a colecao demonstrativa disponivel para consulta.",

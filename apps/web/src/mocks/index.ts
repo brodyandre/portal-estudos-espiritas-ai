@@ -1,26 +1,12 @@
-export type GroupSlug = "emmanuel" | "a-caminho-da-luz";
+import type { DemoGroupSlug, StudyGroup } from "../types/studyGroup";
+
+export type GroupSlug = DemoGroupSlug;
 
 const DEMO_MEET_LINK_EMMANUEL = "https://example.com/demo-meet/emmanuel";
 const DEMO_MEET_LINK_A_CAMINHO_DA_LUZ = "https://example.com/demo-meet/a-caminho-da-luz";
 
-export interface DemoGroup {
+export interface DemoGroup extends StudyGroup {
   slug: GroupSlug;
-  name: string;
-  meetingDay: string | null;
-  meetingTime: string | null;
-  participantCount: number | null;
-  meetUrl: string | null;
-  bookTitle: string;
-  description: string | null;
-  nextLesson: {
-    id: string;
-    title: string;
-    theme: string;
-    scheduledAt: string;
-    scheduledLabel: string;
-    status: "proxima" | "hoje";
-    teacherNote: string;
-  } | null;
 }
 
 export interface DemoFlowStep {

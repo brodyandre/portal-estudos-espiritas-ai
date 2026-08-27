@@ -2,8 +2,9 @@ import {
   getMockStudyBySlug,
   listMockStudies,
   type DemoGroup,
-  type GroupSlug,
 } from "../mocks";
+import type { StudyGroup, StudyGroupId } from "../types/studyGroup";
+import { isDemoGroupSlug } from "../types/studyGroup";
 import {
   formatMeetingDay,
   formatScheduledLabel,
@@ -12,10 +13,10 @@ import {
 import { loadWithFallback } from "./api";
 import { getMeetLinkForMode } from "../config/appMode";
 
-export type StudyGroup = DemoGroup;
+export type { StudyGroup } from "../types/studyGroup";
 
 interface ApiStudyGroup {
-  id: GroupSlug;
+  id: string;
   name: string;
   meetingDay: string | null;
   meetingTime: string | null;
@@ -66,7 +67,7 @@ const sanitizeDemoGroup = (group: DemoGroup): StudyGroup => {
 };
 
 export const listStudies = () => {
-  return loadWithFallback<ApiStudyGroup[], DemoGroup[]>({
+  return loadWithFallback<ApiStudyGroup[], StudyGroup[]>({
     path: "/api/studies",
     fallback: () => listMockStudies().map(sanitizeDemoGroup),
     mapData: (items) => items.map(mapStudyGroup),
@@ -75,10 +76,14 @@ export const listStudies = () => {
   });
 };
 
-export const getStudyBySlug = (slug: GroupSlug) => {
-  return loadWithFallback<ApiStudyGroup, DemoGroup | null>({
+export const getStudyBySlug = (slug: StudyGroupId) => {
+  return loadWithFallback<ApiStudyGroup, StudyGroup | null>({
     path: `/api/studies/${slug}`,
     fallback: () => {
+      if (!isDemoGroupSlug(slug)) {
+        return null;
+      }
+
       const item = getMockStudyBySlug(slug);
       return item ? sanitizeDemoGroup(item) : null;
     },
