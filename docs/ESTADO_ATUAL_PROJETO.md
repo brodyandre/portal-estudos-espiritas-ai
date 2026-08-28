@@ -11,12 +11,13 @@ O SHA efetivo da `main` deve ser verificado operacionalmente via Git no inicio d
 
 Produção conhecida:
 
-- Web oficial: `https://portal-educacao-continuada.com.br`, revisão live conhecida/validada `7818eabc81bf0152ec109468a79422e85783893a`, deploy Render `dep-da4poe3l550s738kmti0`, serviço Render `portal-estudos-web` (`srv-d9qa5pbm8hqs73eak6i0`), tipo `static_site`;
-- API: `https://api.portal-educacao-continuada.com.br`, revisão live conhecida/validada `47917158545338cf442f97ebe8b3a4aee2feed86`, deploy Render `dep-da4ooms9v7es738rb7n0`, serviço Render `portal-estudos-api` (`srv-d9pp5it3erlc739asjt0`);
-- `Auto-Deploy = Off/no` observado na Web como estado operacional, não como decisão arquitetural imutável;
-- MULTIGROUP-001D está aprovado e o rollout controlado de produção foi concluído.
+- Web oficial: `https://portal-educacao-continuada.com.br`, revisão live conhecida/validada `03f1f142cf43d49be2d82ae5a355c0a09514ccb1`, deploy Render `dep-da8sgagn74is73e11cjg`, serviço Render `portal-estudos-web` (`srv-d9qa5pbm8hqs73eak6i0`), tipo `static_site`;
+- API: `https://api.portal-educacao-continuada.com.br`, revisão live conhecida/validada `03f1f142cf43d49be2d82ae5a355c0a09514ccb1`, deploy Render `dep-da8seugn74is73e0sd10`, serviço Render `portal-estudos-api` (`srv-d9pp5it3erlc739asjt0`);
+- `Auto-Deploy = Off/no` observado na Web e na API como estado operacional, não como decisão arquitetural imutável;
+- MULTIGROUP-001D está aprovado e o rollout controlado de produção foi concluído;
+- BOOK-ACCESS-001D está aprovado e o rollout controlado de produção foi concluído na ordem API -> Web, sem rollback.
 
-A Web oficial foi publicada manualmente e validada na revisão `7818eabc81bf0152ec109468a79422e85783893a`, que inclui a correção da Home para consumir `/api/studies` via `listStudies()`. A API permanece na revisão runtime conhecida `47917158545338cf442f97ebe8b3a4aee2feed86`. Essa diferença por superfície é esperada e não representa, por si só, drift indevido; o rollout corretivo da Web não exigiu deploy da API nem alinhamento numérico entre Web e API.
+A Web oficial e a API oficial foram publicadas e validadas na revisão `03f1f142cf43d49be2d82ae5a355c0a09514ccb1` durante BOOK-ACCESS-001D. O rollout foi `CODE REVISION DEPLOY ONLY`, sem migration, seed, SQL write, Prisma write, `knowledge:catalog`, `groups:bootstrap`, rebuild manual do corpus, alteracao editorial, mudanca de User/Professor, SMTP real, DNS, env, Auto-Deploy, Git/source ou rollback.
 
 ## Identificacao
 
@@ -44,14 +45,16 @@ O banco configurado e PostgreSQL via Prisma. Fluxos persistidos incluem usuarios
 
 Estado operacional oficial previamente validado:
 
-- Web oficial live em `7818eabc81bf0152ec109468a79422e85783893a`, com smoke read-only em `/`, `/portal`, `/materiais` e `/login`;
-- API `/version = 47917158545338cf442f97ebe8b3a4aee2feed86`
+- Web oficial live em `03f1f142cf43d49be2d82ae5a355c0a09514ccb1`, com smoke read-only em `/`, `/portal`, `/materiais`, `/materiais/emmanuel`, `/materiais/a-caminho-da-luz`, `/login`, `/aluno`, `/professor`, `/robots.txt` e `/sitemap.xml`;
+- API `/version = 03f1f142cf43d49be2d82ae5a355c0a09514ccb1`
 - API `/health = OK`
 - API `/ready = ready`
 - API `database = ok`
 - API `corpus = ready`
 - API `/api/studies` retorna `emmanuel` e `a-caminho-da-luz` com campos operacionais ainda não configurados como `null`;
 - `GET /api/knowledge/groups` expõe atualmente `fileCount=1` para Emmanuel e `fileCount=1` para A Caminho da Luz.
+
+Durante o startup pós-deploy de BOOK-ACCESS-001D, foi observado transitoriamente `/ready = degraded` com corpus `building`; isso estabilizou normalmente e a leitura final ficou 5/5 em `ready`, database `ok` e corpus `ready`.
 
 ## CI/CD
 
@@ -180,6 +183,12 @@ BOOK-ACCESS-001B foi integrado pelo PR #70 no commit de integracao `6eb461edcd49
 
 BOOK-ACCESS-001C foi integrado pelo PR #71 no commit de integracao `c908373b7a19d3a13f639689671cf2d5df9b618c`. O frontend de Aluno/Professor passou a usar `GET /api/me/book-access` como authority privada; `listStudies` e enrichment publico, meetings sao agenda, e query/localStorage sao reconciliados como estado nao autoritativo. Migration: `NOT_REQUIRED`.
 
+BOOK-ACCESS-001D foi aprovado e concluido como rollout controlado de producao na ordem API -> Web. A API `portal-estudos-api` foi publicada no deploy `dep-da8seugn74is73e0sd10` e a Web `portal-estudos-web` no deploy `dep-da8sgagn74is73e11cjg`, ambas na revisão `03f1f142cf43d49be2d82ae5a355c0a09514ccb1`, sem rollback. Estao live: BookAccess backend em `GET /api/me/book-access`, Agent/RAG protegido por BookAccess, frontend Aluno/Professor usando BookAccess, identidade dinamica de `StudyGroup` e materiais publicos dinamicos. Query string, localStorage e `bookTitle`/hints de frontend permanecem nao autoritativos.
+
+Validacao de seguranca em producao apos o rollout: `GET /api/me/book-access` anonimo retornou `401 AUTH_REQUIRED`; `POST /api/agent/answer` anonimo retornou `401 AUTH_REQUIRED`; `POST /api/agent/lesson-plan` anonimo retornou `401 AUTH_REQUIRED`. O teste negativo ADMIN nao foi executado porque nenhuma sessao administrativa foi criada nesse rollout. Smoke positivo pedagogico tambem nao foi executado porque nao ha usuario pedagogico autorizado provisionado para esse fim; o contrato positivo permanece coberto pelos testes/CI integrados anteriormente. Nao havia navegador headless disponivel para observar diretamente o redirect client-side de `/aluno` e `/professor`; a validacao dessas rotas foi HTTP/SPA, com seguranca backend validada por 401 anonimo e routing/frontend cobertos por CI.
+
+Materiais publicos em producao apos BOOK-ACCESS-001D: Emmanuel expoe `Emmanuel - estudo sereno`; A Caminho da Luz expoe `A Caminho da Luz - visao geral da obra`. Isso nao publica automaticamente os demais documentos catalogados e nao altera a decisao de que catalog count nao equivale a corpus count.
+
 DYNAMIC-GROUPS-001 foi integrado pelo PR #72 no commit de integracao `06b2256dd95b9605a01667c0511dc9dabcd44e4c`. `StudyGroupId` tornou-se string dinamica de runtime, `DemoGroupSlug` permaneceu estrito a demo, o adapter de BookAccess deixou de depender de allowlist local, novo grupo autorizado nao e descartado pelo frontend e Knowledge desconhecido falha fechado sem coercao para Emmanuel. Backend Knowledge nao foi alterado. Migration: `NOT_REQUIRED`.
 
 PUBLIC-MATERIALS-DYNAMIC-001 foi integrado pelo PR #73 no commit de integracao `8654febc66c66a8cf0a19826abe2ce9a1097c694`. `/materiais/:groupSlug` agora resolve dinamicamente pelo catalogo publico `GET /api/studies`; a allowlist local foi removida; grupo publico conhecido sem Knowledge mostra estado seguro `Materiais em preparação`; slug ausente vira true not-found somente apos resolucao do catalogo; falha de catalogo nao vira falso 404. Backend Knowledge nao foi alterado. Migration: `NOT_REQUIRED`.
@@ -188,7 +197,7 @@ CORPUS-COVERAGE-001A foi aprovado, integrado pelo PR #75 e Git-closed na `main` 
 
 CORPUS-COVERAGE-001B foi aprovado e concluido como operacao controlada de producao. O alvo exclusivo foi `a-caminho-da-luz-visao-geral`; o fluxo editorial executado foi `DRAFT -> REVIEWED -> APPROVED`, versao `1 -> 2 -> 3`; o corpus governado foi reconstruido uma unica vez com sucesso; a cobertura minima de producao ficou restaurada para Emmanuel e A Caminho da Luz. Nao houve deploy de codigo, alteracao de Git, migration, seed, `knowledge:catalog`, `groups:bootstrap`, source Markdown, Professor/User, SQL write direto ou Prisma write direto.
 
-BOOK-ACCESS-001 deve ser representado como implementacao de codigo concluida ate 001C, com BOOK-ACCESS-001D pendente para rollout controlado. Professor real permanece HOLD.
+BOOK-ACCESS-001 esta encerrado: 001A, 001B e 001C foram integrados em codigo, e 001D concluiu o rollout controlado de producao. Professor real permanece HOLD.
 
 ## Limites Pos-Validacao
 
@@ -199,7 +208,7 @@ Achados nao bloqueantes registrados para evolucao futura:
 - F-001 -- P3: variable/flaky timeouts in unmodified tests, without evidence of relation to 9C.12.1. Aberto originalmente como P2, foi reavaliado na F-001A e reclassificado para P3 apos nao reproducao repetida, testes historicos Web/API verdes, suites completas Web/API verdes, CIs posteriores verdes e ausencia de evidencia de mascaramento por aumento global de timeout;
 - W-001 -- RESOLVIDO: W-001A identificou escopo material em metadados publicos da Web e no default versionado de `SMTP_FROM_NAME`; W-001B corrigiu metadata publica Web, default versionado de `SMTP_FROM_NAME` e `.env.example`; o PR #59 integrou a correcao no squash `1f92154cdaad211bcc7c080220f5df253f54f472`; GitHub Pages foi publicado e validado; a Web oficial foi publicada manualmente de forma controlada no deploy Render `dep-d9v7bregekts73evo580`, live em `1f92154cdaad211bcc7c080220f5df253f54f472`; a validacao publica confirmou HTTP 200 e `title`, `og:title`, `og:site_name` e `twitter:title` como `Portal de Educação Continuada`, com a marca historica ausente nesses quatro campos; o smoke read-only passou em `/`, `/portal`, `/materiais`, `/inscricao`, `/robots.txt` e `/sitemap.xml`; a API nao foi redeployada; o default SMTP esta correto em source, a producao ja possuia override institucional correto e nenhum SMTP real foi executado nessa entrega;
 - DOC-001 -- RESOLVIDO: stale factual em documentos auxiliares corrigido, documentos historicos explicitamente marcados, contratos executaveis reconciliados e nenhum runtime alterado;
-- BOOK-ACCESS-001 -- IMPLEMENTACAO DE CODIGO CONCLUIDA ATE 001C; 001D PENDENTE: backend BookAccess, Agent/RAG protegido e frontend Aluno/Professor ja foram integrados. O rollout controlado BOOK-ACCESS-001D permanece pendente. Professor permanece HOLD e nao ha provisioning real liberado;
+- BOOK-ACCESS-001 -- ENCERRADO: backend BookAccess, Agent/RAG protegido e frontend Aluno/Professor foram integrados em 001A/001B/001C; BOOK-ACCESS-001D concluiu o rollout controlado de producao na ordem API -> Web, sem rollback. Professor permanece HOLD e nao ha provisioning real liberado;
 - DYNAMIC-GROUPS-001 -- INTEGRADO: `StudyGroupId` e string dinamica de runtime, `DemoGroupSlug` permanece demo-only e autorizacao privada continua vindo de BookAccess;
 - PUBLIC-MATERIALS-DYNAMIC-001 -- INTEGRADO: rotas publicas `/materiais/:groupSlug` usam `/api/studies` como catalogo navegavel; public Knowledge permanece capability separada de dois grupos e falha fechado para grupos nao suportados;
 - PUBLIC-KNOWLEDGE-DYNAMIC-001 -- DEFERRED / NOT STARTED: backend publico de Knowledge ainda nao e dinamico para novos grupos; isso nao bloqueia BookAccess privado nem rotas publicas de materiais;
@@ -208,4 +217,4 @@ Achados nao bloqueantes registrados para evolucao futura:
 
 ## Proxima Entrega
 
-Sequencia recomendada apos GOV-005: BOOK-ACCESS-001D rollout controlado. PUBLIC-KNOWLEDGE-DYNAMIC-001 permanece deferred, a menos que futuramente seja necessario publicar conteudo Knowledge de novos grupos. Evolucao de rate limit distribuido e observabilidade SMTP futura seguem no backlog. Professor permanece HOLD ate planejamento/autorizacao especificos.
+Nao existe checkpoint funcional automatico apos BOOK-ACCESS-001D. PUBLIC-KNOWLEDGE-DYNAMIC-001 permanece deferred, a menos que futuramente seja necessario publicar conteudo Knowledge de novos grupos. Evolucao de rate limit distribuido e observabilidade SMTP futura seguem no backlog. Professor permanece HOLD ate planejamento/autorizacao especificos.
