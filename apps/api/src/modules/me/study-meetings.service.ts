@@ -28,7 +28,7 @@ export interface UserStudyMeetingsService {
   ): Promise<UserStudyMeetingListResult>;
 }
 
-const assertStudentOrTeacher = (authUser: AuthUser | undefined) => {
+const assertStudentTeacherOrAdmin = (authUser: AuthUser | undefined) => {
   if (!authUser) {
     throw new AppError({
       statusCode: 401,
@@ -37,7 +37,11 @@ const assertStudentOrTeacher = (authUser: AuthUser | undefined) => {
     });
   }
 
-  if (authUser.role !== "student" && authUser.role !== "teacher") {
+  if (
+    authUser.role !== "student" &&
+    authUser.role !== "teacher" &&
+    authUser.role !== "admin"
+  ) {
     throw new AppError({
       statusCode: 403,
       code: "FORBIDDEN",
@@ -124,12 +128,20 @@ export const createUserStudyMeetingsService = (
 ): UserStudyMeetingsService => {
   return {
     async listUpcomingMeetings(authUser, input) {
-      const actor = assertStudentOrTeacher(authUser);
+      const actor = assertStudentTeacherOrAdmin(authUser);
 
       try {
-        if (actor.role === "teacher") {
-          const teacherGroups = await dependencies.repository.listTeacherGroupsByUserId(actor.id);
+        if (actor.role === "teacher" || actor.role === "admin") {
+          const teacherGroups = await dependencies.repository.listPedagogicalGroupsByUserId(actor.id);
           const activeTeacherGroups = teacherGroups.filter((group) => group.status === "active");
+
+          if (actor.role === "admin" && activeTeacherGroups.length === 0) {
+            throw new AppError({
+              statusCode: 403,
+              code: "BOOK_ACCESS_FORBIDDEN",
+              message: "Seu perfil não possui acesso a este grupo de estudo.",
+            });
+          }
 
           if (teacherGroups.length === 0 || activeTeacherGroups.length === 0) {
             return {

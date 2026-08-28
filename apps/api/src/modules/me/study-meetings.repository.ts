@@ -17,7 +17,7 @@ import type {
 
 export interface UserStudyMeetingsRepository {
   findUserGroupByUserId(userId: string): Promise<UserStudyMeetingUserGroupRecord | null>;
-  listTeacherGroupsByUserId(userId: string): Promise<UserStudyMeetingGroupRecord[]>;
+  listPedagogicalGroupsByUserId(userId: string): Promise<UserStudyMeetingGroupRecord[]>;
   findGroupById(groupId: string): Promise<UserStudyMeetingGroupRecord | null>;
   listCurrentAndFutureMeetings(input: {
     groupIds: string[];
@@ -183,7 +183,7 @@ export const createMemoryUserStudyMeetingsRepository = (
       return group ? cloneGroup(group) : null;
     },
 
-    async listTeacherGroupsByUserId(userId) {
+    async listPedagogicalGroupsByUserId(userId) {
       const membershipGroupIds = state.teacherGroupMemberships
         .filter((membership) => membership.userId === userId)
         .map((membership) => membership.groupId);
@@ -271,7 +271,7 @@ export const createPrismaUserStudyMeetingsRepository = (
       return group ? mapPrismaGroup(group) : null;
     },
 
-    async listTeacherGroupsByUserId(userId) {
+    async listPedagogicalGroupsByUserId(userId) {
       const memberships = await prisma.teacherStudyGroup.findMany({
         where: {
           userId,

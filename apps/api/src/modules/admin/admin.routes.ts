@@ -78,6 +78,8 @@ import {
 import {
   parseAdminUserGroupBody,
   parseAdminUserGroupPathParam,
+  parseAdminTeacherBody,
+  parseAdminUserPedagogicalGroupsBody,
   parseAdminUserTeacherGroupsBody,
   parseAdminUserTeacherGroupsPathParam,
   parseAdminUserStatusBody,
@@ -85,8 +87,11 @@ import {
   parseAdminUsersListQuery,
 } from "./users/query";
 import { listAdminUsers, updateAdminUserGroup, updateAdminUserStatus } from "./users/service";
+import { createAdminTeacher } from "./users/teachers.service";
 import {
+  listAdminUserPedagogicalGroups,
   listAdminUserTeacherGroups,
+  updateAdminUserPedagogicalGroups,
   updateAdminUserTeacherGroups,
 } from "./users/teacher-groups.service";
 import type {
@@ -809,6 +814,23 @@ adminRouter.get(
   }),
 );
 
+adminRouter.post(
+  "/teachers",
+  ...requireRole(["admin"]),
+  asyncHandler(async (request, response) => {
+    const result = await createAdminTeacher(
+      request.authUser,
+      parseAdminTeacherBody(request.body),
+    );
+
+    return sendSuccess(response, {
+      status: 201,
+      message: "Professor criado com sucesso para ativação por convite.",
+      data: result,
+    });
+  }),
+);
+
 adminRouter.patch(
   "/users/:userId/status",
   ...requireRole(["admin"]),
@@ -887,6 +909,39 @@ adminRouter.put(
 
     return sendSuccess(response, {
       message: "Grupos do professor atualizados com sucesso.",
+      data: result,
+    });
+  }),
+);
+
+adminRouter.get(
+  "/users/:userId/pedagogical-groups",
+  ...requireRole(["admin"]),
+  asyncHandler(async (request, response) => {
+    const result = await listAdminUserPedagogicalGroups(
+      request.authUser,
+      parseAdminUserTeacherGroupsPathParam(request.params.userId),
+    );
+
+    return sendSuccess(response, {
+      message: "Escopo pedagógico consultado com sucesso.",
+      data: result,
+    });
+  }),
+);
+
+adminRouter.put(
+  "/users/:userId/pedagogical-groups",
+  ...requireRole(["admin"]),
+  asyncHandler(async (request, response) => {
+    const result = await updateAdminUserPedagogicalGroups(
+      request.authUser,
+      parseAdminUserTeacherGroupsPathParam(request.params.userId),
+      parseAdminUserPedagogicalGroupsBody(request.body),
+    );
+
+    return sendSuccess(response, {
+      message: "Escopo pedagógico atualizado com sucesso.",
       data: result,
     });
   }),

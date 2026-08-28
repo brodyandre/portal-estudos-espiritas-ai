@@ -80,6 +80,10 @@ const adminUserStatusTargetPolicy: RateLimitPolicy = {
 
 const adminUserGroupActorPolicy: RateLimitPolicy = adminUserStatusActorPolicy;
 const adminUserGroupTargetPolicy: RateLimitPolicy = adminUserStatusTargetPolicy;
+const adminTeacherProvisioningActorPolicy: RateLimitPolicy = adminUserStatusActorPolicy;
+const adminTeacherProvisioningTargetPolicy: RateLimitPolicy = adminUserStatusTargetPolicy;
+const adminPedagogicalGroupActorPolicy: RateLimitPolicy = adminUserStatusActorPolicy;
+const adminPedagogicalGroupTargetPolicy: RateLimitPolicy = adminUserStatusTargetPolicy;
 const adminStudyMeetingActorPolicy: RateLimitPolicy = adminUserStatusActorPolicy;
 const adminStudyMeetingTargetPolicy: RateLimitPolicy = adminUserStatusTargetPolicy;
 const adminKnowledgeActorPolicy: RateLimitPolicy = adminUserStatusActorPolicy;
@@ -109,6 +113,10 @@ const adminUserStatusActorLimiter = new MemorySlidingWindowRateLimiter();
 const adminUserStatusTargetLimiter = new MemorySlidingWindowRateLimiter();
 const adminUserGroupActorLimiter = new MemorySlidingWindowRateLimiter();
 const adminUserGroupTargetLimiter = new MemorySlidingWindowRateLimiter();
+const adminTeacherProvisioningActorLimiter = new MemorySlidingWindowRateLimiter();
+const adminTeacherProvisioningTargetLimiter = new MemorySlidingWindowRateLimiter();
+const adminPedagogicalGroupActorLimiter = new MemorySlidingWindowRateLimiter();
+const adminPedagogicalGroupTargetLimiter = new MemorySlidingWindowRateLimiter();
 const adminStudyMeetingActorLimiter = new MemorySlidingWindowRateLimiter();
 const adminStudyMeetingTargetLimiter = new MemorySlidingWindowRateLimiter();
 const adminKnowledgeActorLimiter = new MemorySlidingWindowRateLimiter();
@@ -136,6 +144,8 @@ const buildRateLimitError = (
     | "ADMIN_INVITATION_RESEND_RATE_LIMITED"
     | "ADMIN_USER_STATUS_RATE_LIMITED"
     | "ADMIN_USER_GROUP_RATE_LIMITED"
+    | "ADMIN_TEACHER_PROVISIONING_RATE_LIMITED"
+    | "ADMIN_PEDAGOGICAL_GROUP_RATE_LIMITED"
     | "ADMIN_STUDY_MEETING_RATE_LIMITED"
     | "ADMIN_KNOWLEDGE_RATE_LIMITED"
     | "ADMIN_KNOWLEDGE_CORPUS_REBUILD_RATE_LIMITED",
@@ -238,6 +248,22 @@ export const buildAdminUserGroupActorKey = (adminUserId: string) => {
 
 export const buildAdminUserGroupTargetKey = (targetUserId: string) => {
   return `admin-user-group-target:${targetUserId}`;
+};
+
+export const buildAdminTeacherProvisioningActorKey = (adminUserId: string) => {
+  return `admin-teacher-provisioning:${adminUserId}`;
+};
+
+export const buildAdminTeacherProvisioningTargetKey = (email: string) => {
+  return `admin-teacher-provisioning-target:${toHashedIdentity(normalizeEmailForRateLimit(email))}`;
+};
+
+export const buildAdminPedagogicalGroupActorKey = (adminUserId: string) => {
+  return `admin-pedagogical-group:${adminUserId}`;
+};
+
+export const buildAdminPedagogicalGroupTargetKey = (targetUserId: string) => {
+  return `admin-pedagogical-group-target:${targetUserId}`;
 };
 
 export const buildAdminStudyMeetingActorKey = (adminUserId: string) => {
@@ -583,6 +609,68 @@ export const recordAdminUserGroupAttempt = (adminUserId: string, targetUserId: s
   );
 };
 
+export const assertAdminTeacherProvisioningRateLimit = (adminUserId: string, email: string) => {
+  const actorDecision = adminTeacherProvisioningActorLimiter.peek(
+    buildAdminTeacherProvisioningActorKey(adminUserId),
+    adminTeacherProvisioningActorPolicy,
+  );
+
+  if (!actorDecision.allowed) {
+    throw buildRateLimitError("ADMIN_TEACHER_PROVISIONING_RATE_LIMITED", actorDecision.retryAfterSeconds);
+  }
+
+  const targetDecision = adminTeacherProvisioningTargetLimiter.peek(
+    buildAdminTeacherProvisioningTargetKey(email),
+    adminTeacherProvisioningTargetPolicy,
+  );
+
+  if (!targetDecision.allowed) {
+    throw buildRateLimitError("ADMIN_TEACHER_PROVISIONING_RATE_LIMITED", targetDecision.retryAfterSeconds);
+  }
+};
+
+export const recordAdminTeacherProvisioningAttempt = (adminUserId: string, email: string) => {
+  adminTeacherProvisioningActorLimiter.record(
+    buildAdminTeacherProvisioningActorKey(adminUserId),
+    adminTeacherProvisioningActorPolicy,
+  );
+  adminTeacherProvisioningTargetLimiter.record(
+    buildAdminTeacherProvisioningTargetKey(email),
+    adminTeacherProvisioningTargetPolicy,
+  );
+};
+
+export const assertAdminPedagogicalGroupRateLimit = (adminUserId: string, targetUserId: string) => {
+  const actorDecision = adminPedagogicalGroupActorLimiter.peek(
+    buildAdminPedagogicalGroupActorKey(adminUserId),
+    adminPedagogicalGroupActorPolicy,
+  );
+
+  if (!actorDecision.allowed) {
+    throw buildRateLimitError("ADMIN_PEDAGOGICAL_GROUP_RATE_LIMITED", actorDecision.retryAfterSeconds);
+  }
+
+  const targetDecision = adminPedagogicalGroupTargetLimiter.peek(
+    buildAdminPedagogicalGroupTargetKey(targetUserId),
+    adminPedagogicalGroupTargetPolicy,
+  );
+
+  if (!targetDecision.allowed) {
+    throw buildRateLimitError("ADMIN_PEDAGOGICAL_GROUP_RATE_LIMITED", targetDecision.retryAfterSeconds);
+  }
+};
+
+export const recordAdminPedagogicalGroupAttempt = (adminUserId: string, targetUserId: string) => {
+  adminPedagogicalGroupActorLimiter.record(
+    buildAdminPedagogicalGroupActorKey(adminUserId),
+    adminPedagogicalGroupActorPolicy,
+  );
+  adminPedagogicalGroupTargetLimiter.record(
+    buildAdminPedagogicalGroupTargetKey(targetUserId),
+    adminPedagogicalGroupTargetPolicy,
+  );
+};
+
 export const assertAdminStudyMeetingRateLimit = (
   adminUserId: string,
   targetId: string,
@@ -711,6 +799,10 @@ export const resetAuthRateLimitStore = () => {
   adminUserStatusTargetLimiter.resetAll();
   adminUserGroupActorLimiter.resetAll();
   adminUserGroupTargetLimiter.resetAll();
+  adminTeacherProvisioningActorLimiter.resetAll();
+  adminTeacherProvisioningTargetLimiter.resetAll();
+  adminPedagogicalGroupActorLimiter.resetAll();
+  adminPedagogicalGroupTargetLimiter.resetAll();
   adminStudyMeetingActorLimiter.resetAll();
   adminStudyMeetingTargetLimiter.resetAll();
   adminKnowledgeActorLimiter.resetAll();
@@ -739,6 +831,10 @@ export const setAuthRateLimitNowProviderForTesting = (nowProvider: () => number)
   adminUserStatusTargetLimiter.setNowProvider(nowProvider);
   adminUserGroupActorLimiter.setNowProvider(nowProvider);
   adminUserGroupTargetLimiter.setNowProvider(nowProvider);
+  adminTeacherProvisioningActorLimiter.setNowProvider(nowProvider);
+  adminTeacherProvisioningTargetLimiter.setNowProvider(nowProvider);
+  adminPedagogicalGroupActorLimiter.setNowProvider(nowProvider);
+  adminPedagogicalGroupTargetLimiter.setNowProvider(nowProvider);
   adminStudyMeetingActorLimiter.setNowProvider(nowProvider);
   adminStudyMeetingTargetLimiter.setNowProvider(nowProvider);
   adminKnowledgeActorLimiter.setNowProvider(nowProvider);
@@ -767,6 +863,10 @@ export const restoreAuthRateLimitNowProvider = () => {
   adminUserStatusTargetLimiter.restoreDefaultNowProvider();
   adminUserGroupActorLimiter.restoreDefaultNowProvider();
   adminUserGroupTargetLimiter.restoreDefaultNowProvider();
+  adminTeacherProvisioningActorLimiter.restoreDefaultNowProvider();
+  adminTeacherProvisioningTargetLimiter.restoreDefaultNowProvider();
+  adminPedagogicalGroupActorLimiter.restoreDefaultNowProvider();
+  adminPedagogicalGroupTargetLimiter.restoreDefaultNowProvider();
   adminStudyMeetingActorLimiter.restoreDefaultNowProvider();
   adminStudyMeetingTargetLimiter.restoreDefaultNowProvider();
   adminKnowledgeActorLimiter.restoreDefaultNowProvider();
@@ -795,6 +895,10 @@ export const getAuthRateLimitEntryCounts = () => ({
   adminUserStatusTarget: adminUserStatusTargetLimiter.getEntryCount(),
   adminUserGroupActor: adminUserGroupActorLimiter.getEntryCount(),
   adminUserGroupTarget: adminUserGroupTargetLimiter.getEntryCount(),
+  adminTeacherProvisioningActor: adminTeacherProvisioningActorLimiter.getEntryCount(),
+  adminTeacherProvisioningTarget: adminTeacherProvisioningTargetLimiter.getEntryCount(),
+  adminPedagogicalGroupActor: adminPedagogicalGroupActorLimiter.getEntryCount(),
+  adminPedagogicalGroupTarget: adminPedagogicalGroupTargetLimiter.getEntryCount(),
   adminStudyMeetingActor: adminStudyMeetingActorLimiter.getEntryCount(),
   adminStudyMeetingTarget: adminStudyMeetingTargetLimiter.getEntryCount(),
   adminKnowledgeActor: adminKnowledgeActorLimiter.getEntryCount(),

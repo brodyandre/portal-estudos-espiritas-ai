@@ -1,5 +1,7 @@
 import {
+  assertAdminPedagogicalGroupRateLimit,
   assertAdminUserGroupRateLimit,
+  recordAdminPedagogicalGroupAttempt,
   recordAdminUserGroupAttempt,
 } from "../../../security/auth-rate-limit";
 import { hasRole } from "../../../auth/roles";
@@ -68,6 +70,12 @@ const mapRepositoryListResult = (
         code: "ADMIN_USER_TEACHER_GROUPS_TARGET_NOT_TEACHER",
         message: "Somente usuários com papel de professor podem receber múltiplos grupos.",
       });
+    case "target_not_pedagogical_role":
+      throw new AppError({
+        statusCode: 409,
+        code: "ADMIN_PEDAGOGICAL_GROUPS_TARGET_NOT_ALLOWED",
+        message: "Somente professores e administradores podem receber escopo pedagógico explícito.",
+      });
   }
 };
 
@@ -101,6 +109,12 @@ const mapRepositoryUpdateResult = (
         code: "ADMIN_USER_TEACHER_GROUPS_TARGET_NOT_TEACHER",
         message: "Somente usuários com papel de professor podem receber múltiplos grupos.",
       });
+    case "target_not_pedagogical_role":
+      throw new AppError({
+        statusCode: 409,
+        code: "ADMIN_PEDAGOGICAL_GROUPS_TARGET_NOT_ALLOWED",
+        message: "Somente professores e administradores podem receber escopo pedagógico explícito.",
+      });
     case "group_not_found":
       throw new AppError({
         statusCode: 404,
@@ -112,6 +126,12 @@ const mapRepositoryUpdateResult = (
         statusCode: 409,
         code: "ADMIN_USER_TEACHER_GROUP_INACTIVE",
         message: "Grupo inativo não pode ser vinculado ao professor.",
+      });
+    case "book_access_unavailable":
+      throw new AppError({
+        statusCode: 503,
+        code: "ADMIN_PEDAGOGICAL_BOOK_ACCESS_UNAVAILABLE",
+        message: "Livro pedagógico indisponível para este grupo.",
       });
     case "conflict":
       throw new AppError({
@@ -150,6 +170,42 @@ export const updateAdminUserTeacherGroups = async (
       actorRole: actor.role,
       targetUserId,
       groupIds: input.groupIds,
+    }),
+  );
+};
+
+export const listAdminUserPedagogicalGroups = async (
+  authUser: AuthUser | undefined,
+  targetUserId: string,
+): Promise<AdminUserTeacherGroupsResult> => {
+  const actor = assertAdminActor(authUser);
+
+  return mapRepositoryListResult(
+    await repository.listByUserId(actor.id, targetUserId, {
+      allowedTargetRoles: ["teacher", "admin"],
+    }),
+  );
+};
+
+export const updateAdminUserPedagogicalGroups = async (
+  authUser: AuthUser | undefined,
+  targetUserId: string,
+  input: UpdateAdminUserTeacherGroupsInput,
+): Promise<AdminUserTeacherGroupsResult> => {
+  const actor = assertAdminActor(authUser);
+
+  assertAdminPedagogicalGroupRateLimit(actor.id, targetUserId);
+  recordAdminPedagogicalGroupAttempt(actor.id, targetUserId);
+
+  return mapRepositoryUpdateResult(
+    await repository.replaceForUser({
+      actorUserId: actor.id,
+      actorName: actor.fullName,
+      actorRole: actor.role,
+      targetUserId,
+      groupIds: input.groupIds,
+      allowedTargetRoles: ["teacher", "admin"],
+      auditAction: "Escopo pedagogico alterado por admin",
     }),
   );
 };

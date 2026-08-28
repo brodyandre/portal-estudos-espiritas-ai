@@ -227,7 +227,7 @@ export const agentRouter = Router();
 
 agentRouter.post(
   "/lesson-plan",
-  ...requireRole(["teacher"]),
+  ...requireRole(["teacher", "admin"]),
   asyncHandler(async (request, response) => {
     const input = parseLessonPlanBody(request.body);
     const selectedAccess = await resolveSelectedBookAccess(request.authUser, input.groupId);
@@ -249,7 +249,7 @@ agentRouter.post(
 
 agentRouter.post(
   "/reflection-questions",
-  ...requireRole(["teacher"]),
+  ...requireRole(["teacher", "admin"]),
   asyncHandler(async (request, response) => {
     const input = parseReflectionQuestionsBody(request.body);
     const selectedAccess = await resolveSelectedBookAccess(request.authUser, input.groupId);
@@ -271,7 +271,7 @@ agentRouter.post(
 
 agentRouter.post(
   "/summarize",
-  ...requireRole(["teacher"]),
+  ...requireRole(["teacher", "admin"]),
   asyncHandler(async (request, response) => {
     const input = parseSummarizeBody(request.body);
     const selectedAccess = await resolveSelectedBookAccess(request.authUser, input.groupId);
@@ -293,7 +293,7 @@ agentRouter.post(
 
 agentRouter.post(
   "/answer",
-  ...requireRole(["student", "teacher"]),
+  ...requireRole(["student", "teacher", "admin"]),
   asyncHandler(async (request, response) => {
     const input = parseAnswerBody(request.body);
     const selectedAccess = await resolveSelectedBookAccess(request.authUser, input.groupId);

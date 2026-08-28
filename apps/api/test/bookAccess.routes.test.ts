@@ -116,8 +116,27 @@ describe("GET /api/me/book-access", () => {
       .set("Authorization", `Bearer ${token}`);
 
     expect(response.status).toBe(403);
-    expect(response.body.error.code).toBe("FORBIDDEN");
+    expect(response.body.error.code).toBe("BOOK_ACCESS_FORBIDDEN");
     expect(JSON.stringify(response.body)).not.toContain("Emmanuel");
+  });
+
+  it("autoriza admin supervisor somente nos vínculos explícitos", async () => {
+    installState({
+      teacherGroupMemberships: [
+        { userId: "user-admin-demo", groupId: "emmanuel" },
+      ],
+    });
+    const token = await loginAs("admin.demo@example.com", "AdminDemo@123");
+    const response = await request(app)
+      .get("/api/me/book-access")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.meta.count).toBe(1);
+    expect(response.body.data.groups.map((group: { id: string }) => group.id)).toEqual([
+      "emmanuel",
+    ]);
+    expect(JSON.stringify(response.body)).not.toContain("a-caminho-da-luz");
   });
 
   it("rejeita visitor autenticado sem expor livros ou grupos", async () => {

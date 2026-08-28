@@ -292,8 +292,75 @@ describe("GET /api/me/study-meetings/upcoming", () => {
       .set("Authorization", `Bearer ${token}`);
 
     expect(response.status).toBe(403);
-    expect(response.body.error.code).toBe("FORBIDDEN");
+    expect(response.body.error.code).toBe("BOOK_ACCESS_FORBIDDEN");
     expect(JSON.stringify(response.body)).not.toContain("meet.google.com");
+  });
+
+  it("permite admin supervisor somente com agenda dos grupos atribuídos", async () => {
+    const state = createMemoryUserStudyMeetingsState({
+      users: [
+        { id: "user-aluno-demo", groupName: "Emmanuel", groupSlug: "emmanuel" },
+        { id: "user-professor-demo", groupName: null, groupSlug: null },
+        { id: "user-admin-demo", groupName: null, groupSlug: null },
+      ],
+      groups: [
+        {
+          id: "emmanuel",
+          name: "Emmanuel",
+          status: "active",
+          meetUrl: "https://meet.google.com/emmanuel-real",
+          bookTitle: "Emmanuel",
+        },
+        {
+          id: "a-caminho-da-luz",
+          name: "A Caminho da Luz",
+          status: "active",
+          meetUrl: "https://meet.google.com/caminho-real",
+          bookTitle: "A Caminho da Luz",
+        },
+      ],
+      meetings: [
+        {
+          id: "meeting-emmanuel",
+          groupId: "emmanuel",
+          title: "Encontro Emmanuel",
+          description: null,
+          startsAt: "2026-07-21T20:00:00.000Z",
+          endsAt: "2026-07-21T21:00:00.000Z",
+          canceledAt: null,
+        },
+        {
+          id: "meeting-caminho",
+          groupId: "a-caminho-da-luz",
+          title: "Encontro Caminho",
+          description: null,
+          startsAt: "2026-07-20T21:00:00.000Z",
+          endsAt: "2026-07-20T22:00:00.000Z",
+          canceledAt: null,
+        },
+      ],
+      teacherGroupMemberships: [
+        { userId: "user-admin-demo", groupId: "a-caminho-da-luz" },
+      ],
+    });
+    setUserStudyMeetingsServiceDependenciesForTesting({
+      repository: createMemoryUserStudyMeetingsRepository(state),
+      nowProvider: () => new Date(NOW),
+    });
+
+    const token = await loginAs("admin.demo@example.com", "AdminDemo@123");
+    const response = await request(app)
+      .get("/api/me/study-meetings/upcoming")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.groups.map((group: { id: string }) => group.id)).toEqual([
+      "a-caminho-da-luz",
+    ]);
+    expect(response.body.data.items.map((item: { id: string }) => item.id)).toEqual([
+      "meeting-caminho",
+    ]);
+    expect(JSON.stringify(response.body)).not.toContain("emmanuel-real");
   });
 
   it("retorna sucesso vazio para usuario sem grupo", async () => {
@@ -351,7 +418,7 @@ describe("GET /api/me/study-meetings/upcoming", () => {
             "STUDY_GROUP_WITHOUT_KNOWLEDGE_BOOK",
           );
         },
-        async listTeacherGroupsByUserId() {
+        async listPedagogicalGroupsByUserId() {
           return [];
         },
         async listCurrentAndFutureMeetings() {

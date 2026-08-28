@@ -293,3 +293,20 @@ CORPUS-COVERAGE-001B foi posteriormente autorizado e executado de forma minima/c
 
 Status:
 Ativa.
+
+## D024 -- Supervisao pedagogica explicita para ADMIN
+
+Decisao:
+O usuario ADMIN pode receber escopo pedagogico explicito para supervisionar a experiencia de professor sem alterar `User.role`. `User.role` permanece single-role; ADMIN nao vira TEACHER e ADMIN sem escopo pedagogico explicito nao recebe BookAccess.
+
+Racional:
+A supervisao, homologacao e suporte pedagogico exigem acesso controlado a experiencias e grupos especificos, mas esse acesso nao deve criar bypass administrativo global nem confundir privilegio administrativo com autoridade pedagogica.
+
+Persistencia:
+`TeacherStudyGroup` permanece a persistencia existente para os vinculos de grupos pedagogicos explicitos. Para TEACHER, representa grupos em que ministra/participa. Para ADMIN, representa somente grupos liberados para supervisao pedagogica. A autorizacao final continua no backend por BookAccess, derivando escopo explicito -> `StudyGroup` ACTIVE -> `KnowledgeBook` ACTIVE.
+
+Limites:
+ADMIN role sozinho nao concede livros, grupos, Agent/RAG, agenda pedagogica ou acesso global. Nao existe `adminWildcard`, `allBooksForAdmin`, bypass de BookAccess, bypass de validacao de grupo, multi-role, roles secundarias ou migration para esta decisao. Query string, localStorage, `bookTitle`, hints de frontend e `groupId` arbitrario continuam nao autoritativos.
+
+Status:
+Ativa.

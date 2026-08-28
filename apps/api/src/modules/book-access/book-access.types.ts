@@ -1,4 +1,4 @@
-export type BookAccessActorRole = "student" | "teacher";
+export type BookAccessActorRole = "student" | "teacher" | "admin";
 export type BookAccessGroupStatus = "active" | "inactive";
 export type BookAccessKnowledgeBookStatus = "active" | "archived";
 

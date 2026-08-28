@@ -6,6 +6,7 @@ import type {
   AdminUserSortOrder,
   AdminUserStatusMutation,
   ListAdminUsersInput,
+  CreateAdminTeacherInput,
   UpdateAdminUserGroupInput,
   UpdateAdminUserTeacherGroupsInput,
   UpdateAdminUserStatusInput,
@@ -62,6 +63,13 @@ export const buildInvalidAdminUserTeacherGroupsInputError = () =>
     statusCode: 400,
     code: "INVALID_ADMIN_USER_TEACHER_GROUPS_INPUT",
     message: "Informe um professor e uma lista de grupos válidos para a alteração administrativa.",
+  });
+
+export const buildInvalidAdminTeacherInputError = () =>
+  new AppError({
+    statusCode: 400,
+    code: "INVALID_ADMIN_TEACHER_INPUT",
+    message: "Informe nome, e-mail e grupos válidos para criar o professor.",
   });
 
 const getOptionalQueryString = (query: Record<string, unknown>, key: string) => {
@@ -160,6 +168,18 @@ export const parseAdminUsersListQuery = (
 };
 
 const ADMIN_USER_ID_MAX_LENGTH = 160;
+const ADMIN_TEACHER_NAME_MAX_LENGTH = 120;
+const ADMIN_TEACHER_EMAIL_MAX_LENGTH = 254;
+const ADMIN_TEACHER_GROUP_MAX_COUNT = 20;
+const ADMIN_TEACHER_GROUP_ID_MAX_LENGTH = ADMIN_USER_ID_MAX_LENGTH;
+
+const isPlainObject = (body: unknown): body is Record<string, unknown> =>
+  typeof body === "object" &&
+  body !== null &&
+  !Array.isArray(body) &&
+  Object.getPrototypeOf(body) === Object.prototype;
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/u;
 
 export const parseAdminUserStatusPathParam = (value: string | string[] | undefined) => {
   const normalizedValue = Array.isArray(value) ? (value[0] ?? "") : (value ?? "");
@@ -305,5 +325,100 @@ export const parseAdminUserTeacherGroupsBody = (
 
   return {
     groupIds: normalizedGroupIds,
+  };
+};
+
+const parseAdminPedagogicalGroupIds = (
+  groupIds: unknown,
+  buildError: () => AppError,
+) => {
+  if (!Array.isArray(groupIds) || groupIds.length < 1 || groupIds.length > ADMIN_TEACHER_GROUP_MAX_COUNT) {
+    throw buildError();
+  }
+
+  const normalizedGroupIds = groupIds.map((groupId) => {
+    if (typeof groupId !== "string") {
+      throw buildError();
+    }
+
+    const normalizedGroupId = groupId.trim();
+
+    if (!normalizedGroupId || normalizedGroupId.length > ADMIN_TEACHER_GROUP_ID_MAX_LENGTH) {
+      throw buildError();
+    }
+
+    return normalizedGroupId;
+  });
+
+  if (new Set(normalizedGroupIds).size !== normalizedGroupIds.length) {
+    throw buildError();
+  }
+
+  return normalizedGroupIds;
+};
+
+export const parseAdminUserPedagogicalGroupsBody = (
+  body: unknown,
+): UpdateAdminUserTeacherGroupsInput => {
+  if (!isPlainObject(body)) {
+    throw buildInvalidAdminUserTeacherGroupsInputError();
+  }
+
+  const keys = Object.keys(body);
+
+  if (keys.length !== 1 || keys[0] !== "groupIds") {
+    throw buildInvalidAdminUserTeacherGroupsInputError();
+  }
+
+  return {
+    groupIds: parseAdminPedagogicalGroupIds(
+      (body as Record<string, unknown>).groupIds,
+      buildInvalidAdminUserTeacherGroupsInputError,
+    ),
+  };
+};
+
+export const parseAdminTeacherBody = (body: unknown): CreateAdminTeacherInput => {
+  if (!isPlainObject(body)) {
+    throw buildInvalidAdminTeacherInputError();
+  }
+
+  const allowedKeys = new Set(["fullName", "email", "groupIds"]);
+  const keys = Object.keys(body);
+
+  if (keys.length !== 3 || keys.some((key) => !allowedKeys.has(key))) {
+    throw buildInvalidAdminTeacherInputError();
+  }
+
+  const { fullName, email, groupIds } = body;
+
+  if (typeof fullName !== "string") {
+    throw buildInvalidAdminTeacherInputError();
+  }
+
+  const normalizedFullName = fullName.trim();
+
+  if (!normalizedFullName || normalizedFullName.length > ADMIN_TEACHER_NAME_MAX_LENGTH) {
+    throw buildInvalidAdminTeacherInputError();
+  }
+
+  if (typeof email !== "string") {
+    throw buildInvalidAdminTeacherInputError();
+  }
+
+  const normalizedEmail = email.trim().toLowerCase();
+
+  if (
+    !normalizedEmail ||
+    normalizedEmail.length > ADMIN_TEACHER_EMAIL_MAX_LENGTH ||
+    !EMAIL_PATTERN.test(normalizedEmail)
+  ) {
+    throw buildInvalidAdminTeacherInputError();
+  }
+
+  return {
+    fullName: normalizedFullName,
+    email: normalizedEmail,
+    groupIds: parseAdminPedagogicalGroupIds(groupIds, buildInvalidAdminTeacherInputError),
   };
 };

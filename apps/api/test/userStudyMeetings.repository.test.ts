@@ -275,7 +275,7 @@ describe("user study meetings repository", () => {
       },
     } as never);
 
-    await expect(repository.listTeacherGroupsByUserId("teacher-1")).resolves.toEqual([
+    await expect(repository.listPedagogicalGroupsByUserId("teacher-1")).resolves.toEqual([
       expect.objectContaining({
         id: "a-caminho-da-luz",
         bookTitle: "Livro governado do professor",

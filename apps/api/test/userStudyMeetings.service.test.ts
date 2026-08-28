@@ -30,6 +30,7 @@ const createService = () => {
       { id: "student-empty", groupName: null, groupSlug: null },
       { id: "student-inactive", groupName: "Grupo Inativo", groupSlug: "grupo-inativo" },
       { id: "student-invalid", groupName: "Fantasma", groupSlug: "fantasma" },
+      { id: "admin-supervisor", groupName: null, groupSlug: null },
     ],
     groups: [
       {
@@ -123,6 +124,7 @@ const createService = () => {
       { userId: "teacher-1", groupId: "emmanuel" },
       { userId: "teacher-two-groups", groupId: "emmanuel" },
       { userId: "teacher-two-groups", groupId: "a-caminho-da-luz" },
+      { userId: "admin-supervisor", groupId: "a-caminho-da-luz" },
     ],
   });
 
@@ -133,7 +135,7 @@ const createService = () => {
 };
 
 describe("user study meetings service", () => {
-  it("rejeita usuario ausente e papel nao autorizado", async () => {
+  it("rejeita usuario ausente, visitor e admin sem escopo", async () => {
     const service = createService();
 
     await expect(service.listUpcomingMeetings(undefined, { limit: 3 })).rejects.toMatchObject({
@@ -142,6 +144,12 @@ describe("user study meetings service", () => {
     });
     await expect(
       service.listUpcomingMeetings(makeUser({ role: "admin" }), { limit: 3 }),
+    ).rejects.toMatchObject({
+      code: "BOOK_ACCESS_FORBIDDEN",
+      statusCode: 403,
+    });
+    await expect(
+      service.listUpcomingMeetings(makeUser({ role: "visitor" }), { limit: 3 }),
     ).rejects.toMatchObject({
       code: "FORBIDDEN",
       statusCode: 403,
@@ -239,6 +247,18 @@ describe("user study meetings service", () => {
     expect(result.items[0]?.meetUrl).toBe("https://meet.google.com/caminho-real");
   });
 
+  it("retorna agenda somente dos grupos explícitos do admin supervisor", async () => {
+    const service = createService();
+    const result = await service.listUpcomingMeetings(
+      makeUser({ id: "admin-supervisor", role: "admin" }),
+      { limit: 3 },
+    );
+
+    expect(result.groups.map((group) => group.id)).toEqual(["a-caminho-da-luz"]);
+    expect(result.items.map((item) => item.group.id)).toEqual(["a-caminho-da-luz"]);
+    expect(JSON.stringify(result)).not.toContain("emmanuel-real");
+  });
+
   it("retorna sucesso vazio para usuario sem grupo ou vinculo invalido", async () => {
     const service = createService();
 
@@ -291,7 +311,7 @@ describe("user study meetings service", () => {
           "STUDY_GROUP_WITHOUT_KNOWLEDGE_BOOK",
         );
       },
-      async listTeacherGroupsByUserId() {
+      async listPedagogicalGroupsByUserId() {
         return [];
       },
       async listCurrentAndFutureMeetings() {

@@ -14,7 +14,7 @@ export const meRouter = Router();
 
 meRouter.get(
   "/book-access",
-  ...requireRole(["student", "teacher"]),
+  ...requireRole(["student", "teacher", "admin"]),
   asyncHandler(async (request, response) => {
     if (!request.authUser) {
       throw new AppError({
@@ -38,7 +38,7 @@ meRouter.get(
 
 meRouter.get(
   "/study-meetings/upcoming",
-  ...requireRole(["student", "teacher"]),
+  ...requireRole(["student", "teacher", "admin"]),
   asyncHandler(async (request, response) => {
     if (!request.authUser) {
       throw new AppError({

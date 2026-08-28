@@ -48,6 +48,7 @@ const createService = (options: {
       { id: "student-invalid", groupSlug: "fantasma" },
       { id: "teacher-1", groupSlug: null },
       { id: "teacher-two-groups", groupSlug: null },
+      { id: "admin-supervisor", groupSlug: null },
     ],
     groups: options.groups ?? [
       activeGroup("emmanuel", "Emmanuel"),
@@ -70,7 +71,7 @@ const createService = (options: {
 };
 
 describe("book access service", () => {
-  it("rejeita usuario ausente e papeis nao autorizados", async () => {
+  it("rejeita usuario ausente, visitor e admin sem escopo pedagogico", async () => {
     const service = createService();
 
     await expect(service.resolveBookAccessScope(undefined)).rejects.toMatchObject({
@@ -80,7 +81,7 @@ describe("book access service", () => {
     await expect(
       service.resolveBookAccessScope(makeUser({ role: "admin" })),
     ).rejects.toMatchObject({
-      code: "FORBIDDEN",
+      code: "BOOK_ACCESS_FORBIDDEN",
       statusCode: 403,
     });
     await expect(
@@ -186,6 +187,25 @@ describe("book access service", () => {
         },
       ],
     });
+  });
+
+  it("autoriza admin somente por escopo pedagogico explicito", async () => {
+    const service = createService({
+      teacherGroupMemberships: [
+        { userId: "admin-supervisor", groupId: "emmanuel" },
+        { userId: "admin-supervisor", groupId: "a-caminho-da-luz" },
+        { userId: "teacher-1", groupId: "emmanuel" },
+      ],
+    });
+    const result = await service.resolveBookAccessScope(
+      makeUser({ id: "admin-supervisor", role: "admin" }),
+    );
+
+    expect(result.role).toBe("admin");
+    expect(result.groups.map((group) => group.id)).toEqual([
+      "a-caminho-da-luz",
+      "emmanuel",
+    ]);
   });
 
   it("retorna escopo vazio para professor sem vinculos", async () => {
