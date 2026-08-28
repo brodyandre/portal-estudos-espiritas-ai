@@ -37,6 +37,8 @@ Estado operacional oficial previamente validado:
 - recuperacao de senha validada em producao por smoke real controlado
 - frontend de producao sem credenciais demonstrativas ou copy local nas telas de autenticacao
 - Home de producao consumindo `/api/studies` via `listStudies()`, sem 88/62, agenda demo, datas demo ou Meet demo apos PR #67 e redeploy corretivo
+- API `/api/knowledge/groups` com Emmanuel `fileCount=1` e A Caminho da Luz `fileCount=1`
+- corpus governado `ready` com 2 sources, 2 documentos e 11 chunks apos CORPUS-COVERAGE-001B
 - e-mails transacionais alinhados a identidade publica Portal de Educação Continuada e timezone America/Sao_Paulo
 - metadata publica da Web oficial alinhada a identidade publica Portal de Educação Continuada
 
@@ -169,7 +171,7 @@ Estado funcional validado:
 - `/professor` protegido, redirecionando para `/login` sem autenticacao;
 - `/estudos` nao existe no contrato atual e permanece `NOT_APPLICABLE`.
 
-Observacao separada: o catalogo PostgreSQL conhecido tinha Emmanuel com 19 documentos, A Caminho da Luz com 13 documentos e `shared` com 2 documentos, enquanto o corpus publico exposto por `/api/knowledge/groups` foi revalidado com Emmanuel `fileCount=1` e A Caminho da Luz `fileCount=0`. Esse desalinhamento catalogo/corpus permanece fora do escopo de MULTIGROUP-001D.
+Observacao historica daquele momento: o catalogo PostgreSQL conhecido tinha Emmanuel com 19 documentos, A Caminho da Luz com 13 documentos e `shared` com 2 documentos, enquanto o corpus publico exposto por `/api/knowledge/groups` havia sido revalidado com Emmanuel `fileCount=1` e A Caminho da Luz `fileCount=0`. Esse desalinhamento catalogo/corpus permaneceu fora do escopo de MULTIGROUP-001D e foi tratado posteriormente por CORPUS-COVERAGE-001A/001B.
 
 CORPUS-COVERAGE-001A corrige a interpretacao operacional desse finding: `catalog count` nao e `expected corpus count`. A cobertura governada deve ser medida por `StudyGroup` ativo vinculado a `KnowledgeBook` ativo, com ao menos uma fonte pedagogica aprovada, fisicamente valida e incluida no manifesto editorial para o `bookId` canonico. Documentos nao aprovados nao contam como corpus; fonte `readme` isolada nao basta; `shared` nao mascara livro sem fonte propria. O gate e read-only e nao executa aprovacao editorial, migration, seed, bootstrap, rebuild, deploy ou mutacao de producao.
 
@@ -195,22 +197,32 @@ Integrado pelo PR #72 no commit `06b2256dd95b9605a01667c0511dc9dabcd44e4c`. `Stu
 
 Integrado pelo PR #73 no commit `8654febc66c66a8cf0a19826abe2ce9a1097c694`. `/materiais/:groupSlug` passou a resolver o grupo dinamicamente pelo catalogo publico `GET /api/studies`; a allowlist local foi removida; grupo publico conhecido sem Knowledge apresenta estado seguro `Materiais em preparação`; slug ausente vira true not-found somente apos resolucao do catalogo; falha de catalogo nao vira falso 404. Backend Knowledge nao foi alterado. Migration: `NOT_REQUIRED`.
 
+### CORPUS-COVERAGE-001A -- Diagnostico de cobertura governada
+
+Aprovado, integrado pelo PR #75 e Git-closed na `main` `a37003f692da7e381b67aa6df25bcfbb47fd4ce3`. A entrega definiu que coverage e `StudyGroup` ativo -> `KnowledgeBook` ativo -> fonte pedagogica aprovada e utilizavel no manifesto governado. Catalog count nao precisa igualar corpus count; documentos catalogados nao aprovados podem permanecer legitimamente fora do RAG.
+
+### CORPUS-COVERAGE-001B -- Restauracao minima de cobertura em producao
+
+Aprovado e concluido como operacao controlada de producao. O alvo exclusivo foi `a-caminho-da-luz-visao-geral`, tipo `VISAO_GERAL`, com fluxo editorial `DRAFT -> REVIEWED -> APPROVED` e versao `1 -> 2 -> 3`. Nenhum outro `KnowledgeDocument` de A Caminho da Luz foi aprovado.
+
+O snapshot editorial final conhecido e A Caminho da Luz total `13`, `DRAFT=12`, `APPROVED=1`; Emmanuel total `19`, `DRAFT=18`, `APPROVED=1`; `shared` total `2`, `DRAFT=2`, `APPROVED=0`. Esses numeros sao registro operacional pos-001B, nao requisito permanente.
+
+Antes do rebuild governado, o corpus tinha 1 source, 1 documento e 5 chunks. Depois de uma unica execucao controlada bem-sucedida, passou a 2 sources, 2 documentos e 11 chunks, com fingerprint alterado, `/ready` em `ready`, database `ok` e corpus `ready`. O publico ficou com Emmanuel `fileCount=1` e A Caminho da Luz `fileCount=1`, expondo `A Caminho da Luz - visao geral da obra`. Nao houve deploy de codigo, migration, seed, `knowledge:catalog`, `groups:bootstrap`, alteracao de source Markdown, Git, Render, Professor/User, SQL write direto ou Prisma write direto.
+
 ## Backlog Atual
 
 - F-001 -- P3: timeouts historicos variaveis/flaky em testes nao modificados; F-001A nao reproduziu o problema, validou testes historicos Web/API repetidamente, suites completas Web/API e CIs recentes, sem evidencia de mascaramento por aumento global de timeout. Permanece como risco residual/historico.
 - DOC-001 -- RESOLVIDO: stale factual em documentos auxiliares corrigido, documentos historicos explicitamente marcados, contratos executaveis reconciliados e nenhum runtime alterado.
 - BOOK-ACCESS-001 -- IMPLEMENTACAO DE CODIGO CONCLUIDA ATE 001C; 001D PENDENTE: backend BookAccess, Agent/RAG protegido e frontend Aluno/Professor ja foram integrados. Falta rollout controlado BOOK-ACCESS-001D.
 - PUBLIC-KNOWLEDGE-DYNAMIC-001 -- DEFERRED / NOT STARTED: rotas publicas de materiais ja sao dinamicas por `/api/studies`, mas backend publico de Knowledge continua capability de dois grupos (`emmanuel` e `a-caminho-da-luz`) e deve falhar fechado para grupos desconhecidos.
-- CORPUS-COVERAGE-001 -- PENDENTE: CORPUS-COVERAGE-001A adiciona diagnostico/gate read-only de cobertura governada. O criterio correto nao exige igualdade numerica catalogo/manifesto; exige `StudyGroup` ativo -> `KnowledgeBook` ativo -> fonte pedagogica aprovada e utilizavel no manifesto. CORPUS-COVERAGE-001B fica reservado para eventual operacao editorial/rebuild posterior e nao esta autorizado por 001A.
+- CORPUS-COVERAGE-001 -- ENCERRADO: CORPUS-COVERAGE-001A foi integrado pelo PR #75 e Git-closed em `a37003f692da7e381b67aa6df25bcfbb47fd4ce3`; CORPUS-COVERAGE-001B foi concluido em producao com workflow administrativo oficial, uma aprovacao editorial especifica e uma unica reconstrução controlada do corpus. Emmanuel e A Caminho da Luz estao `COVERED`; overall governed coverage esta `READY`.
 - Professor -- HOLD: nao ha provisioning real liberado neste estado; nao registrar credenciais nem e-mail pessoal. `TeacherStudyGroup` e fonte de escopo TEACHER em BookAccess, mas nao autoriza criacao de Professor real.
 - Rate limit de password recovery/reset em memoria do processo: P2 conceitual antes de escala horizontal, nao bloqueante enquanto houver replica unica.
 - Observabilidade SMTP futura: dashboard, metricas agregadas, webhooks, integracoes de provider, fluxo de convite e caminho SMTP de falha em producao permanecem fora do escopo atual e dependem de necessidade operacional concreta.
 
 ## Sequencia Recomendada
 
-1. GOV-004 -- reconciliacao documental pos BOOK-ACCESS e dynamic groups.
-2. CORPUS-COVERAGE-001A -- diagnostico/gate read-only de cobertura governada.
-3. CORPUS-COVERAGE-001B -- eventual operacao editorial/rebuild posterior, somente se autorizada explicitamente.
-4. BOOK-ACCESS-001D -- rollout controlado de BookAccess.
+1. GOV-005 -- reconciliacao documental pos CORPUS-COVERAGE-001.
+2. BOOK-ACCESS-001D -- rollout controlado de BookAccess.
 
 PUBLIC-KNOWLEDGE-DYNAMIC-001 permanece deferred, a menos que futuramente seja necessario publicar conteudo Knowledge de novos grupos. Professor real permanece HOLD.
