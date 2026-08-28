@@ -286,7 +286,10 @@ Racional:
 O catalogo pode conter documentos `DRAFT`, `NEEDS_REVIEW`, `REVIEWED` ou `ARCHIVED` legitimamente fora do RAG. Somente documento aprovado, livro ativo e arquivo fisico validado dentro de `data/knowledge` podem chegar ao manifesto. Fonte `readme` isolada nao satisfaz cobertura pedagogica, e conteudo `shared` nao cobre automaticamente outro livro sem fonte propria.
 
 Limites:
-O gate de cobertura e read-only e nao automatiza aprovacao editorial, transicoes de review, rebuild de corpus, seed, migration, bootstrap ou alteracao de producao. Uma eventual operacao editorial/rebuild posterior pertence a CORPUS-COVERAGE-001B e depende de autorizacao explicita.
+O gate de cobertura e read-only e nao automatiza aprovacao editorial, transicoes de review, rebuild de corpus, seed, migration, bootstrap ou alteracao de producao. O requisito permanente nao e "aprovar um documento por livro" como regra fixa; e garantir ao menos uma fonte pedagogica aprovada e utilizavel por `KnowledgeBook` alvo.
+
+Nota operacional:
+CORPUS-COVERAGE-001B foi posteriormente autorizado e executado de forma minima/controlada em producao, promovendo exclusivamente a fonte pedagogica `a-caminho-da-luz-visao-geral`, do livro A Caminho da Luz, pelo fluxo `DRAFT -> REVIEWED -> APPROVED` e reconstruindo uma unica vez o corpus governado com sucesso. Essa execucao restaurou a cobertura minima conhecida, sem mudar a decisao arquitetural de que cobertura nao equivale a contagem total do catalogo.
 
 Status:
 Ativa.
