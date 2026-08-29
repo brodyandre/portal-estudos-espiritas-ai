@@ -14,6 +14,7 @@ import { AdminAccountInvitationsPage } from "./pages/AdminAccountInvitationsPage
 import { AdminGroupsPage } from "./pages/AdminGroupsPage";
 import { AdminKnowledgePage } from "./pages/AdminKnowledgePage";
 import { AdminPage } from "./pages/AdminPage";
+import { AdminTeachersPage } from "./pages/AdminTeachersPage";
 import { AdminUsersPage } from "./pages/AdminUsersPage";
 import { AlunoPage } from "./pages/AlunoPage";
 import { EducationContinuedPage } from "./pages/EducationContinuedPage";
@@ -71,6 +72,7 @@ export const AppRoutes = () => {
           <Route element={<Navigate replace to="/admin/dashboard" />} path="/admin" />
           <Route element={<AdminPage section="dashboard" />} path="/admin/dashboard" />
           <Route element={<AdminUsersPage />} path="/admin/usuarios" />
+          <Route element={<AdminTeachersPage />} path="/admin/professores" />
           <Route element={<AdminAccountInvitationsPage />} path="/admin/convites" />
           <Route element={<AdminGroupsPage />} path="/admin/grupos" />
           <Route element={<AdminKnowledgePage />} path="/admin/conteudos" />

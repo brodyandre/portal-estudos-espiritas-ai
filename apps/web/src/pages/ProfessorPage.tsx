@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
+import { useAuth } from "../auth/useAuth";
 import { FlowStepCard } from "../components/display/FlowStepCard";
 import { UserMeetingsPanel } from "../components/meetings/UserMeetingsPanel";
 import { AlertBox } from "../components/ui/AlertBox";
@@ -370,6 +371,7 @@ const BellIcon = () => {
 };
 
 export const ProfessorPage = () => {
+  const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const [groups, setGroups] = useState<StudyGroup[]>([]);
   const [questions, setQuestions] = useState<StudyQuestion[]>([]);
@@ -408,6 +410,7 @@ export const ProfessorPage = () => {
   >({});
   const bookAccess = useBookAccess();
   const userMeetings = useUserStudyMeetings({ limit: 3 });
+  const isAdminSupervisor = user?.role === "admin";
   const teacherVisibleGroups = useMemo(() => {
     if (!bookAccess.data) {
       return [];
@@ -595,6 +598,16 @@ export const ProfessorPage = () => {
   const bookAccessUnavailable = bookAccess.error
     ? getBookAccessUnavailableCopy(bookAccess.error, "teacher")
     : null;
+  const emptyGroupsCopy = isAdminSupervisor
+    ? {
+        title: "Supervisão pedagógica não configurada",
+        description:
+          "Selecione ao menos um grupo em Administração para acessar a área do professor como supervisão pedagógica.",
+      }
+    : {
+        title: "Sem grupos vinculados",
+        description: "Nenhum grupo vinculado ao seu perfil.",
+      };
   const portalUrl = buildPortalUrl(
     typeof window === "undefined"
       ? undefined
@@ -901,7 +914,9 @@ export const ProfessorPage = () => {
             <span aria-hidden="true" className="teacher-avatar-pill__icon">
               P
             </span>
-            <span className="teacher-avatar-pill__label">Professor</span>
+            <span className="teacher-avatar-pill__label">
+              {isAdminSupervisor ? "Admin supervisor" : "Professor"}
+            </span>
           </div>
         </div>
       </section>
@@ -975,8 +990,15 @@ export const ProfessorPage = () => {
           />
         ) : teacherVisibleGroups.length === 0 ? (
           <EmptyState
-            description="Nenhum grupo vinculado ao seu perfil."
-            title="Sem grupos vinculados"
+            action={
+              isAdminSupervisor ? (
+                <Button to="/admin/professores" variant="secondary">
+                  Configurar supervisão
+                </Button>
+              ) : undefined
+            }
+            description={emptyGroupsCopy.description}
+            title={emptyGroupsCopy.title}
           />
         ) : (
           <div className="group-grid">

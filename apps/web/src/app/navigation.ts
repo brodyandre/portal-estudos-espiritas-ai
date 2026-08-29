@@ -237,6 +237,12 @@ export const adminSidebarConfig: SidebarConfig = {
     },
     {
       type: "route",
+      to: "/admin/professores",
+      label: "Professores",
+      description: "Cadastro, grupos pedagógicos e supervisão administrativa.",
+    },
+    {
+      type: "route",
       to: "/admin/convites",
       label: "Convites de acesso",
       description: "Acompanhar convites administrativos emitidos para contas.",
@@ -330,6 +336,10 @@ export const pageMeta = {
   "/admin/usuarios": {
     title: "Usuários",
     description: "Perfis, papéis e situação dos acessos cadastrados.",
+  },
+  "/admin/professores": {
+    title: "Professores",
+    description: "Gestão de professores, vínculos pedagógicos e supervisão.",
   },
   "/admin/convites": {
     title: "Convites de acesso",
@@ -573,6 +583,16 @@ export const pageSections: Record<string, PageSectionContext[]> = {
     {
       targetId: "admin-usuarios",
       label: "Usuários",
+    },
+  ],
+  "/admin/professores": [
+    {
+      targetId: "admin-professores",
+      label: "Professores",
+    },
+    {
+      targetId: "admin-minha-supervisao",
+      label: "Minha supervisão",
     },
   ],
   "/admin/convites": [
