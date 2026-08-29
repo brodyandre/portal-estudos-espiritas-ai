@@ -302,6 +302,41 @@ describe("AdminTeachersPage", () => {
     );
   });
 
+  it("permite ADMIN remover todos os grupos da própria supervisão pedagógica", async () => {
+    getPedagogicalGroupsMock.mockImplementation(async (userId: string) =>
+      teacherGroupsResponse(
+        userId,
+        userId === "admin-owner" ? ["emmanuel", "a-caminho-da-luz"] : ["emmanuel"],
+      ),
+    );
+    renderAdminTeachersRoute();
+    await screen.findByText("Profa. Clara");
+
+    const supervision = screen.getByRole("region", { name: "Minha supervisão pedagógica" });
+    expect(within(supervision).getByLabelText("Emmanuel")).toBeChecked();
+    expect(within(supervision).getByLabelText("A Caminho da Luz")).toBeChecked();
+
+    fireEvent.click(within(supervision).getByLabelText("Emmanuel"));
+    fireEvent.click(within(supervision).getByLabelText("A Caminho da Luz"));
+    fireEvent.click(within(supervision).getByRole("button", { name: "Salvar acessos" }));
+
+    await waitFor(() => {
+      expect(updatePedagogicalGroupsMock).toHaveBeenCalledWith("admin-owner", {
+        groupIds: [],
+      });
+    });
+    expect(await screen.findByText("Supervisão pedagógica removida.")).toBeInTheDocument();
+    expect(within(supervision).getByLabelText("Emmanuel")).not.toBeChecked();
+    expect(within(supervision).getByLabelText("A Caminho da Luz")).not.toBeChecked();
+    expect(within(supervision).getByRole("link", { name: "Acessar área do professor" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    expect(
+      within(supervision).getByText("Selecione ao menos um grupo para acessar a supervisão pedagógica."),
+    ).toBeInTheDocument();
+  });
+
   it("inativa professor somente após confirmação explícita", async () => {
     renderAdminTeachersRoute();
     await screen.findByText("Profa. Clara");

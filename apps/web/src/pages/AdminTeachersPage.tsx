@@ -806,14 +806,6 @@ export const AdminTeachersPage = () => {
       return;
     }
 
-    if (supervision.groupIds.length === 0) {
-      setSupervision((current) => ({
-        ...current,
-        message: "Selecione pelo menos um grupo para acessar a supervisão pedagógica.",
-      }));
-      return;
-    }
-
     setPendingAction("save-supervision");
     setFeedback(null);
     setSupervision((current) => ({ ...current, message: null }));
@@ -834,7 +826,11 @@ export const AdminTeachersPage = () => {
         savedGroupIds: groupIds,
         message: null,
       });
-      setNotice("Sua supervisão pedagógica foi atualizada.");
+      setNotice(
+        groupIds.length === 0
+          ? "Supervisão pedagógica removida."
+          : "Sua supervisão pedagógica foi atualizada.",
+      );
     } catch (error) {
       if (!mountedRef.current) {
         return;

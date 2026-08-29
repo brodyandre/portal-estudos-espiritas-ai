@@ -124,6 +124,21 @@ describe("admin user teacher groups", () => {
     expect(getMemoryAdminTeacherGroupAuditEntries()[0]?.note).toContain("a-caminho-da-luz");
   });
 
+  it("rejeita remover todos os vínculos do professor", async () => {
+    installRepository([
+      { userId: "user-professor-demo", groupId: "emmanuel" },
+    ]);
+    const token = await loginAs("admin.demo@example.com", "AdminDemo@123");
+
+    const response = await request(app)
+      .put("/api/admin/users/user-professor-demo/groups")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ groupIds: [] });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error.code).toBe("INVALID_ADMIN_USER_TEACHER_GROUPS_INPUT");
+  });
+
   it("rejeita payload duplicado, grupo inexistente, grupo inativo e alvo não professor", async () => {
     const token = await loginAs("admin.demo@example.com", "AdminDemo@123");
 

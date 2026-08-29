@@ -331,8 +331,11 @@ export const parseAdminUserTeacherGroupsBody = (
 const parseAdminPedagogicalGroupIds = (
   groupIds: unknown,
   buildError: () => AppError,
+  options: { minCount?: number } = {},
 ) => {
-  if (!Array.isArray(groupIds) || groupIds.length < 1 || groupIds.length > ADMIN_TEACHER_GROUP_MAX_COUNT) {
+  const minCount = options.minCount ?? 1;
+
+  if (!Array.isArray(groupIds) || groupIds.length < minCount || groupIds.length > ADMIN_TEACHER_GROUP_MAX_COUNT) {
     throw buildError();
   }
 
@@ -374,6 +377,7 @@ export const parseAdminUserPedagogicalGroupsBody = (
     groupIds: parseAdminPedagogicalGroupIds(
       (body as Record<string, unknown>).groupIds,
       buildInvalidAdminUserTeacherGroupsInputError,
+      { minCount: 0 },
     ),
   };
 };

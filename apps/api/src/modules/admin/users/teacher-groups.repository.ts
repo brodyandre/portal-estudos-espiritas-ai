@@ -20,6 +20,7 @@ export interface AdminUserTeacherGroupsUpdateInput {
   targetUserId: string;
   groupIds: string[];
   allowedTargetRoles?: Array<"teacher" | "admin">;
+  allowEmptyGroupsForRoles?: Array<"teacher" | "admin">;
   auditAction?: string;
 }
 
@@ -46,6 +47,7 @@ export type AdminUserTeacherGroupsUpdateResult =
   | { status: "not_found" }
   | { status: "target_not_teacher" }
   | { status: "target_not_pedagogical_role" }
+  | { status: "empty_group_set_not_allowed" }
   | { status: "group_not_found"; groupId: string }
   | { status: "group_inactive"; groupId: string }
   | { status: "book_access_unavailable"; groupId: string }
@@ -186,6 +188,22 @@ const isAllowedTargetRole = (
   allowedTargetRoles: Array<"teacher" | "admin">,
 ) => allowedTargetRoles.includes(role as "teacher" | "admin");
 
+const toPedagogicalRole = (role: UserRole): "teacher" | "admin" | null => {
+  if (role === "teacher" || role === "admin") {
+    return role;
+  }
+
+  return null;
+};
+
+const canUseEmptyGroupSet = (
+  role: UserRole,
+  allowEmptyGroupsForRoles: Array<"teacher" | "admin"> = [],
+) => {
+  const pedagogicalRole = toPedagogicalRole(role);
+  return Boolean(pedagogicalRole && allowEmptyGroupsForRoles.includes(pedagogicalRole));
+};
+
 const getTargetRoleError = (allowedTargetRoles: Array<"teacher" | "admin">) =>
   allowedTargetRoles.length === 1 && allowedTargetRoles[0] === "teacher"
     ? ({ status: "target_not_teacher" } as const)
@@ -248,6 +266,10 @@ export const createMemoryAdminUserTeacherGroupsRepository = (
 
       if (!isAllowedTargetRole(target.role, allowedTargetRoles)) {
         return getTargetRoleError(allowedTargetRoles);
+      }
+
+      if (input.groupIds.length === 0 && !canUseEmptyGroupSet(target.role, input.allowEmptyGroupsForRoles)) {
+        return { status: "empty_group_set_not_allowed" };
       }
 
       for (const groupId of input.groupIds) {
@@ -398,6 +420,12 @@ export const createPrismaAdminUserTeacherGroupsRepository = (
                 return getTargetRoleError(allowedTargetRoles);
               }
 
+              const targetRole = prismaRoleToRole[target.role];
+
+              if (input.groupIds.length === 0 && !canUseEmptyGroupSet(targetRole, input.allowEmptyGroupsForRoles)) {
+                return { status: "empty_group_set_not_allowed" } as const;
+              }
+
               const groups = await transaction.studyGroup.findMany({
                 where: { id: { in: nextGroupIds } },
                 select: {
@@ -533,3 +561,6 @@ export const setMemoryAdminTeacherGroupsForTesting = (
 
 export const getMemoryAdminTeacherGroupAuditEntries = () =>
   memoryAuditEntries.map((entry) => ({ ...entry }));
+
+export const getMemoryAdminTeacherGroupsForTesting = () =>
+  memoryMemberships.map((membership) => ({ ...membership }));
