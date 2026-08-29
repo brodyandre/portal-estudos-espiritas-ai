@@ -10,11 +10,21 @@ import {
 import {
   createMemoryAdminUserTeacherGroupsRepository,
   getMemoryAdminTeacherGroupAuditEntries,
+  getMemoryAdminTeacherGroupsForTesting,
 } from "../src/modules/admin/users/teacher-groups.repository";
 import {
   resetAdminUserTeacherGroupsRepositoryForTesting,
   setAdminUserTeacherGroupsRepositoryForTesting,
 } from "../src/modules/admin/users/teacher-groups.service";
+import {
+  createMemoryBookAccessRepository,
+  createMemoryBookAccessState,
+  type MemoryBookAccessGroup,
+} from "../src/modules/book-access/book-access.repository";
+import {
+  resetBookAccessServiceDependenciesForTesting,
+  setBookAccessServiceDependenciesForTesting,
+} from "../src/modules/book-access/book-access.service";
 import { resetAuthRateLimitStore } from "../src/security/auth-rate-limit";
 
 const users = [
@@ -50,6 +60,18 @@ const loginAs = async (email: string, password: string) => {
   return response.body.data?.token as string | undefined;
 };
 
+const activeBookAccessGroup = (id: string, name: string): MemoryBookAccessGroup => ({
+  id,
+  name,
+  status: "active",
+  knowledgeBook: {
+    id: `book-${id}`,
+    slug: id,
+    title: name,
+    status: "active",
+  },
+});
+
 const installRepository = (
   memberships: Array<{ userId: string; groupId: string }> = [],
 ) => {
@@ -61,10 +83,30 @@ const installRepository = (
   setAdminUserTeacherGroupsRepositoryForTesting(repository);
 };
 
+const installBookAccessFromAdminTeacherGroups = () => {
+  const state = createMemoryBookAccessState({
+    users: [
+      { id: "user-aluno-demo", groupSlug: "emmanuel" },
+      { id: "user-professor-demo", groupSlug: null },
+      { id: "user-admin-demo", groupSlug: null },
+    ],
+    groups: [
+      activeBookAccessGroup("emmanuel", "Emmanuel"),
+      activeBookAccessGroup("a-caminho-da-luz", "A Caminho da Luz"),
+    ],
+    teacherGroupMemberships: getMemoryAdminTeacherGroupsForTesting(),
+  });
+
+  setBookAccessServiceDependenciesForTesting({
+    repository: createMemoryBookAccessRepository(state),
+  });
+};
+
 describe("admin pedagogical groups", () => {
   beforeEach(() => {
     resetAuthStore();
     resetAuthRateLimitStore();
+    resetBookAccessServiceDependenciesForTesting();
     setAuthRepositoryForTesting(createMemoryAuthRepository());
     installRepository();
   });
@@ -72,6 +114,7 @@ describe("admin pedagogical groups", () => {
   afterEach(() => {
     resetAuthStore();
     resetAdminUserTeacherGroupsRepositoryForTesting();
+    resetBookAccessServiceDependenciesForTesting();
   });
 
   it("exige admin autenticado", async () => {
@@ -108,6 +151,90 @@ describe("admin pedagogical groups", () => {
         entity: "User user-admin-demo",
       }),
     );
+  });
+
+  it("permite ADMIN revogar todos os grupos, audita e volta a negar BookAccess e Agent", async () => {
+    installRepository([
+      { userId: "user-admin-demo", groupId: "emmanuel" },
+      { userId: "user-admin-demo", groupId: "a-caminho-da-luz" },
+    ]);
+    const token = await loginAs("admin.demo@example.com", "AdminDemo@123");
+
+    const response = await request(app)
+      .put("/api/admin/users/user-admin-demo/pedagogical-groups")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ groupIds: [] });
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.user).toEqual({
+      id: "user-admin-demo",
+      groups: [],
+    });
+    expect(getMemoryAdminTeacherGroupsForTesting().filter((item) => item.userId === "user-admin-demo")).toEqual([]);
+    expect(getMemoryAdminTeacherGroupAuditEntries()[0]).toEqual(
+      expect.objectContaining({
+        action: "Escopo pedagogico alterado por admin",
+        entity: "User user-admin-demo",
+      }),
+    );
+    expect(getMemoryAdminTeacherGroupAuditEntries()[0]?.note).toContain("Grupos removidos: emmanuel, a-caminho-da-luz");
+
+    const profile = await request(app)
+      .get("/api/auth/me")
+      .set("Authorization", `Bearer ${token}`);
+    expect(profile.status).toBe(200);
+    expect(profile.body.data.role).toBe("admin");
+
+    installBookAccessFromAdminTeacherGroups();
+
+    const bookAccess = await request(app)
+      .get("/api/me/book-access")
+      .set("Authorization", `Bearer ${token}`);
+    expect(bookAccess.status).toBe(403);
+    expect(bookAccess.body.error.code).toBe("BOOK_ACCESS_FORBIDDEN");
+
+    const agent = await request(app)
+      .post("/api/agent/answer")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        groupId: "emmanuel",
+        question: "Como estudar com serenidade?",
+      });
+    expect(agent.status).toBe(403);
+    expect(agent.body.error.code).toBe("BOOK_ACCESS_FORBIDDEN");
+  });
+
+  it("mantém revogação total de ADMIN idempotente", async () => {
+    const token = await loginAs("admin.demo@example.com", "AdminDemo@123");
+    const auditCountBefore = getMemoryAdminTeacherGroupAuditEntries().length;
+
+    const response = await request(app)
+      .put("/api/admin/users/user-admin-demo/pedagogical-groups")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ groupIds: [] });
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.user.groups).toEqual([]);
+    expect(getMemoryAdminTeacherGroupAuditEntries()).toHaveLength(auditCountBefore);
+  });
+
+  it("rejeita revogação total para TEACHER no contrato pedagogical-groups", async () => {
+    installRepository([
+      { userId: "user-professor-demo", groupId: "emmanuel" },
+    ]);
+    const token = await loginAs("admin.demo@example.com", "AdminDemo@123");
+
+    const response = await request(app)
+      .put("/api/admin/users/user-professor-demo/pedagogical-groups")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ groupIds: [] });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error.code).toBe("INVALID_ADMIN_USER_TEACHER_GROUPS_INPUT");
+    expect(getMemoryAdminTeacherGroupsForTesting()).toContainEqual({
+      userId: "user-professor-demo",
+      groupId: "emmanuel",
+    });
   });
 
   it("preserva contrato antigo de professores", async () => {

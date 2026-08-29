@@ -500,6 +500,43 @@ describe("BookAccess frontend authority", () => {
     expect(screen.queryByRole("heading", { level: 2, name: "A Caminho da Luz" })).not.toBeInTheDocument();
   });
 
+  it("ADMIN sem supervisão explícita não acessa grupos na área do professor", async () => {
+    storeAuthenticatedUser("admin");
+    const { fetchMock } = createFetchMock({ accessGroups: [] });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderRoute("/professor", <ProfessorPage />);
+
+    expect(await screen.findByText("Supervisão pedagógica não configurada")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Configurar supervisão" })).toHaveAttribute(
+      "href",
+      "/admin/professores",
+    );
+    expect(screen.queryByRole("heading", { level: 2, name: "Emmanuel" })).not.toBeInTheDocument();
+  });
+
+  it("ADMIN com BookAccess explícito acessa supervisão sem impersonar professor", async () => {
+    storeAuthenticatedUser("admin");
+    const { fetchMock } = createFetchMock({
+      accessGroups: [obrasAccess],
+      studiesData: [baseStudiesData[0], obrasStudy],
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderRoute("/professor?grupo=emmanuel", <ProfessorPage />);
+
+    const groupSelect = (await screen.findByLabelText("Grupo ou livro", {
+      selector: "#teacher-group-select",
+    })) as HTMLSelectElement;
+
+    await waitFor(() => {
+      expect(groupSelect.value).toBe("obras-postumas");
+    });
+    expect(screen.getByText("Admin supervisor")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "Grupo Obras Póstumas" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { level: 2, name: "Emmanuel" })).not.toBeInTheDocument();
+  });
+
   it("Aluno ignora query não autorizada e envia assistente com grupo/livro canônico", async () => {
     storeAuthenticatedUser("student");
     const { fetchMock, calls } = createFetchMock({ accessGroups: [emmanuelAccess] });

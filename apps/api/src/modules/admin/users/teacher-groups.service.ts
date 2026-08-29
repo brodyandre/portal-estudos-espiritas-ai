@@ -115,6 +115,12 @@ const mapRepositoryUpdateResult = (
         code: "ADMIN_PEDAGOGICAL_GROUPS_TARGET_NOT_ALLOWED",
         message: "Somente professores e administradores podem receber escopo pedagógico explícito.",
       });
+    case "empty_group_set_not_allowed":
+      throw new AppError({
+        statusCode: 400,
+        code: "INVALID_ADMIN_USER_TEACHER_GROUPS_INPUT",
+        message: "Informe pelo menos um grupo para este perfil pedagógico.",
+      });
     case "group_not_found":
       throw new AppError({
         statusCode: 404,
@@ -205,6 +211,7 @@ export const updateAdminUserPedagogicalGroups = async (
       targetUserId,
       groupIds: input.groupIds,
       allowedTargetRoles: ["teacher", "admin"],
+      allowEmptyGroupsForRoles: ["admin"],
       auditAction: "Escopo pedagogico alterado por admin",
     }),
   );
