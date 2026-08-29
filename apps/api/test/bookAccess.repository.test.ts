@@ -46,7 +46,7 @@ describe("book access repository", () => {
       }),
     );
 
-    await expect(repository.listTeacherGroupsByUserId("teacher-1")).resolves.toEqual([
+    await expect(repository.listPedagogicalGroupsByUserId("teacher-1")).resolves.toEqual([
       expect.objectContaining({ id: "emmanuel" }),
     ]);
   });
@@ -101,7 +101,7 @@ describe("book access repository", () => {
         status: "active",
       },
     });
-    await expect(repository.listTeacherGroupsByUserId("teacher-1")).resolves.toEqual([
+    await expect(repository.listPedagogicalGroupsByUserId("teacher-1")).resolves.toEqual([
       {
         id: "a-caminho-da-luz",
         name: "A Caminho da Luz",

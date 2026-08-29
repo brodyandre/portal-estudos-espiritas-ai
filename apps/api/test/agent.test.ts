@@ -417,9 +417,25 @@ describe("agent route authorization", () => {
     const serializedBody = JSON.stringify(response.body);
 
     expect(response.status).toBe(403);
-    expect(response.body.error.code).toBe("FORBIDDEN");
+    expect(response.body.error.code).toBe("BOOK_ACCESS_FORBIDDEN");
     expect(serializedBody).not.toContain(BOOK_EMMANUEL_ID);
     expect(serializedBody).not.toContain(BOOK_A_CAMINHO_ID);
+  });
+
+  it.each(allAgentRoutes)("permite admin supervisor somente com escopo explícito em %s", async (route) => {
+    installBookAccessState({
+      teacherGroupMemberships: [
+        { userId: "user-admin-demo", groupId: "emmanuel" },
+      ],
+    });
+    const token = await loginAsAdmin();
+    const response = await request(app)
+      .post(route)
+      .set("Authorization", `Bearer ${token}`)
+      .send(routeBodies[route]);
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
   });
 
   it.each(allAgentRoutes)("rejeita visitor sem vazar escopo em %s", async (route) => {
@@ -620,6 +636,58 @@ describe("agent canonical book access", () => {
     expect(response.status).toBe(403);
     expect(response.body.error.code).toBe("BOOK_ACCESS_FORBIDDEN");
     expect(searchCalls).toHaveLength(0);
+  });
+
+  it("admin supervisor nao alcanca retriever ao pedir grupo fora do escopo", async () => {
+    installBookAccessState({
+      teacherGroupMemberships: [
+        { userId: "user-admin-demo", groupId: "emmanuel" },
+      ],
+    });
+    const { context, searchCalls } = await createInstrumentedContext();
+    setAnswerGraphRetrieverContextForTesting(async () => context);
+    const token = await loginAsAdmin();
+    const response = await request(app)
+      .post("/api/agent/answer")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        groupId: "a-caminho-da-luz",
+        question: "Como estudar Evangelho na pratica?",
+      });
+
+    expect(response.status).toBe(403);
+    expect(response.body.error.code).toBe("BOOK_ACCESS_FORBIDDEN");
+    expect(searchCalls).toHaveLength(0);
+  });
+
+  it("admin supervisor com dois vínculos escolhe um único livro por request", async () => {
+    installBookAccessState({
+      teacherGroupMemberships: [
+        { userId: "user-admin-demo", groupId: "emmanuel" },
+        { userId: "user-admin-demo", groupId: "a-caminho-da-luz" },
+      ],
+    });
+    const token = await loginAsAdmin();
+
+    const emmanuelContext = await createInstrumentedContext();
+    setAnswerGraphRetrieverContextForTesting(async () => emmanuelContext.context);
+    const emmanuelResponse = await request(app)
+      .post("/api/agent/answer")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ groupId: "emmanuel", question: "Como estudar com constancia?" });
+
+    expect(emmanuelResponse.status).toBe(200);
+    expectEverySearchScopedTo(emmanuelContext.searchCalls, BOOK_EMMANUEL_ID);
+
+    const caminhoContext = await createInstrumentedContext();
+    setAnswerGraphRetrieverContextForTesting(async () => caminhoContext.context);
+    const caminhoResponse = await request(app)
+      .post("/api/agent/answer")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ groupId: "a-caminho-da-luz", question: "Como estudar Evangelho na pratica?" });
+
+    expect(caminhoResponse.status).toBe(200);
+    expectEverySearchScopedTo(caminhoContext.searchCalls, BOOK_A_CAMINHO_ID);
   });
 
   it("student nao alcanca retriever ao pedir outro grupo", async () => {

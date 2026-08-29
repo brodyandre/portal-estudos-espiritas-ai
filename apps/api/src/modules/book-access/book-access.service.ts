@@ -28,7 +28,7 @@ export interface BookAccessService {
   ): Promise<BookAccessGroup>;
 }
 
-const assertStudentOrTeacher = (
+const assertStudentTeacherOrAdmin = (
   authUser: AuthUser | undefined,
 ): AuthUser & { role: BookAccessActorRole } => {
   if (!authUser) {
@@ -39,7 +39,11 @@ const assertStudentOrTeacher = (
     });
   }
 
-  if (authUser.role !== "student" && authUser.role !== "teacher") {
+  if (
+    authUser.role !== "student" &&
+    authUser.role !== "teacher" &&
+    authUser.role !== "admin"
+  ) {
     throw new AppError({
       statusCode: 403,
       code: "FORBIDDEN",
@@ -108,13 +112,17 @@ export const createBookAccessService = (
   const resolveBookAccessScope = async (
     authUser: AuthUser | undefined,
   ): Promise<BookAccessScope> => {
-    const actor = assertStudentOrTeacher(authUser);
+    const actor = assertStudentTeacherOrAdmin(authUser);
 
-    if (actor.role === "teacher") {
-      const groups = await dependencies.repository.listTeacherGroupsByUserId(actor.id);
+    if (actor.role === "teacher" || actor.role === "admin") {
+      const groups = await dependencies.repository.listPedagogicalGroupsByUserId(actor.id);
       const authorizedGroups = groups
         .map(toAuthorizedGroup)
         .filter((group): group is BookAccessGroup => Boolean(group));
+
+      if (actor.role === "admin" && authorizedGroups.length === 0) {
+        throw createBookAccessForbiddenError();
+      }
 
       return {
         actorId: actor.id,

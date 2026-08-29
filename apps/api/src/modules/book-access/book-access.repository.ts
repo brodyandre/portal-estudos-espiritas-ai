@@ -18,7 +18,7 @@ import type {
 export interface BookAccessRepository {
   findUserGroupByUserId(userId: string): Promise<BookAccessUserGroupRecord | null>;
   findGroupById(groupId: string): Promise<BookAccessGroupRecord | null>;
-  listTeacherGroupsByUserId(userId: string): Promise<BookAccessGroupRecord[]>;
+  listPedagogicalGroupsByUserId(userId: string): Promise<BookAccessGroupRecord[]>;
 }
 
 export type MemoryBookAccessGroup = BookAccessGroupRecord;
@@ -137,7 +137,7 @@ export const createMemoryBookAccessRepository = (
       return group ? cloneGroup(group) : null;
     },
 
-    async listTeacherGroupsByUserId(userId) {
+    async listPedagogicalGroupsByUserId(userId) {
       const membershipGroupIds = state.teacherGroupMemberships
         .filter((membership) => membership.userId === userId)
         .map((membership) => membership.groupId);
@@ -196,7 +196,7 @@ export const createPrismaBookAccessRepository = (
       return group ? mapPrismaGroup(group) : null;
     },
 
-    async listTeacherGroupsByUserId(userId) {
+    async listPedagogicalGroupsByUserId(userId) {
       const memberships = await prisma.teacherStudyGroup.findMany({
         where: {
           userId,

@@ -1,5 +1,6 @@
 import {
   GroupStatus as PrismaGroupStatus,
+  KnowledgeBookStatus as PrismaKnowledgeBookStatus,
   Prisma,
   UserRole as PrismaUserRole,
   UserStatus as PrismaUserStatus,
@@ -18,6 +19,8 @@ export interface AdminUserTeacherGroupsUpdateInput {
   actorRole: UserRole;
   targetUserId: string;
   groupIds: string[];
+  allowedTargetRoles?: Array<"teacher" | "admin">;
+  auditAction?: string;
 }
 
 export type AdminUserTeacherGroupsRepositoryResult =
@@ -28,7 +31,8 @@ export type AdminUserTeacherGroupsRepositoryResult =
     }
   | { status: "actor_not_authorized" }
   | { status: "not_found" }
-  | { status: "target_not_teacher" };
+  | { status: "target_not_teacher" }
+  | { status: "target_not_pedagogical_role" };
 
 export type AdminUserTeacherGroupsUpdateResult =
   | {
@@ -41,14 +45,17 @@ export type AdminUserTeacherGroupsUpdateResult =
   | { status: "actor_not_authorized" }
   | { status: "not_found" }
   | { status: "target_not_teacher" }
+  | { status: "target_not_pedagogical_role" }
   | { status: "group_not_found"; groupId: string }
   | { status: "group_inactive"; groupId: string }
+  | { status: "book_access_unavailable"; groupId: string }
   | { status: "conflict" };
 
 export interface AdminUserTeacherGroupsRepository {
   listByUserId(
     actorUserId: string,
     targetUserId: string,
+    options?: { allowedTargetRoles?: Array<"teacher" | "admin"> },
   ): Promise<AdminUserTeacherGroupsRepositoryResult>;
   replaceForUser(
     input: AdminUserTeacherGroupsUpdateInput,
@@ -63,6 +70,11 @@ type MemoryUser = {
 };
 
 type MemoryGroup = AdminUserTeacherGroupSummary;
+type MemoryPedagogicalGroup = MemoryGroup & {
+  knowledgeBook?: {
+    status: "active" | "archived";
+  } | null;
+};
 type MemoryMembership = { userId: string; groupId: string };
 type MemoryAuditEntry = {
   actorName: string;
@@ -100,10 +112,11 @@ let memoryUsers: MemoryUser[] = [
   },
 ];
 
-let memoryGroups: MemoryGroup[] = studyGroups.map((group) => ({
+let memoryGroups: MemoryPedagogicalGroup[] = studyGroups.map((group) => ({
   name: group.name,
   slug: group.id,
   status: "active",
+  knowledgeBook: { status: "active" },
 }));
 
 let memoryMemberships: MemoryMembership[] = [
@@ -168,6 +181,19 @@ const hasSameSet = (left: string[], right: string[]) => {
   );
 };
 
+const isAllowedTargetRole = (
+  role: UserRole,
+  allowedTargetRoles: Array<"teacher" | "admin">,
+) => allowedTargetRoles.includes(role as "teacher" | "admin");
+
+const getTargetRoleError = (allowedTargetRoles: Array<"teacher" | "admin">) =>
+  allowedTargetRoles.length === 1 && allowedTargetRoles[0] === "teacher"
+    ? ({ status: "target_not_teacher" } as const)
+    : ({ status: "target_not_pedagogical_role" } as const);
+
+const hasActiveKnowledgeBook = (group: MemoryPedagogicalGroup) =>
+  group.knowledgeBook === undefined || group.knowledgeBook?.status === "active";
+
 export const createMemoryAdminUserTeacherGroupsRepository = (
   options: {
     users?: MemoryUser[];
@@ -180,7 +206,8 @@ export const createMemoryAdminUserTeacherGroupsRepository = (
   memoryMemberships = (options.memberships ?? memoryMemberships).map((membership) => ({ ...membership }));
 
   return {
-    async listByUserId(actorUserId, targetUserId) {
+    async listByUserId(actorUserId, targetUserId, options) {
+      const allowedTargetRoles = options?.allowedTargetRoles ?? ["teacher"];
       const actor = memoryUsers.find((user) => user.id === actorUserId);
 
       if (!actor || !isActiveAdmin(actor)) {
@@ -193,8 +220,8 @@ export const createMemoryAdminUserTeacherGroupsRepository = (
         return { status: "not_found" };
       }
 
-      if (target.role !== "teacher") {
-        return { status: "target_not_teacher" };
+      if (!isAllowedTargetRole(target.role, allowedTargetRoles)) {
+        return getTargetRoleError(allowedTargetRoles);
       }
 
       return {
@@ -217,8 +244,10 @@ export const createMemoryAdminUserTeacherGroupsRepository = (
         return { status: "not_found" };
       }
 
-      if (target.role !== "teacher") {
-        return { status: "target_not_teacher" };
+      const allowedTargetRoles = input.allowedTargetRoles ?? ["teacher"];
+
+      if (!isAllowedTargetRole(target.role, allowedTargetRoles)) {
+        return getTargetRoleError(allowedTargetRoles);
       }
 
       for (const groupId of input.groupIds) {
@@ -230,6 +259,10 @@ export const createMemoryAdminUserTeacherGroupsRepository = (
 
         if (group.status !== "active") {
           return { status: "group_inactive", groupId };
+        }
+
+        if (!hasActiveKnowledgeBook(group)) {
+          return { status: "book_access_unavailable", groupId };
         }
       }
 
@@ -257,7 +290,7 @@ export const createMemoryAdminUserTeacherGroupsRepository = (
       memoryAuditEntries.unshift({
         actorName: input.actorName,
         actorRole: input.actorRole,
-        action: "Grupos de professor alterados por admin",
+        action: input.auditAction ?? "Grupos de professor alterados por admin",
         entity: `User ${target.id}`,
         note: `Grupos adicionados: ${addedGroupIds.join(", ") || "nenhum"}. Grupos removidos: ${removedGroupIds.join(", ") || "nenhum"}.`,
       });
@@ -302,7 +335,8 @@ export const createPrismaAdminUserTeacherGroupsRepository = (
   };
 
   return {
-    async listByUserId(actorUserId, targetUserId) {
+    async listByUserId(actorUserId, targetUserId, options) {
+      const allowedTargetRoles = options?.allowedTargetRoles ?? ["teacher"];
       const [actor, target] = await prisma.$transaction([
         prisma.user.findUnique({
           where: { id: actorUserId },
@@ -322,8 +356,8 @@ export const createPrismaAdminUserTeacherGroupsRepository = (
         return { status: "not_found" };
       }
 
-      if (prismaRoleToRole[target.role] !== "teacher") {
-        return { status: "target_not_teacher" };
+      if (!isAllowedTargetRole(prismaRoleToRole[target.role], allowedTargetRoles)) {
+        return getTargetRoleError(allowedTargetRoles);
       }
 
       return {
@@ -358,13 +392,23 @@ export const createPrismaAdminUserTeacherGroupsRepository = (
                 return { status: "not_found" } as const;
               }
 
-              if (prismaRoleToRole[target.role] !== "teacher") {
-                return { status: "target_not_teacher" } as const;
+              const allowedTargetRoles = input.allowedTargetRoles ?? ["teacher"];
+
+              if (!isAllowedTargetRole(prismaRoleToRole[target.role], allowedTargetRoles)) {
+                return getTargetRoleError(allowedTargetRoles);
               }
 
               const groups = await transaction.studyGroup.findMany({
                 where: { id: { in: nextGroupIds } },
-                select: { id: true, status: true },
+                select: {
+                  id: true,
+                  status: true,
+                  knowledgeBook: {
+                    select: {
+                      status: true,
+                    },
+                  },
+                },
               });
               const groupsById = new Map(groups.map((group) => [group.id, group]));
 
@@ -377,6 +421,10 @@ export const createPrismaAdminUserTeacherGroupsRepository = (
 
                 if (group.status !== PrismaGroupStatus.ACTIVE) {
                   return { status: "group_inactive", groupId } as const;
+                }
+
+                if (!group.knowledgeBook || group.knowledgeBook.status !== PrismaKnowledgeBookStatus.ACTIVE) {
+                  return { status: "book_access_unavailable", groupId } as const;
                 }
               }
 
@@ -421,7 +469,7 @@ export const createPrismaAdminUserTeacherGroupsRepository = (
                 data: {
                   actorName: input.actorName,
                   actorRole: roleToPrismaRole[input.actorRole],
-                  action: "Grupos de professor alterados por admin",
+                  action: input.auditAction ?? "Grupos de professor alterados por admin",
                   entity: `User ${target.id}`,
                   note: `Grupos adicionados: ${addedGroupIds.join(", ") || "nenhum"}. Grupos removidos: ${removedGroupIds.join(", ") || "nenhum"}.`,
                 },

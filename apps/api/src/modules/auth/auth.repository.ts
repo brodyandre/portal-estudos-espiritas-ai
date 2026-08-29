@@ -4,6 +4,7 @@ import {
   DeliveryStatus as PrismaDeliveryStatus,
   GroupStatus as PrismaGroupStatus,
   InvitationType as PrismaInvitationType,
+  KnowledgeBookStatus as PrismaKnowledgeBookStatus,
   UserRole as PrismaUserRole,
   UserStatus as PrismaUserStatus,
   type AccountInvitation as PrismaAccountInvitation,
@@ -127,6 +128,42 @@ export interface AdminUserGroupUpdateInput {
   nextGroupSlug: string | null;
 }
 
+export interface AdminTeacherCreateInput {
+  actorUserId: string;
+  actorName: string;
+  actorRole: UserRole;
+  fullName: string;
+  email: string;
+  groupIds: string[];
+  placeholderPasswordHash: string;
+}
+
+export type AdminTeacherCreateResult =
+  | {
+      status: "created";
+      user: {
+        id: string;
+        fullName: string;
+        email: string;
+        role: "teacher";
+        status: "active";
+        accountActivatedAt: string | null;
+        groupName: string | null;
+        groupSlug: string | null;
+      };
+      groups: Array<{
+        name: string;
+        slug: string;
+        status: "active";
+      }>;
+    }
+  | { status: "actor_not_authorized" }
+  | { status: "email_conflict" }
+  | { status: "group_not_found"; groupId: string }
+  | { status: "group_inactive"; groupId: string }
+  | { status: "book_access_unavailable"; groupId: string }
+  | { status: "conflict" };
+
 export type AdminUserStatusUpdateResult =
   | {
       status: "updated";
@@ -190,6 +227,7 @@ export interface AuthRepository {
   ): Promise<ListAccountInvitationsResult>;
   listAdminGroups(input: AdminGroupListInput): Promise<AdminGroupListResult>;
   listAdminUsers(input: AdminUserListInput): Promise<AdminUserListResult>;
+  createAdminTeacher(input: AdminTeacherCreateInput): Promise<AdminTeacherCreateResult>;
   updateAdminUserStatus(input: AdminUserStatusUpdateInput): Promise<AdminUserStatusUpdateResult>;
   updateAdminUserGroup(input: AdminUserGroupUpdateInput): Promise<AdminUserGroupUpdateResult>;
   getAccountInvitationResendContext(invitationId: string): Promise<AccountInvitationResendContext | null>;
@@ -271,6 +309,7 @@ const statusToPrismaStatus: Record<UserStatus, PrismaUserStatus> = {
 
 const ADMIN_USER_STATUS_UPDATE_MAX_RETRIES = 3;
 const ADMIN_USER_GROUP_UPDATE_MAX_RETRIES = 3;
+const ADMIN_TEACHER_CREATE_MAX_RETRIES = 3;
 
 const invitationTypeToPrisma: Record<StoredAccountInvitation["invitationType"], PrismaInvitationType> = {
   enrollment_approval: PrismaInvitationType.ENROLLMENT_APPROVAL,
@@ -1226,6 +1265,12 @@ type MemoryStudyGroup = {
   id: string;
   name: string;
   status: "active" | "inactive";
+  knowledgeBook?: {
+    id: string;
+    slug: string;
+    title: string;
+    status: "active" | "archived";
+  } | null;
 };
 type MemoryAuthAuditEntry = {
   actorName: string;
@@ -1239,11 +1284,18 @@ const defaultMemoryStudyGroups: MemoryStudyGroup[] = studyGroups.map((group) => 
   id: group.id,
   name: group.name,
   status: "active",
+  knowledgeBook: {
+    id: `book-${group.id}`,
+    slug: group.id,
+    title: group.bookTitle ?? group.name,
+    status: "active",
+  },
 }));
 let memoryStudyGroups: MemoryStudyGroup[] = defaultMemoryStudyGroups.map((group) => ({ ...group }));
-let memoryTeacherStudyGroups: Array<{ userId: string; groupId: string }> = [
+const defaultMemoryTeacherStudyGroups: Array<{ userId: string; groupId: string }> = [
   { userId: "user-professor-demo", groupId: "emmanuel" },
 ];
+let memoryTeacherStudyGroups = defaultMemoryTeacherStudyGroups.map((membership) => ({ ...membership }));
 const demoUserCreatedAtById: Record<string, string> = {
   "user-admin-demo": "2026-07-10T09:00:00.000Z",
   "user-professor-demo": "2026-07-10T09:05:00.000Z",
@@ -1331,6 +1383,9 @@ const setMemoryUserCreatedAt = (userId: string, createdAt: string) => {
 };
 
 const cloneMemoryStudyGroup = (group: MemoryStudyGroup): MemoryStudyGroup => ({ ...group });
+
+const memoryGroupHasActiveKnowledgeBook = (group: MemoryStudyGroup) =>
+  group.knowledgeBook === undefined || group.knowledgeBook?.status === "active";
 
 const buildAdminSelectableGroupRecord = (input: {
   id: string;
@@ -2136,6 +2191,94 @@ export const createMemoryAuthRepository = (
         pageSize: input.pageSize,
         total,
         totalPages: Math.ceil(total / input.pageSize),
+      };
+    },
+    async createAdminTeacher(input) {
+      const actor = memoryAuthUsers.find((user) => user.id === input.actorUserId);
+
+      if (!actor || !isAuthenticatableAdminRecord(actor)) {
+        return { status: "actor_not_authorized" };
+      }
+
+      const normalizedEmail = input.email.trim().toLowerCase();
+
+      if (memoryAuthUsers.some((user) => user.email === normalizedEmail)) {
+        return { status: "email_conflict" };
+      }
+
+      const nextGroupIds = [...new Set(input.groupIds)].sort();
+      const selectedGroups: MemoryStudyGroup[] = [];
+
+      for (const groupId of nextGroupIds) {
+        const group = memoryStudyGroups.find((item) => item.id === groupId);
+
+        if (!group) {
+          return { status: "group_not_found", groupId };
+        }
+
+        if (group.status !== "active") {
+          return { status: "group_inactive", groupId };
+        }
+
+        if (!memoryGroupHasActiveKnowledgeBook(group)) {
+          return { status: "book_access_unavailable", groupId };
+        }
+
+        selectedGroups.push(group);
+      }
+
+      const createdAt = new Date(Date.now()).toISOString();
+      const createdUser: StoredAuthUser = {
+        id: `user-teacher-${randomBytes(8).toString("hex")}`,
+        fullName: input.fullName.trim(),
+        email: normalizedEmail,
+        passwordHash: input.placeholderPasswordHash,
+        whatsapp: null,
+        role: "teacher",
+        status: "active",
+        groupName: null,
+        groupSlug: null,
+        enrollmentId: null,
+        accountActivatedAt: null,
+        mustChangePassword: false,
+        temporaryPasswordGeneratedAt: null,
+        passwordChangedAt: null,
+        adminNote: "Professor criado para ativação por convite.",
+      };
+
+      memoryAuthUsers.unshift(createdUser);
+      setMemoryUserCreatedAt(createdUser.id, createdAt);
+      memoryTeacherStudyGroups = [
+        ...memoryTeacherStudyGroups,
+        ...nextGroupIds.map((groupId) => ({ userId: createdUser.id, groupId })),
+      ];
+      memoryAuthAuditLogs.unshift({
+        actorName: input.actorName,
+        actorRole: input.actorRole,
+        action: "Professor criado por admin",
+        entity: `User ${createdUser.id}`,
+        note: `Professor criado para ativacao por convite. Grupos pedagogicos: ${nextGroupIds.join(", ")}.`,
+      });
+
+      return {
+        status: "created",
+        user: {
+          id: createdUser.id,
+          fullName: createdUser.fullName,
+          email: createdUser.email,
+          role: "teacher",
+          status: "active",
+          accountActivatedAt: null,
+          groupName: null,
+          groupSlug: null,
+        },
+        groups: selectedGroups
+          .map((group) => ({
+            name: group.name,
+            slug: group.id,
+            status: "active" as const,
+          }))
+          .sort((first, second) => first.name.localeCompare(second.name, "pt-BR", { sensitivity: "base" })),
       };
     },
     async updateAdminUserStatus(input) {
@@ -3130,6 +3273,167 @@ export const createPrismaAuthRepository = (): AuthRepository => {
         totalPages: Math.ceil(total / input.pageSize),
       };
     },
+    async createAdminTeacher(input) {
+      const normalizedEmail = input.email.trim().toLowerCase();
+      const nextGroupIds = [...new Set(input.groupIds)].sort();
+
+      for (let attempt = 1; attempt <= ADMIN_TEACHER_CREATE_MAX_RETRIES; attempt += 1) {
+        try {
+          return await prisma.$transaction(
+            async (transaction) => {
+              const actor = await transaction.user.findUnique({
+                where: {
+                  id: input.actorUserId,
+                },
+                select: {
+                  id: true,
+                  role: true,
+                  status: true,
+                  accountActivatedAt: true,
+                },
+              });
+
+              if (!actor || !isAuthenticatableAdminRecord(actor)) {
+                return { status: "actor_not_authorized" } as const;
+              }
+
+              const existingUser = await transaction.user.findUnique({
+                where: {
+                  email: normalizedEmail,
+                },
+                select: {
+                  id: true,
+                },
+              });
+
+              if (existingUser) {
+                return { status: "email_conflict" } as const;
+              }
+
+              const groups = await transaction.studyGroup.findMany({
+                where: {
+                  id: {
+                    in: nextGroupIds,
+                  },
+                },
+                select: {
+                  id: true,
+                  name: true,
+                  status: true,
+                  knowledgeBook: {
+                    select: {
+                      status: true,
+                    },
+                  },
+                },
+              });
+              const groupsById = new Map(groups.map((group) => [group.id, group]));
+
+              for (const groupId of nextGroupIds) {
+                const group = groupsById.get(groupId);
+
+                if (!group) {
+                  return { status: "group_not_found", groupId } as const;
+                }
+
+                if (group.status !== PrismaGroupStatus.ACTIVE) {
+                  return { status: "group_inactive", groupId } as const;
+                }
+
+                if (!group.knowledgeBook || group.knowledgeBook.status !== PrismaKnowledgeBookStatus.ACTIVE) {
+                  return { status: "book_access_unavailable", groupId } as const;
+                }
+              }
+
+              const createdUser = await transaction.user.create({
+                data: {
+                  fullName: input.fullName.trim(),
+                  email: normalizedEmail,
+                  passwordHash: input.placeholderPasswordHash,
+                  whatsapp: null,
+                  role: PrismaUserRole.TEACHER,
+                  status: PrismaUserStatus.ACTIVE,
+                  accountActivatedAt: null,
+                  mustChangePassword: false,
+                  temporaryPasswordGeneratedAt: null,
+                  passwordChangedAt: null,
+                  groupName: null,
+                  groupSlug: null,
+                  enrollmentId: null,
+                  adminNote: "Professor criado para ativação por convite.",
+                },
+              });
+
+              await transaction.teacherStudyGroup.createMany({
+                data: nextGroupIds.map((groupId) => ({
+                  userId: createdUser.id,
+                  groupId,
+                })),
+              });
+
+              await transaction.auditLog.create({
+                data: {
+                  actorName: input.actorName,
+                  actorRole: toPrismaUserRole(input.actorRole),
+                  action: "Professor criado por admin",
+                  entity: `User ${createdUser.id}`,
+                  note: `Professor criado para ativacao por convite. Grupos pedagogicos: ${nextGroupIds.join(", ")}.`,
+                },
+              });
+
+              return {
+                status: "created",
+                user: {
+                  id: createdUser.id,
+                  fullName: createdUser.fullName,
+                  email: createdUser.email,
+                  role: "teacher",
+                  status: "active",
+                  accountActivatedAt: null,
+                  groupName: null,
+                  groupSlug: null,
+                },
+                groups: groups
+                  .map((group) => ({
+                    name: group.name,
+                    slug: group.id,
+                    status: "active" as const,
+                  }))
+                  .sort((first, second) => first.name.localeCompare(second.name, "pt-BR", { sensitivity: "base" })),
+              } as const;
+            },
+            {
+              isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+            },
+          );
+        } catch (error) {
+          const canRetry =
+            error instanceof Prisma.PrismaClientKnownRequestError &&
+            error.code === "P2034" &&
+            attempt < ADMIN_TEACHER_CREATE_MAX_RETRIES;
+
+          if (!canRetry) {
+            if (
+              error instanceof Prisma.PrismaClientKnownRequestError &&
+              error.code === "P2002"
+            ) {
+              return { status: "email_conflict" };
+            }
+
+            if (
+              error instanceof Prisma.PrismaClientKnownRequestError &&
+              error.code === "P2034"
+            ) {
+              return { status: "conflict" };
+            }
+
+            throw error;
+          }
+        }
+      }
+
+      return { status: "conflict" };
+    },
     async updateAdminUserStatus(input) {
       return updateAdminUserStatusWithPrisma(prisma, input);
     },
@@ -3536,6 +3840,7 @@ export const resetMemoryAuthRepositoryStore = () => {
   memoryPasswordResetTokens = [];
   memoryAccountInvitations = [];
   memoryStudyGroups = defaultMemoryStudyGroups.map(cloneMemoryStudyGroup);
+  memoryTeacherStudyGroups = defaultMemoryTeacherStudyGroups.map((membership) => ({ ...membership }));
   memoryAuthAuditLogs = [];
   seedMemoryUserCreatedAt(memoryAuthUsers);
 };
@@ -3549,6 +3854,12 @@ export const setMemoryTeacherStudyGroupsForTesting = (
 ) => {
   memoryTeacherStudyGroups = memberships.map((membership) => ({ ...membership }));
 };
+
+export const getMemoryTeacherStudyGroupsForTesting = () =>
+  memoryTeacherStudyGroups.map((membership) => ({ ...membership }));
+
+export const getMemoryAuthUsersForTesting = () =>
+  memoryAuthUsers.map(cloneStoredUser);
 
 export const getMemoryAuthAuditLogs = () => {
   return memoryAuthAuditLogs.map((entry) => ({ ...entry }));

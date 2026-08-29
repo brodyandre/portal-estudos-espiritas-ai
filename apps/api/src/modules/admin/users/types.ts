@@ -42,6 +42,23 @@ export interface UpdateAdminUserTeacherGroupsInput {
   groupIds: string[];
 }
 
+export interface CreateAdminTeacherInput {
+  fullName: string;
+  email: string;
+  groupIds: string[];
+}
+
+export interface CreateAdminTeacherResult {
+  user: {
+    id: string;
+    fullName: string;
+    role: "teacher";
+    status: "active";
+    accountActivated: false;
+  };
+  groups: AdminUserTeacherGroupSummary[];
+}
+
 export interface UpdateAdminUserStatusResult {
   user: {
     id: string;
