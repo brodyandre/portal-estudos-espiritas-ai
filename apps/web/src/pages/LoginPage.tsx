@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 
 import { useAuth } from "../auth/useAuth";
+import type { AppUser, UserRole } from "../auth/types";
 import { setCurrentUserRole } from "../mocks/currentUser";
 import { ProfileHeader } from "../components/display/ProfileHeader";
 import { AlertBox } from "../components/ui/AlertBox";
@@ -39,6 +40,48 @@ const demoProfiles = [
   { label: "Admin", role: "admin" as const, to: "/admin/dashboard" },
 ] as const;
 
+const defaultRedirectTargetByRole: Record<UserRole, string> = {
+  admin: "/admin/dashboard",
+  teacher: "/professor",
+  student: "/aluno",
+  visitor: "/portal",
+};
+
+const getDefaultRedirectTarget = (role: UserRole | undefined) => {
+  return role ? defaultRedirectTargetByRole[role] : "/aluno";
+};
+
+const canUseRedirectTargetForUser = (target: string, user: AppUser) => {
+  if (user.status !== "active") {
+    return false;
+  }
+
+  if (target === "/admin" || target.startsWith("/admin/")) {
+    return user.role === "admin";
+  }
+
+  if (target === "/professor" || target.startsWith("/professor/")) {
+    return user.role === "teacher" || user.role === "admin";
+  }
+
+  if (target === "/aluno" || target.startsWith("/aluno/")) {
+    return user.role === "student" || user.role === "teacher" || user.role === "admin";
+  }
+
+  if (target === "/minha-conta/seguranca" || target.startsWith("/minha-conta/")) {
+    return user.role !== "visitor";
+  }
+
+  return true;
+};
+
+const getPostLoginRedirectTarget = (state: unknown, loggedUser: AppUser) => {
+  const fallbackTarget = getDefaultRedirectTarget(loggedUser.role);
+  const redirectTarget = resolveSafeRedirectTarget(state, fallbackTarget);
+
+  return canUseRedirectTargetForUser(redirectTarget, loggedUser) ? redirectTarget : fallbackTarget;
+};
+
 export const LoginPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -51,14 +94,11 @@ export const LoginPage = () => {
   const canShowDemoCredentials = appConfig.canShowDemoCredentials;
 
   const redirectTarget = useMemo(() => {
-    const fallbackTarget =
-      user?.role === "admin"
-        ? "/admin/dashboard"
-        : user?.role === "teacher"
-          ? "/professor"
-          : "/aluno";
+    if (!user) {
+      return getDefaultRedirectTarget(undefined);
+    }
 
-    return resolveSafeRedirectTarget(location.state, fallbackTarget);
+    return getPostLoginRedirectTarget(location.state, user);
   }, [location.state, user?.role]);
 
   if (isAuthenticated && !isLoading) {
@@ -78,7 +118,12 @@ export const LoginPage = () => {
 
     try {
       const loggedUser = await login(email, password);
-      navigate(loggedUser.mustChangePassword ? "/primeiro-acesso" : redirectTarget, { replace: true });
+      navigate(
+        loggedUser.mustChangePassword
+          ? "/primeiro-acesso"
+          : getPostLoginRedirectTarget(location.state, loggedUser),
+        { replace: true },
+      );
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Não foi possível concluir o login agora.");
     } finally {
