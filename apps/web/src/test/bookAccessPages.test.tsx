@@ -361,6 +361,44 @@ describe("BookAccess frontend authority", () => {
     expect(calls.knowledgeUrls.some((url) => url.includes("a_caminho_da_luz"))).toBe(false);
   });
 
+  it("Professor substitui feedback antigo quando a geração posterior é bem-sucedida", async () => {
+    storeAuthenticatedUser("teacher");
+    window.localStorage.setItem(
+      "portal-estudos:teacher-workspace:emmanuel",
+      JSON.stringify({
+        selectedBook: "Emmanuel",
+        themeChapter: "Tema antigo salvo",
+        meetLink: "",
+        selectedSupportFileIds: [],
+        preview: {
+          outline: "",
+          questions: "",
+          summary: "",
+          message: "",
+          review: "",
+        },
+        reviewState: "draft",
+        actionMessage: "Não foi possível concluir a solicitação agora. Tente novamente em instantes.",
+      }),
+    );
+    const { fetchMock } = createFetchMock({ accessGroups: [emmanuelAccess] });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderRoute("/professor?grupo=emmanuel", <ProfessorPage />);
+
+    expect(
+      await screen.findByText("Não foi possível concluir a solicitação agora. Tente novamente em instantes."),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Gerar roteiro da aula" }));
+
+    expect(await screen.findByDisplayValue("Conteúdo canônico.")).toBeInTheDocument();
+    expect(await screen.findAllByText("Revise antes de publicar.")).not.toHaveLength(0);
+    expect(
+      screen.queryByText("Não foi possível concluir a solicitação agora. Tente novamente em instantes."),
+    ).not.toBeInTheDocument();
+  });
+
   it("Professor descarta selectedBook forjado no localStorage e envia Agent com livro canônico", async () => {
     storeAuthenticatedUser("teacher");
     window.localStorage.setItem(
